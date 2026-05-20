@@ -38,10 +38,10 @@ create table if not exists public.service_catalog (
 
 insert into public.service_catalog (id, name, duration_minutes, price_cents, description, active, sort_order)
 values
-  ('design-estrategico', 'Design estrategico', 60, 9500, 'Mapeamento facial, limpeza precisa e finalizacao natural para valorizar o olhar sem pesar.', true, 10),
-  ('brow-lamination', 'Brow lamination', 75, 16000, 'Alinhamento dos fios com acabamento editorial para sobrancelhas mais cheias e disciplinadas.', true, 20),
-  ('henna-natural', 'Henna natural', 70, 12500, 'Preenchimento delicado e personalizado para corrigir falhas mantendo textura realista.', true, 30),
-  ('revitalizacao', 'Revitalizacao do olhar', 90, 19000, 'Combo de design, nutricao dos fios e finalizacao beauty para eventos ou fotos.', true, 40)
+  ('design-reconstrutivo', 'Design reconstrutivo', 45, 2000, 'Tecnica que modela os fios usando mapeamento e medidas faciais para sobrancelhas harmoniosas e naturais.', true, 10),
+  ('design-com-henna', 'Design com henna', 60, 3000, 'Define, cobre falhas, alonga e da destaque com acabamento delicado para pele e pelos.', true, 20),
+  ('design-com-coloracao', 'Design com coloracao', 70, 4000, 'Realce natural da sobrancelha com coloracao suave e efeito sombreado de fundo.', true, 30),
+  ('epilacao-buco', 'Epilacao de buco', 20, 1000, 'Tecnica feita na cera, removendo os pelos desde a raiz e oferecendo resultado duradouro.', true, 40)
 on conflict (id) do update set
   name = excluded.name,
   duration_minutes = excluded.duration_minutes,
@@ -50,6 +50,11 @@ on conflict (id) do update set
   active = excluded.active,
   sort_order = excluded.sort_order,
   updated_at = now();
+
+update public.service_catalog
+set active = false,
+    updated_at = now()
+where id in ('design-estrategico', 'brow-lamination', 'henna-natural', 'revitalizacao');
 
 create table if not exists public.bookings (
   id uuid primary key default gen_random_uuid(),

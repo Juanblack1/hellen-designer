@@ -1,0 +1,28 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="grainGold" cx="34%" cy="24%" r="74%">
+      <stop offset="0" stop-color="#f2e9b9"/>
+      <stop offset="0.34" stop-color="#b6a56a"/>
+      <stop offset="0.66" stop-color="#817344"/>
+      <stop offset="1" stop-color="#c8b977"/>
+    </radialGradient>
+    <linearGradient id="shine" x1="92" y1="96" x2="414" y2="408" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff" stop-opacity="0.62"/>
+      <stop offset="0.22" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="0.72" stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="softShadow" x="58" y="58" width="396" height="396" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="24" stdDeviation="28" flood-color="#3b241d" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="256" fill="#f6f0e7"/>
+  <circle cx="256" cy="240" r="178" fill="url(#grainGold)" filter="url(#softShadow)"/>
+  <circle cx="256" cy="240" r="178" fill="url(#shine)"/>
+  <path d="M176 162V294" stroke="#fffaf2" stroke-width="8" stroke-linecap="round"/>
+  <path d="M176 229H250" stroke="#fffaf2" stroke-width="8" stroke-linecap="round"/>
+  <path d="M250 162V294" stroke="#fffaf2" stroke-width="8" stroke-linecap="round"/>
+  <path d="M250 294L287 165L326 294L361 165V294" stroke="#fffaf2" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M141 347C174 314 191 332 210 326C234 319 236 296 259 310C278 322 272 346 298 341C323 337 335 306 371 331" stroke="#fffaf2" stroke-width="9" stroke-linecap="round"/>
+  <text x="256" y="388" text-anchor="middle" fill="#fffaf2" font-family="Georgia, serif" font-size="36" font-style="italic" letter-spacing="1.5">Hellen Martins</text>
+</svg>

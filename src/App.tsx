@@ -20,6 +20,7 @@ import {
   UserCheck,
 } from 'lucide-react'
 import browAtelier from './assets/hellen-brows-chatgpt-image.png'
+import brandLogo from './assets/hellen-martins-logo.svg'
 import { supabase } from './lib/supabase'
 import './App.css'
 
@@ -91,46 +92,46 @@ const instagramUrl = 'https://www.instagram.com/h.ellenmartins'
 
 const serviceSeeds: ServiceOption[] = [
   {
-    id: 'design-estrategico',
-    name: 'Design estrategico',
-    durationMinutes: 60,
-    priceCents: 9500,
+    id: 'design-reconstrutivo',
+    name: 'Design reconstrutivo',
+    durationMinutes: 45,
+    priceCents: 2000,
     description:
-      'Mapeamento facial, limpeza precisa e finalizacao natural para valorizar o olhar sem pesar.',
-    eyebrow: 'Sob medida',
+      'Tecnica que modela os fios usando mapeamento e medidas faciais para sobrancelhas harmoniosas e naturais.',
+    eyebrow: 'Mapeamento facial',
     active: true,
     sortOrder: 10,
   },
   {
-    id: 'brow-lamination',
-    name: 'Brow lamination',
-    durationMinutes: 75,
-    priceCents: 16000,
+    id: 'design-com-henna',
+    name: 'Design com henna',
+    durationMinutes: 60,
+    priceCents: 3000,
     description:
-      'Alinhamento dos fios com acabamento editorial para sobrancelhas mais cheias e disciplinadas.',
-    eyebrow: 'Lift & glow',
+      'Define, cobre falhas, alonga e da destaque com acabamento delicado para pele e pelos.',
+    eyebrow: 'Preenchimento',
     active: true,
     sortOrder: 20,
   },
   {
-    id: 'henna-natural',
-    name: 'Henna natural',
+    id: 'design-com-coloracao',
+    name: 'Design com coloracao',
     durationMinutes: 70,
-    priceCents: 12500,
+    priceCents: 4000,
     description:
-      'Preenchimento delicado e personalizado para corrigir falhas mantendo textura realista.',
-    eyebrow: 'Preenchimento',
+      'Realce natural da sobrancelha com coloracao suave e efeito sombreado de fundo.',
+    eyebrow: 'Realce natural',
     active: true,
     sortOrder: 30,
   },
   {
-    id: 'revitalizacao',
-    name: 'Revitalizacao do olhar',
-    durationMinutes: 90,
-    priceCents: 19000,
+    id: 'epilacao-buco',
+    name: 'Epilacao de buco',
+    durationMinutes: 20,
+    priceCents: 1000,
     description:
-      'Combo de design, nutricao dos fios e finalizacao beauty para eventos ou fotos.',
-    eyebrow: 'Experiencia',
+      'Tecnica feita na cera, removendo os pelos desde a raiz e oferecendo resultado duradouro.',
+    eyebrow: 'Acabamento',
     active: true,
     sortOrder: 40,
   },
@@ -915,7 +916,7 @@ function App() {
       <main className="auth-page">
         <section className="auth-hero-panel">
           <button type="button" className="brand auth-brand" onClick={() => goHome()}>
-            <span>HM</span>
+            <img src={brandLogo} alt="" className="brand-logo" />
             <strong>Hellen Martins Brows</strong>
           </button>
           <p className="eyebrow">Acesso seguro</p>
@@ -1047,7 +1048,7 @@ function App() {
         <div className="hero-noise" aria-hidden="true" />
         <nav className="topbar" aria-label="Navegacao principal">
           <button type="button" className="brand brand-button" onClick={() => goHome()} aria-label="Hellen Martins Brows">
-            <span>HM</span>
+            <img src={brandLogo} alt="" className="brand-logo" />
             <strong>Hellen Martins Brows</strong>
           </button>
           <div className="nav-links">
@@ -1078,11 +1079,15 @@ function App() {
 
         <div className="hero-grid">
           <div className="hero-copy">
-            <p className="eyebrow">Beauty studio para sobrancelhas naturais</p>
-            <h1>Design de sobrancelhas com leitura facial e acabamento editorial.</h1>
+            <div className="hero-signature" aria-label="Marca Hellen Martins">
+              <img src={brandLogo} alt="" />
+              <span>Hellen Martins</span>
+            </div>
+            <p className="eyebrow">Hellen Martins Beauty</p>
+            <h1>Sobrancelhas naturais com medida, tecnica e acabamento fino.</h1>
             <p className="hero-lede">
-              Agende seu horario com calma, veja os periodos disponiveis e acompanhe a
-              confirmacao em uma area reservada.
+              Separe um tempinho para voce. Escolha o servico, veja horarios livres e acompanhe
+              a confirmacao em uma experiencia elegante e reservada.
             </p>
             <div className="hero-actions">
               <button
@@ -1114,9 +1119,9 @@ function App() {
               </div>
             </div>
             <div className="metric-card glass-card">
-              <span>Agenda organizada</span>
-              <strong>Online</strong>
-              <small>Pedidos, horarios e servicos em um so lugar</small>
+              <span>Agenda online</span>
+              <strong>Agora</strong>
+              <small>Escolha seu horario sem troca de mensagens</small>
             </div>
           </div>
         </div>
@@ -1124,23 +1129,23 @@ function App() {
 
       <section className="proof-strip" aria-label="Resumo da experiencia">
         <article>
-          <strong>45-90 min</strong>
+          <strong>20-70 min</strong>
           <span>Atendimento com tempo real para simetria</span>
         </article>
         <article>
-          <strong>Sem copiar formato</strong>
+          <strong>A partir de R$ 10</strong>
           <span>Desenho guiado pelo rosto e estilo da cliente</span>
         </article>
         <article>
           <strong>Agenda online</strong>
-          <span>Acompanhe seus horarios e receba confirmacao da equipe</span>
+          <span>Separe um tempinho para voce e agende agora</span>
         </article>
       </section>
 
       <section className="services-section" id="servicos">
         <div className="section-heading">
           <p className="eyebrow">Menu de atendimento</p>
-          <h2>Servicos criados para um olhar limpo, expressivo e moderno.</h2>
+          <h2>Tabela de servicos com acabamento natural e duradouro.</h2>
         </div>
         <div className="service-grid">
           {bookableServices.map((service) => (

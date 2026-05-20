@@ -1,19 +1,22 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700;9..144,800&family=Manrope:wght@400;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Playfair+Display:wght@700;800;900&display=swap');
 
 :root {
-  --blush: #e7bda9;
-  --card: #fff7ee;
-  --cream: #fff7ec;
-  --espresso: #3b241d;
-  --ink: #241711;
-  --muted: #765f55;
-  --rose: #bf725c;
-  --sand: #f2dfcf;
-  --terracotta: #945841;
-  --display: 'Fraunces', Georgia, serif;
-  --body: 'Manrope', 'Aptos', sans-serif;
+  --blush: #d8a47d;
+  --card: #f7f1e8;
+  --cream: #f4eee5;
+  --espresso: #1f1a17;
+  --gold: #9f8f59;
+  --gold-dark: #70633b;
+  --gold-light: #e5d9a2;
+  --ink: #181512;
+  --muted: #6d6259;
+  --rose: #b87554;
+  --sand: #e8ded1;
+  --terracotta: #9b5c38;
+  --display: 'Playfair Display', Georgia, serif;
+  --body: 'Montserrat', 'Aptos', sans-serif;
   color: var(--ink);
-  background: #f6e9dc;
+  background: #f2eee8;
   font-family: var(--body);
   font-synthesis: none;
   line-height: 1.5;
@@ -31,6 +34,12 @@ html {
 }
 
 body {
+  background:
+    radial-gradient(circle at 20% 0%, rgba(159, 143, 89, 0.1), transparent 30%),
+    linear-gradient(rgba(31, 26, 23, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(31, 26, 23, 0.02) 1px, transparent 1px),
+    var(--cream);
+  background-size: auto, 38px 38px, 38px 38px, auto;
   margin: 0;
   min-width: 320px;
 }
