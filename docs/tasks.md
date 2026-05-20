@@ -17,13 +17,16 @@
 - [x] Implementar login/cadastro Supabase.
 - [x] Implementar area segura com listagem por RLS.
 - [x] Criar arte visual original para hero.
+- [x] Implementar painel admin com filtros, status e dados completos de pedidos.
+- [x] Implementar editor admin de catalogo de servicos.
+- [x] Melhorar primeira experiencia da cliente com instrucoes e estado vazio.
 
 ## Supabase
 
 - [x] Criar schema SQL com `service_catalog`, `bookings` e `admin_profiles`.
 - [x] Criar politicas RLS.
 - [x] Criar script de aplicacao do schema.
-- [ ] Promover usuario admin real depois que a conta for criada no Auth.
+- [x] Promover usuario admin real depois que a conta for criada no Auth.
 
 ## Infra
 

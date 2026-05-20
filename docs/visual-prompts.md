@@ -8,6 +8,14 @@ Use este prompt para recriar a tela em Stitch:
 Create a luxury editorial beauty booking landing page for an eyebrow design professional named Hellen Martins Brows. Use a warm nude cream background, espresso brown typography, terracotta accents, asymmetrical hero layout, serif display headlines, floating glass appointment cards, service cards for eyebrow design, brow lamination, natural henna and brow revitalization, plus a secure booking form. The tone should feel premium, human, Instagram-ready and mobile-first. Avoid generic purple SaaS visuals.
 ```
 
+Prompt usado no Stitch com modelo 3.1 Pro para telas cliente/admin:
+
+```text
+Using 3.1 Pro, create two new mobile-first screens in this project for Hellen Martins Brows (correct spelling Hellen): 1) Cliente / primeira vez: warm nude cream, espresso and terracotta editorial beauty style, fixed top header with Entrar/Criar conta, simple onboarding steps, booking form, empty-state for no appointments, account card, recent booking card with status pills. 2) Painel admin: private dashboard for Hellen with status stats, filters/search, booking cards showing client name/email/phone/notes, status dropdown actions, service catalog editor for price/duration/active. Keep premium serif headings, glass cards, calm spacing, Supabase/RLS security cues, responsive desktop and mobile variants. Avoid purple SaaS visuals and stock-photo cloning.
+```
+
+Projeto Stitch: https://stitch.withgoogle.com/projects/4599201184615920699
+
 ## ChatGPT Images
 
 Imagem gerada no ChatGPT:
