@@ -20,6 +20,10 @@
 - [x] Implementar painel admin com filtros, status e dados completos de pedidos.
 - [x] Implementar editor admin de catalogo de servicos.
 - [x] Melhorar primeira experiencia da cliente com instrucoes e estado vazio.
+- [x] Separar tela propria de auth em `/auth`.
+- [x] Adicionar confirmacao por email, reenvio de confirmacao e recuperacao de senha.
+- [x] Exigir login para solicitar horario.
+- [x] Adicionar calendario com horarios ocupados/desabilitados.
 
 ## Supabase
 
@@ -27,6 +31,9 @@
 - [x] Criar politicas RLS.
 - [x] Criar script de aplicacao do schema.
 - [x] Promover usuario admin real depois que a conta for criada no Auth.
+- [x] Confirmar email da conta admin existente.
+- [x] Bloquear agendamentos anonimos por RLS.
+- [x] Impedir dois pedidos ativos no mesmo dia e horario.
 
 ## Infra
 

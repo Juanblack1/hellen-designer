@@ -74,6 +74,15 @@
   text-decoration: none;
 }
 
+.brand-button,
+.auth-brand {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
 .brand span {
   align-items: center;
   background: var(--espresso);
@@ -219,7 +228,9 @@
 .session-box button,
 .new-service-form button,
 .save-service-button,
-.icon-button {
+.icon-button,
+.booking-gate button,
+.auth-connected button {
   align-items: center;
   border: 0;
   border-radius: 999px;
@@ -240,7 +251,9 @@
 .form-actions button,
 .auth-form button,
 .new-service-form button,
-.save-service-button {
+.save-service-button,
+.booking-gate button:not(.secondary-button),
+.auth-connected button:not(.text-button) {
   background: var(--espresso);
   box-shadow: 0 16px 40px rgba(59, 36, 29, 0.22);
   color: var(--cream);
@@ -252,7 +265,9 @@
 .session-box button:hover,
 .new-service-form button:hover,
 .save-service-button:hover,
-.icon-button:hover {
+.icon-button:hover,
+.booking-gate button:hover,
+.auth-connected button:hover {
   transform: translateY(-2px);
 }
 
@@ -260,6 +275,28 @@
   background: rgba(255, 251, 244, 0.68);
   border: 1px solid rgba(59, 36, 29, 0.12);
   color: var(--espresso);
+}
+
+.secondary-button {
+  background: rgba(59, 36, 29, 0.08) !important;
+  box-shadow: none !important;
+  color: var(--espresso) !important;
+}
+
+.text-button {
+  background: transparent;
+  border: 0;
+  color: var(--terracotta);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 900;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.text-button.light {
+  color: var(--cream);
 }
 
 .trust-row {
@@ -538,7 +575,8 @@
 .session-box,
 .booking-list,
 .admin-panel,
-.service-editor-card {
+.service-editor-card,
+.booking-gate {
   background: rgba(255, 251, 244, 0.84);
   border: 1px solid rgba(59, 36, 29, 0.1);
   border-radius: 26px;
@@ -550,6 +588,71 @@
   display: grid;
   gap: 14px;
   padding: clamp(18px, 3vw, 26px);
+}
+
+.booking-gate {
+  display: grid;
+  gap: 14px;
+  padding: clamp(20px, 3vw, 30px);
+}
+
+.booking-gate h3 {
+  color: var(--espresso);
+  font-family: var(--display);
+  font-size: clamp(1.7rem, 3vw, 2.35rem);
+  letter-spacing: -0.05em;
+  line-height: 1;
+  margin: 0;
+}
+
+.booking-gate p {
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.calendar-shell {
+  display: grid;
+  gap: 14px;
+}
+
+.slot-picker {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.slot-button {
+  background: #fffdf9;
+  border: 1px solid rgba(59, 36, 29, 0.12);
+  border-radius: 16px;
+  color: var(--espresso);
+  cursor: pointer;
+  display: grid;
+  gap: 3px;
+  padding: 12px;
+  text-align: left;
+  transition: border 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.slot-button:hover:not(:disabled),
+.slot-button:focus-visible:not(:disabled),
+.slot-button.selected {
+  border-color: rgba(148, 88, 65, 0.68);
+  box-shadow: 0 0 0 4px rgba(148, 88, 65, 0.12);
+  transform: translateY(-1px);
+}
+
+.slot-button span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.slot-button:disabled {
+  background: rgba(118, 95, 85, 0.08);
+  color: rgba(59, 36, 29, 0.45);
+  cursor: not-allowed;
 }
 
 .form-row {
@@ -1009,6 +1112,128 @@ button:disabled {
   justify-self: start;
 }
 
+.auth-page {
+  align-items: center;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(211, 151, 122, 0.42), transparent 28%),
+    radial-gradient(circle at 78% 28%, rgba(120, 73, 52, 0.22), transparent 30%),
+    #f6e9dc;
+  display: grid;
+  gap: clamp(24px, 5vw, 56px);
+  grid-template-columns: minmax(0, 0.9fr) minmax(320px, 0.55fr);
+  min-height: 100svh;
+  padding: clamp(22px, 5vw, 64px);
+}
+
+.auth-hero-panel,
+.auth-panel {
+  position: relative;
+  z-index: 1;
+}
+
+.auth-hero-panel {
+  color: var(--espresso);
+  display: grid;
+  gap: 20px;
+  max-width: 760px;
+}
+
+.auth-hero-panel h1 {
+  font-family: var(--display);
+  font-size: clamp(3rem, 7vw, 6.2rem);
+  letter-spacing: -0.06em;
+  line-height: 0.92;
+  margin: 0;
+}
+
+.auth-hero-panel p:not(.eyebrow) {
+  color: var(--muted);
+  font-size: clamp(1rem, 1.5vw, 1.16rem);
+  line-height: 1.65;
+  margin: 0;
+  max-width: 580px;
+}
+
+.auth-benefits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.auth-benefits span {
+  align-items: center;
+  background: rgba(255, 251, 244, 0.72);
+  border: 1px solid rgba(59, 36, 29, 0.1);
+  border-radius: 999px;
+  color: var(--espresso);
+  display: inline-flex;
+  font-size: 0.84rem;
+  font-weight: 900;
+  gap: 8px;
+  padding: 9px 12px;
+}
+
+.auth-panel {
+  background: rgba(255, 251, 244, 0.88);
+  border: 1px solid rgba(59, 36, 29, 0.1);
+  border-radius: 30px;
+  box-shadow: 0 24px 70px rgba(59, 36, 29, 0.13);
+  display: grid;
+  gap: 18px;
+  padding: clamp(20px, 3vw, 30px);
+}
+
+.auth-panel .auth-tabs {
+  background: var(--sand);
+}
+
+.auth-panel .auth-tabs button {
+  color: var(--muted);
+}
+
+.auth-panel .auth-tabs button.active {
+  background: var(--espresso);
+  color: var(--cream);
+}
+
+.auth-panel .auth-form {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+.auth-panel .auth-form label {
+  color: var(--espresso);
+}
+
+.auth-secondary-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.auth-connected {
+  display: grid;
+  gap: 12px;
+}
+
+.auth-connected h2 {
+  color: var(--espresso);
+  font-family: var(--display);
+  font-size: 2rem;
+  letter-spacing: -0.05em;
+  line-height: 1;
+  margin: 0;
+}
+
+.auth-connected p {
+  color: var(--muted);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 980px) {
   .nav-links {
     display: none;
@@ -1022,6 +1247,7 @@ button:disabled {
   .booking-section,
   .client-section,
   .client-card,
+  .auth-page,
   .section-heading,
   .admin-controls,
   .admin-booking-card,
@@ -1065,6 +1291,10 @@ button:disabled {
 
   .admin-booking-actions {
     grid-template-columns: 1fr auto;
+  }
+
+  .auth-page {
+    align-items: stretch;
   }
 }
 
@@ -1220,7 +1450,9 @@ button:disabled {
   .booking-list,
   .client-card,
   .admin-panel,
-  .service-editor-card {
+  .service-editor-card,
+  .booking-gate,
+  .auth-panel {
     border-radius: 20px;
   }
 
@@ -1268,6 +1500,24 @@ button:disabled {
   }
 
   .first-steps {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .slot-picker {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .auth-page {
+    padding: 18px;
+  }
+
+  .auth-hero-panel h1 {
+    font-size: clamp(2.5rem, 12vw, 3.6rem);
+  }
+
+  .auth-benefits,
+  .auth-secondary-actions {
     align-items: stretch;
     flex-direction: column;
   }

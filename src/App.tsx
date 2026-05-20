@@ -11,7 +11,6 @@ import {
   LockKeyhole,
   Mail,
   MapPin,
-  MessageCircle,
   Phone,
   Plus,
   Save,
@@ -21,7 +20,7 @@ import {
   UserCheck,
 } from 'lucide-react'
 import browAtelier from './assets/hellen-brows-chatgpt-image.png'
-import { isSupabaseConfigured, supabase } from './lib/supabase'
+import { supabase } from './lib/supabase'
 import './App.css'
 
 type ServiceOption = {
@@ -47,7 +46,6 @@ type ServiceCatalogRow = {
 
 type BookingForm = {
   name: string
-  email: string
   phone: string
   serviceId: string
   preferredDate: string
@@ -57,6 +55,7 @@ type BookingForm = {
 
 type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'done'
 type AdminStatusFilter = BookingStatus | 'all'
+type AuthMode = 'sign-in' | 'sign-up' | 'forgot-password' | 'reset-password'
 
 type BookingRecord = {
   id: string
@@ -75,6 +74,10 @@ type BookingRecord = {
   source: string
 }
 
+type BookedSlotRow = {
+  preferred_time: string
+}
+
 type ServiceDraft = {
   name: string
   durationMinutes: string
@@ -84,10 +87,7 @@ type ServiceDraft = {
   sortOrder: string
 }
 
-type AuthMode = 'sign-in' | 'sign-up'
-
 const instagramUrl = 'https://www.instagram.com/h.ellenmartins'
-const whatsappNumber = import.meta.env.VITE_BOOKING_WHATSAPP ?? ''
 
 const serviceSeeds: ServiceOption[] = [
   {
@@ -153,6 +153,43 @@ function getInitialDate() {
   return date.toISOString().slice(0, 10)
 }
 
+function getInitialAuthMode(): AuthMode {
+  const mode = new URLSearchParams(window.location.search).get('mode')
+
+  if (
+    mode === 'sign-up' ||
+    mode === 'forgot-password' ||
+    mode === 'reset-password' ||
+    mode === 'sign-in'
+  ) {
+    return mode
+  }
+
+  return 'sign-in'
+}
+
+function getAuthRedirectUrl(mode: AuthMode = 'sign-in') {
+  return `${window.location.origin}/auth?mode=${mode}`
+}
+
+function getAuthErrorMessage(message: string) {
+  const normalized = message.toLowerCase()
+
+  if (normalized.includes('email not confirmed')) {
+    return 'Confirme seu email pelo link enviado antes de entrar.'
+  }
+
+  if (normalized.includes('invalid login credentials')) {
+    return 'Email ou senha incorretos. Confira os dados e tente novamente.'
+  }
+
+  if (normalized.includes('user already registered')) {
+    return 'Este email ja tem cadastro. Entre na conta ou recupere a senha.'
+  }
+
+  return message
+}
+
 function formatPrice(priceCents?: number) {
   if (priceCents === undefined || priceCents === null) {
     return 'Sob consulta'
@@ -203,22 +240,6 @@ function formatFullDate(date: string) {
     month: 'short',
     year: 'numeric',
   }).format(new Date(`${date}T12:00:00`))
-}
-
-function buildWhatsAppLink(booking: BookingForm, serviceName: string) {
-  if (!whatsappNumber) {
-    return ''
-  }
-
-  const message = [
-    'Oi, quero agendar um atendimento de sobrancelhas.',
-    `Nome: ${booking.name}`,
-    `Servico: ${serviceName}`,
-    `Data: ${booking.preferredDate}`,
-    `Horario: ${booking.preferredTime}`,
-  ].join('\n')
-
-  return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`
 }
 
 function getServiceEyebrow(serviceId: string, index: number) {
@@ -274,10 +295,10 @@ function getStatusTone(status: BookingStatus) {
 }
 
 function App() {
+  const [route, setRoute] = useState(() => window.location.pathname)
   const [services, setServices] = useState<ServiceOption[]>(serviceSeeds)
   const [booking, setBooking] = useState<BookingForm>({
     name: '',
-    email: '',
     phone: '',
     serviceId: serviceSeeds[0].id,
     preferredDate: getInitialDate(),
@@ -285,7 +306,7 @@ function App() {
     notes: '',
   })
   const [session, setSession] = useState<Session | null>(null)
-  const [authMode, setAuthMode] = useState<AuthMode>('sign-in')
+  const [authMode, setAuthMode] = useState<AuthMode>(() => getInitialAuthMode())
   const [authForm, setAuthForm] = useState({ email: '', password: '' })
   const [authStatus, setAuthStatus] = useState('')
   const [bookingStatus, setBookingStatus] = useState('')
@@ -295,6 +316,7 @@ function App() {
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [bookings, setBookings] = useState<BookingRecord[]>([])
+  const [bookedSlots, setBookedSlots] = useState<string[]>([])
   const [bookingRefreshKey, setBookingRefreshKey] = useState(0)
   const [serviceRefreshKey, setServiceRefreshKey] = useState(0)
   const [adminStatusFilter, setAdminStatusFilter] = useState<AdminStatusFilter>('all')
@@ -303,6 +325,20 @@ function App() {
   const [newService, setNewService] = useState<ServiceDraft>(() => createEmptyServiceDraft())
   const [savingServiceId, setSavingServiceId] = useState('')
   const [updatingBookingId, setUpdatingBookingId] = useState('')
+
+  useEffect(() => {
+    function handlePopState() {
+      setRoute(window.location.pathname)
+      setAuthMode(getInitialAuthMode())
+      setAuthStatus('')
+    }
+
+    window.addEventListener('popstate', handlePopState)
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [])
 
   useEffect(() => {
     const client = supabase
@@ -319,15 +355,24 @@ function App() {
         if (!data.session) {
           setIsAdmin(false)
           setBookings([])
+          setBookedSlots([])
         }
       }
     })
 
-    const { data } = client.auth.onAuthStateChange((_event, nextSession) => {
+    const { data } = client.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession)
       if (!nextSession) {
         setIsAdmin(false)
         setBookings([])
+        setBookedSlots([])
+      }
+
+      if (event === 'PASSWORD_RECOVERY') {
+        window.history.replaceState(null, '', '/auth?mode=reset-password')
+        setRoute('/auth')
+        setAuthMode('reset-password')
+        setAuthStatus('Digite uma nova senha para concluir a recuperacao.')
       }
     })
 
@@ -387,7 +432,6 @@ function App() {
       }
 
       const mappedServices = (data as ServiceCatalogRow[]).map(mapServiceRow)
-
       setServices(mappedServices)
       setServiceDrafts((current) => {
         const next = { ...current }
@@ -413,7 +457,6 @@ function App() {
     }
 
     let isMounted = true
-
     void client
       .from('bookings')
       .select(
@@ -437,13 +480,40 @@ function App() {
     }
   }, [session, isAdmin, bookingRefreshKey])
 
+  useEffect(() => {
+    const client = supabase
+
+    if (!client || !session || !booking.preferredDate) {
+      return
+    }
+
+    let isMounted = true
+    void client
+      .rpc('get_booked_slots', { slot_date: booking.preferredDate })
+      .then(({ data, error }) => {
+        if (!isMounted || error) {
+          return
+        }
+
+        setBookedSlots(
+          ((data ?? []) as BookedSlotRow[]).map((slot) => slot.preferred_time.slice(0, 5)),
+        )
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [session, booking.preferredDate, bookingRefreshKey])
+
+  const isAuthRoute = route === '/auth'
   const bookableServices = services.filter((service) => service.active)
   const selectedService =
     bookableServices.find((service) => service.id === booking.serviceId) ??
     bookableServices[0] ??
     serviceSeeds[0]
-  const whatsappLink = buildWhatsAppLink(booking, selectedService.name)
-  const bookingEmail = booking.email || session?.user.email || ''
+  const bookingEmail = session?.user.email ?? ''
+  const selectedSlotIsBooked = bookedSlots.includes(booking.preferredTime)
+  const availableSlots = timeSlots.filter((slot) => !bookedSlots.includes(slot))
   const normalizedBookingSearch = bookingSearch.trim().toLowerCase()
   const adminBookings = bookings.filter((item) => {
     const matchesStatus = adminStatusFilter === 'all' || item.status === adminStatusFilter
@@ -466,27 +536,61 @@ function App() {
     count: bookings.filter((item) => item.status === status).length,
   }))
 
+  function goHome(targetId?: string) {
+    window.history.pushState(null, '', targetId ? `/#${targetId}` : '/')
+    setRoute('/')
+    window.requestAnimationFrame(() => {
+      if (targetId) {
+        document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        return
+      }
+
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    })
+  }
+
+  function goToAuth(mode: AuthMode, next?: string) {
+    const params = new URLSearchParams({ mode })
+
+    if (next) {
+      params.set('next', next)
+    }
+
+    window.history.pushState(null, '', `/auth?${params.toString()}`)
+    setRoute('/auth')
+    setAuthMode(mode)
+    setAuthStatus('')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   async function handleBookingSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setBookingStatus('')
     const client = supabase
 
+    if (!session) {
+      goToAuth('sign-in', 'agenda')
+      return
+    }
+
     if (!client) {
-      setBookingStatus(
-        'Supabase ainda nao foi configurado neste ambiente. Use o WhatsApp ou configure as variaveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.',
-      )
+      setBookingStatus('A agenda online esta indisponivel no momento. Tente novamente em instantes.')
       return
     }
 
     if (!bookableServices.length) {
-      setBookingStatus('Nenhum servico ativo esta disponivel para agendamento agora.')
+      setBookingStatus('Nenhum servico esta disponivel para agendamento agora.')
+      return
+    }
+
+    if (selectedSlotIsBooked) {
+      setBookingStatus('Esse horario ja foi reservado. Escolha outro horario disponivel.')
       return
     }
 
     setIsSubmittingBooking(true)
-
     const { error } = await client.from('bookings').insert({
-      user_id: session?.user.id ?? null,
+      user_id: session.user.id,
       client_name: booking.name.trim(),
       client_email: bookingEmail.trim().toLowerCase(),
       client_phone: booking.phone.trim(),
@@ -501,11 +605,14 @@ function App() {
     setIsSubmittingBooking(false)
 
     if (error) {
-      setBookingStatus(`Nao foi possivel salvar o agendamento: ${error.message}`)
+      const conflictMessage = error.message.toLowerCase().includes('duplicate')
+        ? 'Esse horario acabou de ser reservado. Escolha outro horario disponivel.'
+        : `Nao foi possivel solicitar o horario: ${error.message}`
+      setBookingStatus(conflictMessage)
       return
     }
 
-    setBookingStatus('Pedido enviado. A confirmacao chega por WhatsApp ou email.')
+    setBookingStatus('Horario solicitado. A confirmacao chega por WhatsApp ou email.')
     setBooking((current) => ({
       ...current,
       name: '',
@@ -522,33 +629,94 @@ function App() {
     const client = supabase
 
     if (!client) {
-      setAuthStatus('Supabase ainda nao foi configurado neste ambiente.')
+      setAuthStatus('O acesso online esta indisponivel no momento.')
       return
     }
 
     setIsSubmittingAuth(true)
-    const credentials = {
-      email: authForm.email.trim().toLowerCase(),
-      password: authForm.password,
+    const email = authForm.email.trim().toLowerCase()
+    const password = authForm.password
+    const nextTarget = new URLSearchParams(window.location.search).get('next')
+
+    if (authMode === 'forgot-password') {
+      const { error } = await client.auth.resetPasswordForEmail(email, {
+        redirectTo: getAuthRedirectUrl('reset-password'),
+      })
+      setIsSubmittingAuth(false)
+
+      if (error) {
+        setAuthStatus(getAuthErrorMessage(error.message))
+        return
+      }
+
+      setAuthStatus('Enviamos um link para recuperar sua senha. Confira seu email.')
+      return
     }
+
+    if (authMode === 'reset-password') {
+      const { error } = await client.auth.updateUser({ password })
+      setIsSubmittingAuth(false)
+
+      if (error) {
+        setAuthStatus(getAuthErrorMessage(error.message))
+        return
+      }
+
+      setAuthStatus('Senha atualizada com sucesso.')
+      setAuthForm({ email: '', password: '' })
+      goHome('cliente')
+      return
+    }
+
     const { error } =
       authMode === 'sign-in'
-        ? await client.auth.signInWithPassword(credentials)
-        : await client.auth.signUp(credentials)
+        ? await client.auth.signInWithPassword({ email, password })
+        : await client.auth.signUp({
+            email,
+            password,
+            options: { emailRedirectTo: getAuthRedirectUrl('sign-in') },
+          })
 
     setIsSubmittingAuth(false)
 
     if (error) {
-      setAuthStatus(error.message)
+      setAuthStatus(getAuthErrorMessage(error.message))
       return
     }
 
-    setAuthStatus(
-      authMode === 'sign-in'
-        ? 'Login realizado com seguranca.'
-        : 'Conta criada. Confira o email se a confirmacao estiver ativa.',
-    )
+    if (authMode === 'sign-up') {
+      setAuthStatus('Enviamos um link de confirmacao. Abra seu email para ativar a conta.')
+      setAuthForm((current) => ({ ...current, password: '' }))
+      return
+    }
+
     setAuthForm({ email: '', password: '' })
+    goHome(nextTarget === 'agenda' ? 'agenda' : 'cliente')
+  }
+
+  async function handleResendConfirmation() {
+    const client = supabase
+    const email = authForm.email.trim().toLowerCase()
+
+    if (!client || !email) {
+      setAuthStatus('Informe seu email para reenviar a confirmacao.')
+      return
+    }
+
+    setIsSubmittingAuth(true)
+    const { error } = await client.auth.resend({
+      type: 'signup',
+      email,
+      options: { emailRedirectTo: getAuthRedirectUrl('sign-in') },
+    })
+    setIsSubmittingAuth(false)
+
+    if (error) {
+      setAuthStatus(getAuthErrorMessage(error.message))
+      return
+    }
+
+    setAuthStatus('Reenviamos o link de confirmacao para seu email.')
   }
 
   async function handleSignOut() {
@@ -560,14 +728,9 @@ function App() {
 
     await client.auth.signOut()
     setBookings([])
+    setBookedSlots([])
     setIsAdmin(false)
     setAuthStatus('Sessao encerrada.')
-  }
-
-  function focusAuth(mode: AuthMode) {
-    setAuthMode(mode)
-    setAuthStatus('')
-    document.getElementById('cliente')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   async function handleBookingStatusChange(bookingId: string, status: BookingStatus) {
@@ -579,12 +742,10 @@ function App() {
 
     setUpdatingBookingId(bookingId)
     setBookingActionStatus('')
-
     const { error } = await client
       .from('bookings')
       .update({ status, updated_at: new Date().toISOString() })
       .eq('id', bookingId)
-
     setUpdatingBookingId('')
 
     if (error) {
@@ -596,6 +757,7 @@ function App() {
     setBookings((current) =>
       current.map((item) => (item.id === bookingId ? { ...item, status } : item)),
     )
+    setBookingRefreshKey((key) => key + 1)
   }
 
   async function handleBookingDelete(bookingId: string) {
@@ -607,9 +769,7 @@ function App() {
 
     setUpdatingBookingId(bookingId)
     setBookingActionStatus('')
-
     const { error } = await client.from('bookings').delete().eq('id', bookingId)
-
     setUpdatingBookingId('')
 
     if (error) {
@@ -619,6 +779,7 @@ function App() {
 
     setBookingActionStatus('Pedido removido.')
     setBookings((current) => current.filter((item) => item.id !== bookingId))
+    setBookingRefreshKey((key) => key + 1)
   }
 
   function updateServiceDraft(serviceId: string, patch: Partial<ServiceDraft>) {
@@ -681,7 +842,6 @@ function App() {
 
     setSavingServiceId(service.id)
     setServiceActionStatus('')
-
     const { error } = await client.from('service_catalog').upsert(
       {
         id: service.id,
@@ -690,7 +850,6 @@ function App() {
       },
       { onConflict: 'id' },
     )
-
     setSavingServiceId('')
 
     if (error) {
@@ -725,12 +884,10 @@ function App() {
 
     setSavingServiceId('new')
     setServiceActionStatus('')
-
     const { error } = await client.from('service_catalog').insert({
       id: serviceId,
       ...validation.payload,
     })
-
     setSavingServiceId('')
 
     if (error) {
@@ -743,15 +900,156 @@ function App() {
     setServiceRefreshKey((key) => key + 1)
   }
 
+  if (isAuthRoute) {
+    const isRecovery = authMode === 'forgot-password'
+    const isReset = authMode === 'reset-password'
+    const authTitle = isReset
+      ? 'Crie uma nova senha.'
+      : isRecovery
+        ? 'Recupere seu acesso.'
+        : authMode === 'sign-up'
+          ? 'Crie sua conta para agendar.'
+          : 'Entre para marcar seu horario.'
+
+    return (
+      <main className="auth-page">
+        <section className="auth-hero-panel">
+          <button type="button" className="brand auth-brand" onClick={() => goHome()}>
+            <span>HM</span>
+            <strong>Hellen Martins Brows</strong>
+          </button>
+          <p className="eyebrow">Acesso seguro</p>
+          <h1>{authTitle}</h1>
+          <p>
+            Use seu email para confirmar a conta, recuperar senha e acompanhar seus horarios em
+            um espaco reservado.
+          </p>
+          <div className="auth-benefits">
+            <span>
+              <CheckCircle2 size={16} aria-hidden="true" /> Confirmacao por email
+            </span>
+            <span>
+              <CheckCircle2 size={16} aria-hidden="true" /> Recuperacao de senha
+            </span>
+            <span>
+              <CheckCircle2 size={16} aria-hidden="true" /> Historico de agendamentos
+            </span>
+          </div>
+        </section>
+
+        <section className="auth-panel" aria-label="Formulario de acesso">
+          <div className="auth-tabs" role="group" aria-label="Modo de acesso">
+            <button
+              type="button"
+              className={authMode === 'sign-in' ? 'active' : ''}
+              onClick={() => goToAuth('sign-in')}
+            >
+              Entrar
+            </button>
+            <button
+              type="button"
+              className={authMode === 'sign-up' ? 'active' : ''}
+              onClick={() => goToAuth('sign-up')}
+            >
+              Criar conta
+            </button>
+          </div>
+
+          {session && !isReset ? (
+            <div className="auth-connected">
+              <UserCheck size={24} aria-hidden="true" />
+              <h2>Voce ja esta conectado.</h2>
+              <p>{session.user.email}</p>
+              <button type="button" onClick={() => goHome(isAdmin ? 'cliente' : 'agenda')}>
+                Continuar
+              </button>
+              <button type="button" className="text-button" onClick={handleSignOut}>
+                Sair desta conta
+              </button>
+            </div>
+          ) : (
+            <form className="auth-form" onSubmit={handleAuthSubmit}>
+              {!isReset ? (
+                <label>
+                  Email
+                  <input
+                    required
+                    type="email"
+                    value={authForm.email}
+                    onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })}
+                    placeholder="voce@email.com"
+                  />
+                </label>
+              ) : null}
+
+              {!isRecovery ? (
+                <label>
+                  {isReset ? 'Nova senha' : 'Senha'}
+                  <input
+                    required
+                    minLength={6}
+                    type="password"
+                    value={authForm.password}
+                    onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })}
+                    placeholder="Minimo 6 caracteres"
+                  />
+                </label>
+              ) : null}
+
+              <button type="submit" disabled={isSubmittingAuth}>
+                {isSubmittingAuth
+                  ? 'Processando...'
+                  : isReset
+                    ? 'Atualizar senha'
+                    : isRecovery
+                      ? 'Enviar link de recuperacao'
+                      : authMode === 'sign-in'
+                        ? 'Entrar'
+                        : 'Criar conta'}
+              </button>
+
+              <div className="auth-secondary-actions">
+                {!isRecovery && !isReset ? (
+                  <button type="button" className="text-button" onClick={() => goToAuth('forgot-password')}>
+                    Esqueci minha senha
+                  </button>
+                ) : null}
+                {authMode !== 'sign-up' && !isReset ? (
+                  <button type="button" className="text-button" onClick={() => goToAuth('sign-up')}>
+                    Criar nova conta
+                  </button>
+                ) : null}
+                {!isRecovery && !isReset ? (
+                  <button
+                    type="button"
+                    className="text-button"
+                    disabled={isSubmittingAuth}
+                    onClick={() => void handleResendConfirmation()}
+                  >
+                    Reenviar confirmacao
+                  </button>
+                ) : null}
+              </div>
+
+              <p className="form-status" role="status" aria-live="polite">
+                {authStatus}
+              </p>
+            </form>
+          )}
+        </section>
+      </main>
+    )
+  }
+
   return (
     <main>
       <section className="hero-section" id="inicio">
         <div className="hero-noise" aria-hidden="true" />
         <nav className="topbar" aria-label="Navegacao principal">
-          <a className="brand" href="#inicio" aria-label="Hellen Martins Brows">
+          <button type="button" className="brand brand-button" onClick={() => goHome()} aria-label="Hellen Martins Brows">
             <span>HM</span>
             <strong>Hellen Martins Brows</strong>
-          </a>
+          </button>
           <div className="nav-links">
             <a href="#servicos">Servicos</a>
             <a href="#agenda">Agenda</a>
@@ -762,15 +1060,15 @@ function App() {
           </div>
           <div className="header-auth" aria-label="Acesso da cliente">
             {session ? (
-              <button type="button" className="header-signin" onClick={() => focusAuth('sign-in')}>
+              <button type="button" className="header-signin" onClick={() => goHome('cliente')}>
                 {isAdmin ? 'Painel admin' : 'Minha agenda'}
               </button>
             ) : (
               <>
-                <button type="button" className="header-signin" onClick={() => focusAuth('sign-in')}>
+                <button type="button" className="header-signin" onClick={() => goToAuth('sign-in')}>
                   Entrar
                 </button>
-                <button type="button" className="header-signup" onClick={() => focusAuth('sign-up')}>
+                <button type="button" className="header-signup" onClick={() => goToAuth('sign-up')}>
                   Criar conta
                 </button>
               </>
@@ -783,21 +1081,25 @@ function App() {
             <p className="eyebrow">Beauty studio para sobrancelhas naturais</p>
             <h1>Design de sobrancelhas com leitura facial e acabamento editorial.</h1>
             <p className="hero-lede">
-              Agendamento claro para clientes e painel seguro para a Hellen confirmar pedidos,
-              organizar status e ajustar servicos em poucos cliques.
+              Agende seu horario com calma, veja os periodos disponiveis e acompanhe a
+              confirmacao em uma area reservada.
             </p>
             <div className="hero-actions">
-              <a className="primary-action" href="#agenda">
+              <button
+                type="button"
+                className="primary-action"
+                onClick={() => (session ? goHome('agenda') : goToAuth('sign-in', 'agenda'))}
+              >
                 Agendar agora
                 <ArrowRight size={18} aria-hidden="true" />
-              </a>
+              </button>
             </div>
             <div className="trust-row" aria-label="Diferenciais">
               <span>
                 <Sparkles size={16} aria-hidden="true" /> Mapeamento personalizado
               </span>
               <span>
-                <ShieldCheck size={16} aria-hidden="true" /> Dados protegidos por RLS
+                <ShieldCheck size={16} aria-hidden="true" /> Atendimento reservado
               </span>
             </div>
           </div>
@@ -812,9 +1114,9 @@ function App() {
               </div>
             </div>
             <div className="metric-card glass-card">
-              <span>Painel seguro</span>
-              <strong>Admin</strong>
-              <small>Status, clientes e servicos protegidos por perfil</small>
+              <span>Agenda organizada</span>
+              <strong>Online</strong>
+              <small>Pedidos, horarios e servicos em um so lugar</small>
             </div>
           </div>
         </div>
@@ -831,7 +1133,7 @@ function App() {
         </article>
         <article>
           <strong>Agenda online</strong>
-          <span>Cliente acompanha pedidos e admin organiza tudo no Supabase</span>
+          <span>Acompanhe seus horarios e receba confirmacao da equipe</span>
         </article>
       </section>
 
@@ -860,10 +1162,10 @@ function App() {
       <section className="booking-section" id="agenda">
         <div className="booking-intro">
           <p className="eyebrow">Agendamento</p>
-          <h2>Escolha o servico e envie sua preferencia de horario.</h2>
+          <h2>Escolha uma data e veja os horarios disponiveis.</h2>
           <p>
-            O pedido entra como pendente. A profissional confirma o melhor horario pelo WhatsApp
-            ou email, mantendo a agenda organizada no Supabase.
+            Para marcar um horario, entre na sua conta. Assim conseguimos evitar conflitos na
+            agenda e manter seu atendimento organizado.
           </p>
           <div className="contact-stack">
             <span>
@@ -878,123 +1180,145 @@ function App() {
           </div>
         </div>
 
-        <form className="booking-form" onSubmit={handleBookingSubmit}>
-          <label>
-            Nome completo
-            <input
-              required
-              minLength={2}
-              value={booking.name}
-              onChange={(event) => setBooking({ ...booking, name: event.target.value })}
-              placeholder="Como devemos te chamar?"
-            />
-          </label>
-          <div className="form-row">
+        {session ? (
+          <form className="booking-form" onSubmit={handleBookingSubmit}>
             <label>
-              Email
+              Nome completo
               <input
                 required
-                type="email"
-                value={bookingEmail}
-                onChange={(event) => setBooking({ ...booking, email: event.target.value })}
-                placeholder="voce@email.com"
+                minLength={2}
+                value={booking.name}
+                onChange={(event) => setBooking({ ...booking, name: event.target.value })}
+                placeholder="Como devemos te chamar?"
               />
             </label>
+            <div className="form-row">
+              <label>
+                Email da conta
+                <input readOnly value={bookingEmail} />
+              </label>
+              <label>
+                WhatsApp
+                <input
+                  required
+                  inputMode="tel"
+                  value={booking.phone}
+                  onChange={(event) => setBooking({ ...booking, phone: event.target.value })}
+                  placeholder="(00) 00000-0000"
+                />
+              </label>
+            </div>
             <label>
-              WhatsApp
-              <input
-                required
-                inputMode="tel"
-                value={booking.phone}
-                onChange={(event) => setBooking({ ...booking, phone: event.target.value })}
-                placeholder="(00) 00000-0000"
-              />
-            </label>
-          </div>
-          <label>
-            Servico
-            <select
-              value={selectedService.id}
-              onChange={(event) => setBooking({ ...booking, serviceId: event.target.value })}
-            >
-              {bookableServices.map((service) => (
-                <option key={service.id} value={service.id}>
-                  {service.name} - {formatPrice(service.priceCents)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="form-row">
-            <label>
-              Data desejada
-              <input
-                required
-                type="date"
-                min={getInitialDate()}
-                value={booking.preferredDate}
-                onChange={(event) => setBooking({ ...booking, preferredDate: event.target.value })}
-              />
-            </label>
-            <label>
-              Horario
+              Servico
               <select
-                value={booking.preferredTime}
-                onChange={(event) => setBooking({ ...booking, preferredTime: event.target.value })}
+                value={selectedService.id}
+                onChange={(event) => setBooking({ ...booking, serviceId: event.target.value })}
               >
-                {timeSlots.map((slot) => (
-                  <option key={slot} value={slot}>
-                    {slot}
+                {bookableServices.map((service) => (
+                  <option key={service.id} value={service.id}>
+                    {service.name} - {formatPrice(service.priceCents)}
                   </option>
                 ))}
               </select>
             </label>
+            <div className="calendar-shell">
+              <label>
+                Data desejada
+                <input
+                  required
+                  type="date"
+                  min={getInitialDate()}
+                  value={booking.preferredDate}
+                  onChange={(event) => setBooking({ ...booking, preferredDate: event.target.value })}
+                />
+              </label>
+              <div className="slot-picker" aria-label="Horarios disponiveis">
+                {timeSlots.map((slot) => {
+                  const isBooked = bookedSlots.includes(slot)
+                  const isSelected = booking.preferredTime === slot
+
+                  return (
+                    <button
+                      type="button"
+                      key={slot}
+                      className={isSelected ? 'slot-button selected' : 'slot-button'}
+                      disabled={isBooked}
+                      onClick={() => setBooking({ ...booking, preferredTime: slot })}
+                    >
+                      <strong>{slot}</strong>
+                      <span>{isBooked ? 'Ocupado' : 'Disponivel'}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            <label>
+              Observacoes
+              <textarea
+                rows={4}
+                value={booking.notes}
+                onChange={(event) => setBooking({ ...booking, notes: event.target.value })}
+                placeholder="Conte se e sua primeira vez, se tem alergias ou objetivo especifico."
+              />
+            </label>
+            <div className="form-actions">
+              <button
+                type="submit"
+                disabled={
+                  isSubmittingBooking ||
+                  !bookableServices.length ||
+                  selectedSlotIsBooked ||
+                  !availableSlots.length
+                }
+              >
+                {isSubmittingBooking ? 'Solicitando...' : 'Solicitar horario'}
+              </button>
+            </div>
+            <p className="form-status" role="status" aria-live="polite">
+              {bookingStatus ||
+                (availableSlots.length
+                  ? 'Voce recebera a confirmacao pelo WhatsApp ou email.'
+                  : 'Nao ha horarios livres nesta data. Escolha outro dia.')}
+            </p>
+          </form>
+        ) : (
+          <div className="booking-gate">
+            <LockKeyhole size={28} aria-hidden="true" />
+            <h3>Entre para escolher um horario.</h3>
+            <p>
+              A agenda mostra os horarios disponiveis depois do login para evitar marcacoes no
+              mesmo periodo.
+            </p>
+            <div className="form-actions">
+              <button type="button" onClick={() => goToAuth('sign-in', 'agenda')}>
+                Entrar para agendar
+              </button>
+              <button type="button" className="secondary-button" onClick={() => goToAuth('sign-up', 'agenda')}>
+                Criar conta
+              </button>
+            </div>
           </div>
-          <label>
-            Observacoes
-            <textarea
-              rows={4}
-              value={booking.notes}
-              onChange={(event) => setBooking({ ...booking, notes: event.target.value })}
-              placeholder="Conte se e sua primeira vez, se tem alergias ou objetivo especifico."
-            />
-          </label>
-          <div className="form-actions">
-            <button type="submit" disabled={isSubmittingBooking || !bookableServices.length}>
-              {isSubmittingBooking ? 'Enviando...' : 'Enviar pedido'}
-            </button>
-            {whatsappLink ? (
-              <a href={whatsappLink} target="_blank" rel="noreferrer">
-                <MessageCircle size={17} aria-hidden="true" /> WhatsApp
-              </a>
-            ) : null}
-          </div>
-          <p className="form-status" role="status" aria-live="polite">
-            {bookingStatus ||
-              (isSupabaseConfigured
-                ? 'Ambiente conectado ao Supabase.'
-                : 'Configure as variaveis de ambiente para ativar o banco.')}
-          </p>
-        </form>
+        )}
       </section>
 
       <section className="client-section" id="cliente">
         <div className="client-card">
           <div>
-            <p className="eyebrow">Area segura</p>
-            <h2>{isAdmin ? 'Painel privado da Hellen.' : 'Seu primeiro acesso sem complicacao.'}</h2>
+            <p className="eyebrow">Area da cliente</p>
+            <h2>{isAdmin ? 'Painel privado da Hellen.' : 'Acompanhe seus horarios com tranquilidade.'}</h2>
             <p>
-              Crie uma conta ou entre com email e senha para acompanhar seus pedidos. Contas
-              marcadas como admin no banco liberam o controle completo da agenda e dos servicos.
+              Entre para ver seus pedidos, acompanhar confirmacoes e manter seus dados sempre
+              organizados para os proximos atendimentos.
             </p>
             <div className="first-steps" aria-label="Como funciona o acesso">
               <span>
-                <CheckCircle2 size={16} aria-hidden="true" /> Agende sem precisar criar conta
+                <CheckCircle2 size={16} aria-hidden="true" /> Entre ou crie sua conta
               </span>
               <span>
-                <CheckCircle2 size={16} aria-hidden="true" /> Entre para ver seus pedidos
+                <CheckCircle2 size={16} aria-hidden="true" /> Escolha um horario livre
               </span>
               <span>
-                <CheckCircle2 size={16} aria-hidden="true" /> Admin confirma, conclui ou cancela
+                <CheckCircle2 size={16} aria-hidden="true" /> Receba a confirmacao
               </span>
             </div>
           </div>
@@ -1010,55 +1334,17 @@ function App() {
               </button>
             </div>
           ) : (
-            <form className="auth-form" onSubmit={handleAuthSubmit}>
-              <div className="auth-tabs" role="group" aria-label="Modo de acesso">
-                <button
-                  type="button"
-                  className={authMode === 'sign-in' ? 'active' : ''}
-                  onClick={() => setAuthMode('sign-in')}
-                >
-                  Entrar
-                </button>
-                <button
-                  type="button"
-                  className={authMode === 'sign-up' ? 'active' : ''}
-                  onClick={() => setAuthMode('sign-up')}
-                >
-                  Criar conta
-                </button>
-              </div>
-              <label>
-                Email
-                <input
-                  required
-                  type="email"
-                  value={authForm.email}
-                  onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })}
-                  placeholder="voce@email.com"
-                />
-              </label>
-              <label>
-                Senha
-                <input
-                  required
-                  minLength={6}
-                  type="password"
-                  value={authForm.password}
-                  onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })}
-                  placeholder="Minimo 6 caracteres"
-                />
-              </label>
-              <button type="submit" disabled={isSubmittingAuth}>
-                {isSubmittingAuth
-                  ? 'Processando...'
-                  : authMode === 'sign-in'
-                    ? 'Entrar com seguranca'
-                    : 'Criar acesso'}
+            <div className="session-box guest-box">
+              <LockKeyhole size={22} aria-hidden="true" />
+              <span>Acesso da cliente</span>
+              <strong>Entre para ver sua agenda</strong>
+              <button type="button" onClick={() => goToAuth('sign-in')}>
+                Entrar
               </button>
-              <p className="form-status" role="status" aria-live="polite">
-                {authStatus}
-              </p>
-            </form>
+              <button type="button" className="text-button light" onClick={() => goToAuth('sign-up')}>
+                Criar conta
+              </button>
+            </div>
           )}
         </div>
 
@@ -1069,8 +1355,8 @@ function App() {
                 <p className="eyebrow">Painel admin</p>
                 <h2>Agenda completa com filtros e status.</h2>
                 <p>
-                  Visualize todos os pedidos protegidos por RLS, confirme horarios, finalize
-                  atendimentos e pause servicos sem mexer no banco manualmente.
+                  Visualize todos os pedidos com acesso restrito, confirme horarios, finalize
+                  atendimentos e pause servicos sem processos manuais.
                 </p>
               </div>
               <span className="admin-badge">
@@ -1169,9 +1455,7 @@ function App() {
                 ))}
               </div>
             ) : (
-              <p className="empty-state">
-                Nenhum pedido encontrado para os filtros atuais.
-              </p>
+              <p className="empty-state">Nenhum pedido encontrado para os filtros atuais.</p>
             )}
 
             <div className="service-manager">
@@ -1196,9 +1480,7 @@ function App() {
                   <input
                     inputMode="decimal"
                     value={newService.priceCents}
-                    onChange={(event) =>
-                      setNewService({ ...newService, priceCents: event.target.value })
-                    }
+                    onChange={(event) => setNewService({ ...newService, priceCents: event.target.value })}
                     placeholder="95,00"
                   />
                 </label>
@@ -1217,9 +1499,7 @@ function App() {
                   Descricao
                   <input
                     value={newService.description}
-                    onChange={(event) =>
-                      setNewService({ ...newService, description: event.target.value })
-                    }
+                    onChange={(event) => setNewService({ ...newService, description: event.target.value })}
                     placeholder="Resumo curto para a vitrine"
                   />
                 </label>
@@ -1237,16 +1517,17 @@ function App() {
                   const draft = serviceDrafts[service.id] ?? createServiceDraft(service)
 
                   return (
-                    <article className={!draft.active ? 'service-editor-card is-paused' : 'service-editor-card'} key={service.id}>
+                    <article
+                      className={!draft.active ? 'service-editor-card is-paused' : 'service-editor-card'}
+                      key={service.id}
+                    >
                       <div className="service-editor-head">
                         <strong>{service.id}</strong>
                         <label className="toggle-label">
                           <input
                             type="checkbox"
                             checked={draft.active}
-                            onChange={(event) =>
-                              updateServiceDraft(service.id, { active: event.target.checked })
-                            }
+                            onChange={(event) => updateServiceDraft(service.id, { active: event.target.checked })}
                           />
                           Ativo
                         </label>
@@ -1256,9 +1537,7 @@ function App() {
                           Nome
                           <input
                             value={draft.name}
-                            onChange={(event) =>
-                              updateServiceDraft(service.id, { name: event.target.value })
-                            }
+                            onChange={(event) => updateServiceDraft(service.id, { name: event.target.value })}
                           />
                         </label>
                         <label>
@@ -1266,9 +1545,7 @@ function App() {
                           <input
                             inputMode="decimal"
                             value={draft.priceCents}
-                            onChange={(event) =>
-                              updateServiceDraft(service.id, { priceCents: event.target.value })
-                            }
+                            onChange={(event) => updateServiceDraft(service.id, { priceCents: event.target.value })}
                           />
                         </label>
                         <label>
@@ -1286,9 +1563,7 @@ function App() {
                           <input
                             inputMode="numeric"
                             value={draft.sortOrder}
-                            onChange={(event) =>
-                              updateServiceDraft(service.id, { sortOrder: event.target.value })
-                            }
+                            onChange={(event) => updateServiceDraft(service.id, { sortOrder: event.target.value })}
                           />
                         </label>
                         <label className="wide-field">
@@ -1296,9 +1571,7 @@ function App() {
                           <textarea
                             rows={2}
                             value={draft.description}
-                            onChange={(event) =>
-                              updateServiceDraft(service.id, { description: event.target.value })
-                            }
+                            onChange={(event) => updateServiceDraft(service.id, { description: event.target.value })}
                           />
                         </label>
                       </div>
@@ -1320,7 +1593,7 @@ function App() {
           <div className="booking-list" aria-live="polite">
             <div className="section-heading compact">
               <p className="eyebrow">Pedidos recentes</p>
-              <h2>{session ? 'Minha agenda protegida' : 'Entre para visualizar'}</h2>
+              <h2>{session ? 'Minha agenda' : 'Entre para visualizar'}</h2>
             </div>
             {customerBookings.length ? (
               <div className="booking-items">
@@ -1340,8 +1613,8 @@ function App() {
             ) : (
               <p className="empty-state">
                 {session
-                  ? 'Nenhum agendamento visivel para esta conta ainda. Envie seu primeiro pedido acima e acompanhe o status aqui.'
-                  : 'A listagem aparece depois do login e respeita as politicas RLS.'}
+                  ? 'Nenhum agendamento para esta conta ainda. Escolha um horario acima e acompanhe o status aqui.'
+                  : 'Entre para ver seus proximos horarios e acompanhar confirmacoes.'}
               </p>
             )}
           </div>

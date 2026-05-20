@@ -21,7 +21,8 @@ as $$
   );
 $$;
 
-grant execute on function public.is_booking_admin() to anon, authenticated;
+revoke execute on function public.is_booking_admin() from public, anon;
+grant execute on function public.is_booking_admin() to authenticated;
 
 create table if not exists public.service_catalog (
   id text primary key,
@@ -54,7 +55,7 @@ create table if not exists public.bookings (
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  user_id uuid references auth.users(id) on delete set null,
+  user_id uuid not null references auth.users(id) on delete cascade,
   client_name text not null check (char_length(client_name) between 2 and 120),
   client_email text not null check (char_length(client_email) <= 160),
   client_phone text not null check (char_length(client_phone) between 8 and 30),
@@ -68,8 +69,29 @@ create table if not exists public.bookings (
 );
 
 create index if not exists bookings_user_id_idx on public.bookings (user_id);
+create index if not exists bookings_service_id_idx on public.bookings (service_id);
 create index if not exists bookings_date_status_idx on public.bookings (preferred_date, status);
+create unique index if not exists bookings_unique_active_slot_idx
+on public.bookings (preferred_date, preferred_time)
+where status in ('pending', 'confirmed');
 create index if not exists service_catalog_active_sort_idx on public.service_catalog (active, sort_order);
+
+create or replace function public.get_booked_slots(slot_date date)
+returns table (preferred_time time)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select b.preferred_time
+  from public.bookings b
+  where b.preferred_date = slot_date
+    and b.status in ('pending', 'confirmed')
+  order by b.preferred_time;
+$$;
+
+revoke execute on function public.get_booked_slots(date) from public, anon;
+grant execute on function public.get_booked_slots(date) to authenticated;
 
 alter table public.admin_profiles enable row level security;
 alter table public.service_catalog enable row level security;
@@ -80,58 +102,97 @@ create policy "Admins and owners can read admin profiles"
 on public.admin_profiles
 for select
 to authenticated
-using (user_id = auth.uid() or public.is_booking_admin());
+using (user_id = (select auth.uid()) or (select public.is_booking_admin()));
 
 drop policy if exists "Only admins can write admin profiles" on public.admin_profiles;
-create policy "Only admins can write admin profiles"
+drop policy if exists "Admins can insert admin profiles" on public.admin_profiles;
+create policy "Admins can insert admin profiles"
 on public.admin_profiles
-for all
+for insert
 to authenticated
-using (public.is_booking_admin())
-with check (public.is_booking_admin());
+with check ((select public.is_booking_admin()));
+
+drop policy if exists "Admins can update admin profiles" on public.admin_profiles;
+create policy "Admins can update admin profiles"
+on public.admin_profiles
+for update
+to authenticated
+using ((select public.is_booking_admin()))
+with check ((select public.is_booking_admin()));
+
+drop policy if exists "Admins can delete admin profiles" on public.admin_profiles;
+create policy "Admins can delete admin profiles"
+on public.admin_profiles
+for delete
+to authenticated
+using ((select public.is_booking_admin()));
 
 drop policy if exists "Anyone can read active services" on public.service_catalog;
-create policy "Anyone can read active services"
+drop policy if exists "Visitors can read active services" on public.service_catalog;
+create policy "Visitors can read active services"
 on public.service_catalog
 for select
-to anon, authenticated
-using (active = true or public.is_booking_admin());
+to anon
+using (active = true);
+
+drop policy if exists "Users can read active services" on public.service_catalog;
+create policy "Users can read active services"
+on public.service_catalog
+for select
+to authenticated
+using (active = true or (select public.is_booking_admin()));
 
 drop policy if exists "Admins can manage services" on public.service_catalog;
-create policy "Admins can manage services"
+drop policy if exists "Admins can insert services" on public.service_catalog;
+create policy "Admins can insert services"
 on public.service_catalog
-for all
+for insert
 to authenticated
-using (public.is_booking_admin())
-with check (public.is_booking_admin());
+with check ((select public.is_booking_admin()));
+
+drop policy if exists "Admins can update services" on public.service_catalog;
+create policy "Admins can update services"
+on public.service_catalog
+for update
+to authenticated
+using ((select public.is_booking_admin()))
+with check ((select public.is_booking_admin()));
+
+drop policy if exists "Admins can delete services" on public.service_catalog;
+create policy "Admins can delete services"
+on public.service_catalog
+for delete
+to authenticated
+using ((select public.is_booking_admin()));
 
 drop policy if exists "Anyone can request a booking" on public.bookings;
-create policy "Anyone can request a booking"
+drop policy if exists "Authenticated users can request a booking" on public.bookings;
+create policy "Authenticated users can request a booking"
 on public.bookings
 for insert
-to anon, authenticated
-with check (user_id is null or user_id = auth.uid() or public.is_booking_admin());
+to authenticated
+with check (user_id = (select auth.uid()) or (select public.is_booking_admin()));
 
 drop policy if exists "Users and admins can read bookings" on public.bookings;
 create policy "Users and admins can read bookings"
 on public.bookings
 for select
 to authenticated
-using (user_id = auth.uid() or public.is_booking_admin());
+using (user_id = (select auth.uid()) or (select public.is_booking_admin()));
 
 drop policy if exists "Admins can update bookings" on public.bookings;
 create policy "Admins can update bookings"
 on public.bookings
 for update
 to authenticated
-using (public.is_booking_admin())
-with check (public.is_booking_admin());
+using ((select public.is_booking_admin()))
+with check ((select public.is_booking_admin()));
 
 drop policy if exists "Admins can delete bookings" on public.bookings;
 create policy "Admins can delete bookings"
 on public.bookings
 for delete
 to authenticated
-using (public.is_booking_admin());
+using ((select public.is_booking_admin()));
 
 commit;
