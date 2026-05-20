@@ -343,6 +343,12 @@ function App() {
     setAuthStatus('Sessao encerrada.')
   }
 
+  function focusAuth(mode: AuthMode) {
+    setAuthMode(mode)
+    setAuthStatus('')
+    document.getElementById('cliente')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   return (
     <main>
       <section className="hero-section" id="inicio">
@@ -359,6 +365,22 @@ function App() {
             <a href={instagramUrl} target="_blank" rel="noreferrer">
               Instagram
             </a>
+          </div>
+          <div className="header-auth" aria-label="Acesso da cliente">
+            {session ? (
+              <button type="button" className="header-signin" onClick={() => focusAuth('sign-in')}>
+                Minha agenda
+              </button>
+            ) : (
+              <>
+                <button type="button" className="header-signin" onClick={() => focusAuth('sign-in')}>
+                  Entrar
+                </button>
+                <button type="button" className="header-signup" onClick={() => focusAuth('sign-up')}>
+                  Criar conta
+                </button>
+              </>
+            )}
           </div>
         </nav>
 

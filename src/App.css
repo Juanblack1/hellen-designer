@@ -36,13 +36,32 @@
   z-index: 1;
 }
 
+#servicos,
+#agenda,
+#cliente {
+  scroll-margin-top: 86px;
+}
+
 .topbar {
   align-items: center;
+  backdrop-filter: blur(18px);
+  background: rgba(255, 247, 236, 0.82);
+  border: 1px solid rgba(59, 36, 29, 0.12);
+  border-radius: 999px;
+  box-shadow: 0 16px 46px rgba(59, 36, 29, 0.1);
   display: flex;
+  gap: 16px;
   justify-content: space-between;
-  gap: 24px;
-  margin: 0 auto;
-  max-width: 1080px;
+  left: 50%;
+  margin: 0;
+  max-width: none;
+  padding: 7px;
+  position: fixed;
+  right: auto;
+  top: 14px;
+  transform: translateX(-50%);
+  width: min(calc(100% - 36px), 1080px);
+  z-index: 20;
 }
 
 .brand {
@@ -50,6 +69,7 @@
   color: var(--espresso);
   display: inline-flex;
   gap: 12px;
+  min-width: max-content;
   text-decoration: none;
 }
 
@@ -77,6 +97,7 @@
   align-items: center;
   display: flex;
   gap: 8px;
+  margin-left: auto;
 }
 
 .nav-links a {
@@ -97,12 +118,47 @@
   color: var(--espresso);
 }
 
+.header-auth {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin-left: 4px;
+}
+
+.header-auth button {
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 900;
+  min-height: 36px;
+  padding: 0 14px;
+  transition: transform 180ms ease, background 180ms ease;
+  white-space: nowrap;
+}
+
+.header-auth button:hover,
+.header-auth button:focus-visible {
+  transform: translateY(-1px);
+}
+
+.header-signin {
+  background: rgba(59, 36, 29, 0.08);
+  color: var(--espresso);
+}
+
+.header-signup {
+  background: var(--espresso);
+  color: var(--cream);
+}
+
 .hero-grid {
   align-items: center;
   display: grid;
   gap: clamp(28px, 5vw, 64px);
   grid-template-columns: minmax(0, 1fr) minmax(320px, 0.72fr);
-  margin: 52px auto 0;
+  margin: 76px auto 0;
   max-width: 1080px;
 }
 
@@ -670,6 +726,10 @@ button:disabled {
     display: none;
   }
 
+  .topbar {
+    width: calc(100% - 28px);
+  }
+
   .hero-grid,
   .booking-section,
   .client-section,
@@ -713,6 +773,13 @@ button:disabled {
     padding: 18px 16px 36px;
   }
 
+  .topbar {
+    gap: 8px;
+    padding: 6px;
+    top: 10px;
+    width: calc(100% - 20px);
+  }
+
   .brand span {
     height: 38px;
     width: 38px;
@@ -722,9 +789,24 @@ button:disabled {
     display: none;
   }
 
+  .header-auth {
+    gap: 6px;
+    margin-left: auto;
+  }
+
+  .header-auth button {
+    font-size: 0.74rem;
+    min-height: 34px;
+    padding: 0 10px;
+  }
+
+  .header-signup {
+    padding-inline: 12px;
+  }
+
   .hero-grid {
     gap: 22px;
-    margin-top: 30px;
+    margin-top: 64px;
   }
 
   .hero-copy h1 {
