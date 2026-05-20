@@ -2,6 +2,10 @@
 
 Site de agendamento para servicos de sobrancelhas, construido com React, Vite, Supabase Auth/Postgres e deploy na Vercel.
 
+Live: https://ellen-brows.vercel.app
+
+GitHub: https://github.com/Juanblack1/ellen-brows
+
 ## Stack
 
 - React 19 + TypeScript + Vite

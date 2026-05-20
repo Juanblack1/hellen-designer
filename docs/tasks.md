@@ -29,13 +29,13 @@
 
 - [x] Preparar `.env.example` sem segredos.
 - [x] Aplicar schema no projeto Supabase informado.
-- [ ] Publicar repositorio GitHub publico.
-- [ ] Configurar variaveis na Vercel.
-- [ ] Deploy de producao na Vercel.
+- [x] Publicar repositorio GitHub publico.
+- [x] Configurar variaveis na Vercel.
+- [x] Deploy de producao na Vercel.
 
 ## QA
 
 - [x] `npm run lint`.
 - [x] `npm run build`.
 - [x] Verificar que `.env.local` e segredos nao entraram no git.
-- [ ] Smoke test do deploy.
+- [x] Smoke test do deploy.
