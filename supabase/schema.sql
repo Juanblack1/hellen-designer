@@ -73,6 +73,15 @@ create table if not exists public.bookings (
   source text not null default 'site'
 );
 
+create table if not exists public.admin_unavailable_days (
+  id uuid primary key default gen_random_uuid(),
+  unavailable_date date not null unique,
+  reason text check (reason is null or char_length(reason) <= 240),
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create index if not exists bookings_user_id_idx on public.bookings (user_id);
 create index if not exists bookings_service_id_idx on public.bookings (service_id);
 create index if not exists bookings_date_status_idx on public.bookings (preferred_date, status);
@@ -80,6 +89,42 @@ create unique index if not exists bookings_unique_active_slot_idx
 on public.bookings (preferred_date, preferred_time)
 where status in ('pending', 'confirmed');
 create index if not exists service_catalog_active_sort_idx on public.service_catalog (active, sort_order);
+create index if not exists admin_unavailable_days_date_idx on public.admin_unavailable_days (unavailable_date);
+create index if not exists admin_unavailable_days_created_by_idx on public.admin_unavailable_days (created_by);
+
+create or replace function public.ensure_booking_date_available()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.status in ('pending', 'confirmed') then
+    if extract(isodow from new.preferred_date) in (6, 7) then
+      raise exception 'booking_date_unavailable';
+    end if;
+
+    if exists (
+      select 1
+      from public.admin_unavailable_days unavailable_day
+      where unavailable_day.unavailable_date = new.preferred_date
+    ) then
+      raise exception 'booking_date_unavailable';
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke execute on function public.ensure_booking_date_available() from public, anon, authenticated;
+
+drop trigger if exists bookings_ensure_date_available on public.bookings;
+create trigger bookings_ensure_date_available
+before insert or update of preferred_date, status
+on public.bookings
+for each row
+execute function public.ensure_booking_date_available();
 
 create or replace function public.get_booked_slots(slot_date date)
 returns table (preferred_time time)
@@ -101,6 +146,7 @@ grant execute on function public.get_booked_slots(date) to authenticated;
 alter table public.admin_profiles enable row level security;
 alter table public.service_catalog enable row level security;
 alter table public.bookings enable row level security;
+alter table public.admin_unavailable_days enable row level security;
 
 drop policy if exists "Admins and owners can read admin profiles" on public.admin_profiles;
 create policy "Admins and owners can read admin profiles"
@@ -196,6 +242,35 @@ with check ((select public.is_booking_admin()));
 drop policy if exists "Admins can delete bookings" on public.bookings;
 create policy "Admins can delete bookings"
 on public.bookings
+for delete
+to authenticated
+using ((select public.is_booking_admin()));
+
+drop policy if exists "Users can read unavailable days" on public.admin_unavailable_days;
+create policy "Users can read unavailable days"
+on public.admin_unavailable_days
+for select
+to authenticated
+using (true);
+
+drop policy if exists "Admins can insert unavailable days" on public.admin_unavailable_days;
+create policy "Admins can insert unavailable days"
+on public.admin_unavailable_days
+for insert
+to authenticated
+with check ((select public.is_booking_admin()));
+
+drop policy if exists "Admins can update unavailable days" on public.admin_unavailable_days;
+create policy "Admins can update unavailable days"
+on public.admin_unavailable_days
+for update
+to authenticated
+using ((select public.is_booking_admin()))
+with check ((select public.is_booking_admin()));
+
+drop policy if exists "Admins can delete unavailable days" on public.admin_unavailable_days;
+create policy "Admins can delete unavailable days"
+on public.admin_unavailable_days
 for delete
 to authenticated
 using ((select public.is_booking_admin()));

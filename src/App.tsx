@@ -79,6 +79,18 @@ type BookedSlotRow = {
   preferred_time: string
 }
 
+type UnavailableDay = {
+  id: string
+  unavailable_date: string
+  reason: string | null
+  created_at: string
+}
+
+type RescheduleDraft = {
+  preferredDate: string
+  preferredTime: string
+}
+
 type ServiceDraft = {
   name: string
   durationMinutes: string
@@ -147,11 +159,78 @@ const statusLabels: Record<BookingStatus, string> = {
 }
 
 const statusOptions: BookingStatus[] = ['pending', 'confirmed', 'done', 'cancelled']
+const weekdayLabels = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom']
+
+function toDateOnly(date: Date) {
+  return date.toISOString().slice(0, 10)
+}
+
+function parseDateOnly(date: string) {
+  return new Date(`${date}T12:00:00`)
+}
+
+function isWeekendDate(date: string) {
+  const day = parseDateOnly(date).getDay()
+  return day === 0 || day === 6
+}
+
+function getNextBusinessDate(date: Date) {
+  const next = new Date(date)
+
+  while (next.getDay() === 0 || next.getDay() === 6) {
+    next.setDate(next.getDate() + 1)
+  }
+
+  return next
+}
 
 function getInitialDate() {
   const date = new Date()
   date.setDate(date.getDate() + 1)
-  return date.toISOString().slice(0, 10)
+  return toDateOnly(getNextBusinessDate(date))
+}
+
+function getMonthStart(date: string) {
+  const parsed = parseDateOnly(date)
+  return toDateOnly(new Date(parsed.getFullYear(), parsed.getMonth(), 1, 12))
+}
+
+function addMonths(date: string, amount: number) {
+  const parsed = parseDateOnly(date)
+  return toDateOnly(new Date(parsed.getFullYear(), parsed.getMonth() + amount, 1, 12))
+}
+
+function getMonthEnd(date: string) {
+  const parsed = parseDateOnly(date)
+  return toDateOnly(new Date(parsed.getFullYear(), parsed.getMonth() + 1, 0, 12))
+}
+
+function getMonthLabel(date: string) {
+  return new Intl.DateTimeFormat('pt-BR', {
+    month: 'long',
+    year: 'numeric',
+  }).format(parseDateOnly(date))
+}
+
+function getCalendarDays(monthDate: string) {
+  const monthStart = parseDateOnly(monthDate)
+  const firstDay = new Date(monthStart)
+  const mondayOffset = (firstDay.getDay() + 6) % 7
+  firstDay.setDate(firstDay.getDate() - mondayOffset)
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const day = new Date(firstDay)
+    day.setDate(firstDay.getDate() + index)
+    const date = toDateOnly(day)
+
+    return {
+      date,
+      dayNumber: day.getDate(),
+      isCurrentMonth: day.getMonth() === monthStart.getMonth(),
+      isPast: date < getInitialDate(),
+      isWeekend: day.getDay() === 0 || day.getDay() === 6,
+    }
+  })
 }
 
 function getInitialAuthMode(): AuthMode {
@@ -186,6 +265,20 @@ function getAuthErrorMessage(message: string) {
 
   if (normalized.includes('user already registered')) {
     return 'Este email ja tem cadastro. Entre na conta ou recupere a senha.'
+  }
+
+  return message
+}
+
+function getBookingErrorMessage(message: string, conflictMessage: string) {
+  const normalized = message.toLowerCase()
+
+  if (normalized.includes('booking_date_unavailable')) {
+    return 'Este dia nao esta disponivel para atendimento. Escolha outra data no calendario.'
+  }
+
+  if (normalized.includes('duplicate')) {
+    return conflictMessage
   }
 
   return message
@@ -313,17 +406,23 @@ function App() {
   const [bookingStatus, setBookingStatus] = useState('')
   const [bookingActionStatus, setBookingActionStatus] = useState('')
   const [serviceActionStatus, setServiceActionStatus] = useState('')
+  const [unavailableActionStatus, setUnavailableActionStatus] = useState('')
   const [isSubmittingBooking, setIsSubmittingBooking] = useState(false)
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [bookings, setBookings] = useState<BookingRecord[]>([])
   const [bookedSlots, setBookedSlots] = useState<string[]>([])
+  const [unavailableDays, setUnavailableDays] = useState<UnavailableDay[]>([])
   const [bookingRefreshKey, setBookingRefreshKey] = useState(0)
   const [serviceRefreshKey, setServiceRefreshKey] = useState(0)
   const [adminStatusFilter, setAdminStatusFilter] = useState<AdminStatusFilter>('all')
+  const [adminSelectedDate, setAdminSelectedDate] = useState(() => getInitialDate())
   const [bookingSearch, setBookingSearch] = useState('')
+  const [calendarMonth, setCalendarMonth] = useState(() => getMonthStart(getInitialDate()))
   const [serviceDrafts, setServiceDrafts] = useState<Record<string, ServiceDraft>>({})
   const [newService, setNewService] = useState<ServiceDraft>(() => createEmptyServiceDraft())
+  const [unavailableDraft, setUnavailableDraft] = useState({ date: getInitialDate(), reason: '' })
+  const [rescheduleDrafts, setRescheduleDrafts] = useState<Record<string, RescheduleDraft>>({})
   const [savingServiceId, setSavingServiceId] = useState('')
   const [updatingBookingId, setUpdatingBookingId] = useState('')
 
@@ -472,7 +571,20 @@ function App() {
         }
 
         if (!error) {
-          setBookings((data ?? []) as BookingRecord[])
+          const nextBookings = (data ?? []) as BookingRecord[]
+          setBookings(nextBookings)
+          setRescheduleDrafts((current) => {
+            const next = { ...current }
+
+            nextBookings.forEach((item) => {
+              next[item.id] = current[item.id] ?? {
+                preferredDate: item.preferred_date,
+                preferredTime: item.preferred_time.slice(0, 5),
+              }
+            })
+
+            return next
+          })
         }
       })
 
@@ -480,6 +592,33 @@ function App() {
       isMounted = false
     }
   }, [session, isAdmin, bookingRefreshKey])
+
+  useEffect(() => {
+    const client = supabase
+
+    if (!client || !session) {
+      return
+    }
+
+    let isMounted = true
+    void client
+      .from('admin_unavailable_days')
+      .select('id,unavailable_date,reason,created_at')
+      .gte('unavailable_date', calendarMonth)
+      .lte('unavailable_date', getMonthEnd(calendarMonth))
+      .order('unavailable_date', { ascending: true })
+      .then(({ data, error }) => {
+        if (!isMounted || error) {
+          return
+        }
+
+        setUnavailableDays((data ?? []) as UnavailableDay[])
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [session, calendarMonth, bookingRefreshKey])
 
   useEffect(() => {
     const client = supabase
@@ -515,8 +654,45 @@ function App() {
     bookableServices[0] ??
     serviceSeeds[0]
   const bookingEmail = session?.user.email ?? ''
+  const unavailableDateSet = new Set(unavailableDays.map((day) => day.unavailable_date))
+  const selectedDateIsUnavailable =
+    unavailableDateSet.has(booking.preferredDate) || isWeekendDate(booking.preferredDate)
   const selectedSlotIsBooked = bookedSlots.includes(booking.preferredTime)
-  const availableSlots = timeSlots.filter((slot) => !bookedSlots.includes(slot))
+  const availableSlots = selectedDateIsUnavailable ? [] : timeSlots.filter((slot) => !bookedSlots.includes(slot))
+  const calendarDays = getCalendarDays(calendarMonth)
+  const adminSelectedBookings = bookings.filter((item) => item.preferred_date === adminSelectedDate)
+  const clientSummaries = Array.from(
+    bookings
+      .reduce((clients, item) => {
+        const key = item.client_email.toLowerCase()
+        const current = clients.get(key)
+
+        if (!current) {
+          clients.set(key, {
+            email: item.client_email,
+            name: item.client_name,
+            phone: item.client_phone,
+            total: 1,
+            lastDate: item.preferred_date,
+            lastService: item.service_name,
+            lastStatus: item.status,
+          })
+          return clients
+        }
+
+        current.total += 1
+        if (item.preferred_date >= current.lastDate) {
+          current.name = item.client_name
+          current.phone = item.client_phone
+          current.lastDate = item.preferred_date
+          current.lastService = item.service_name
+          current.lastStatus = item.status
+        }
+
+        return clients
+      }, new Map<string, { email: string; name: string; phone: string; total: number; lastDate: string; lastService: string; lastStatus: BookingStatus }>())
+      .values(),
+  ).sort((first, second) => second.lastDate.localeCompare(first.lastDate))
   const normalizedBookingSearch = bookingSearch.trim().toLowerCase()
   const adminBookings = bookings.filter((item) => {
     const matchesStatus = adminStatusFilter === 'all' || item.status === adminStatusFilter
@@ -592,6 +768,11 @@ function App() {
       return
     }
 
+    if (selectedDateIsUnavailable) {
+      setBookingStatus('Este dia nao esta disponivel para atendimento. Escolha outra data no calendario.')
+      return
+    }
+
     if (selectedSlotIsBooked) {
       setBookingStatus('Esse horario ja foi reservado. Escolha outro horario disponivel.')
       return
@@ -614,21 +795,25 @@ function App() {
     setIsSubmittingBooking(false)
 
     if (error) {
-      const conflictMessage = error.message.toLowerCase().includes('duplicate')
-        ? 'Esse horario acabou de ser reservado. Escolha outro horario disponivel.'
-        : `Nao foi possivel solicitar o horario: ${error.message}`
-      setBookingStatus(conflictMessage)
+      setBookingStatus(
+        `Nao foi possivel solicitar o horario: ${getBookingErrorMessage(
+          error.message,
+          'Esse horario acabou de ser reservado. Escolha outro horario disponivel.',
+        )}`,
+      )
       return
     }
 
     setBookingStatus('Horario solicitado. A confirmacao chega por WhatsApp ou email.')
+    const nextDate = getInitialDate()
     setBooking((current) => ({
       ...current,
       name: '',
       phone: '',
       notes: '',
-      preferredDate: getInitialDate(),
+      preferredDate: nextDate,
     }))
+    setCalendarMonth(getMonthStart(nextDate))
     setBookingRefreshKey((key) => key + 1)
   }
 
@@ -763,6 +948,118 @@ function App() {
 
     setBookingActionStatus('Pedido removido.')
     setBookings((current) => current.filter((item) => item.id !== bookingId))
+    setBookingRefreshKey((key) => key + 1)
+  }
+
+  function updateRescheduleDraft(bookingId: string, patch: Partial<RescheduleDraft>) {
+    setRescheduleDrafts((current) => ({
+      ...current,
+      [bookingId]: {
+        ...(current[bookingId] ?? { preferredDate: getInitialDate(), preferredTime: timeSlots[0] }),
+        ...patch,
+      },
+    }))
+  }
+
+  async function handleBookingReschedule(item: BookingRecord) {
+    const client = supabase
+    const draft = rescheduleDrafts[item.id] ?? {
+      preferredDate: item.preferred_date,
+      preferredTime: item.preferred_time.slice(0, 5),
+    }
+
+    if (!client || !isAdmin) {
+      return
+    }
+
+    if (isWeekendDate(draft.preferredDate) || unavailableDateSet.has(draft.preferredDate)) {
+      setBookingActionStatus('Nao e possivel remarcar para fim de semana ou dia bloqueado.')
+      return
+    }
+
+    setUpdatingBookingId(item.id)
+    setBookingActionStatus('')
+    const { error } = await client
+      .from('bookings')
+      .update({
+        preferred_date: draft.preferredDate,
+        preferred_time: draft.preferredTime,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', item.id)
+    setUpdatingBookingId('')
+
+    if (error) {
+      setBookingActionStatus(
+        `Nao foi possivel remarcar: ${getBookingErrorMessage(
+          error.message,
+          'Ja existe um agendamento ativo nesse horario. Escolha outro periodo.',
+        )}`,
+      )
+      return
+    }
+
+    setBookingActionStatus('Cliente remarcado com sucesso.')
+    setBookings((current) =>
+      current.map((bookingItem) =>
+        bookingItem.id === item.id
+          ? { ...bookingItem, preferred_date: draft.preferredDate, preferred_time: draft.preferredTime }
+          : bookingItem,
+      ),
+    )
+    setBookingRefreshKey((key) => key + 1)
+  }
+
+  async function handleCreateUnavailableDay(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const client = supabase
+
+    if (!client || !isAdmin || !session) {
+      return
+    }
+
+    if (isWeekendDate(unavailableDraft.date)) {
+      setUnavailableActionStatus('Fins de semana ja ficam indisponiveis automaticamente.')
+      return
+    }
+
+    setUnavailableActionStatus('')
+    const { error } = await client.from('admin_unavailable_days').upsert(
+      {
+        unavailable_date: unavailableDraft.date,
+        reason: unavailableDraft.reason.trim() || null,
+        created_by: session.user.id,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'unavailable_date' },
+    )
+
+    if (error) {
+      setUnavailableActionStatus(`Nao foi possivel bloquear o dia: ${error.message}`)
+      return
+    }
+
+    setUnavailableActionStatus('Dia bloqueado na agenda.')
+    setUnavailableDraft({ date: getInitialDate(), reason: '' })
+    setBookingRefreshKey((key) => key + 1)
+  }
+
+  async function handleDeleteUnavailableDay(dayId: string) {
+    const client = supabase
+
+    if (!client || !isAdmin) {
+      return
+    }
+
+    setUnavailableActionStatus('')
+    const { error } = await client.from('admin_unavailable_days').delete().eq('id', dayId)
+
+    if (error) {
+      setUnavailableActionStatus(`Nao foi possivel liberar o dia: ${error.message}`)
+      return
+    }
+
+    setUnavailableActionStatus('Dia liberado novamente.')
     setBookingRefreshKey((key) => key + 1)
   }
 
@@ -989,16 +1286,59 @@ function App() {
               </select>
             </label>
             <div className="calendar-shell">
-              <label>
-                Data desejada
-                <input
-                  required
-                  type="date"
-                  min={getInitialDate()}
-                  value={booking.preferredDate}
-                  onChange={(event) => setBooking({ ...booking, preferredDate: event.target.value })}
-                />
-              </label>
+              <div className="digital-calendar" aria-label="Calendario de disponibilidade">
+                <div className="calendar-toolbar">
+                  <button type="button" onClick={() => setCalendarMonth(addMonths(calendarMonth, -1))}>
+                    Mes anterior
+                  </button>
+                  <strong>{getMonthLabel(calendarMonth)}</strong>
+                  <button type="button" onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}>
+                    Proximo mes
+                  </button>
+                </div>
+                <div className="calendar-weekdays" aria-hidden="true">
+                  {weekdayLabels.map((day) => (
+                    <span key={day}>{day}</span>
+                  ))}
+                </div>
+                <div className="calendar-grid" role="grid">
+                  {calendarDays.map((day) => {
+                    const isUnavailable = unavailableDateSet.has(day.date)
+                    const isSelected = booking.preferredDate === day.date
+                    const isDisabled = !day.isCurrentMonth || day.isPast || day.isWeekend || isUnavailable
+                    const dayBookings = isAdmin
+                      ? bookings.filter(
+                          (item) =>
+                            item.preferred_date === day.date && ['pending', 'confirmed'].includes(item.status),
+                        ).length
+                      : 0
+
+                    return (
+                      <button
+                        type="button"
+                        key={day.date}
+                        className={isSelected ? 'calendar-day selected' : 'calendar-day'}
+                        disabled={isDisabled}
+                        onClick={() => setBooking({ ...booking, preferredDate: day.date })}
+                      >
+                        <strong>{day.dayNumber}</strong>
+                        <span>
+                          {day.isWeekend
+                            ? 'Fechado'
+                            : isUnavailable
+                              ? 'Bloqueado'
+                              : dayBookings
+                                ? `${dayBookings} ocupado(s)`
+                                : 'Aberto'}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+                <p>
+                  Data selecionada: <strong>{formatFullDate(booking.preferredDate)}</strong>
+                </p>
+              </div>
               <div className="slot-picker" aria-label="Horarios disponiveis">
                 {timeSlots.map((slot) => {
                   const isBooked = bookedSlots.includes(slot)
@@ -1009,11 +1349,11 @@ function App() {
                       type="button"
                       key={slot}
                       className={isSelected ? 'slot-button selected' : 'slot-button'}
-                      disabled={isBooked}
+                      disabled={isBooked || selectedDateIsUnavailable}
                       onClick={() => setBooking({ ...booking, preferredTime: slot })}
                     >
                       <strong>{slot}</strong>
-                      <span>{isBooked ? 'Ocupado' : 'Disponivel'}</span>
+                      <span>{selectedDateIsUnavailable ? 'Indisponivel' : isBooked ? 'Ocupado' : 'Disponivel'}</span>
                     </button>
                   )
                 })}
@@ -1167,6 +1507,150 @@ function App() {
             ))}
           </div>
 
+          <div className="admin-ops-grid">
+            <section className="admin-agenda-card" aria-label="Agenda do mes">
+              <div className="admin-heading compact">
+                <div>
+                  <p className="eyebrow">Agenda</p>
+                  <h2>Calendario operacional.</h2>
+                </div>
+              </div>
+              <div className="digital-calendar compact-calendar">
+                <div className="calendar-toolbar">
+                  <button type="button" onClick={() => setCalendarMonth(addMonths(calendarMonth, -1))}>
+                    Mes anterior
+                  </button>
+                  <strong>{getMonthLabel(calendarMonth)}</strong>
+                  <button type="button" onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}>
+                    Proximo mes
+                  </button>
+                </div>
+                <div className="calendar-weekdays" aria-hidden="true">
+                  {weekdayLabels.map((day) => (
+                    <span key={day}>{day}</span>
+                  ))}
+                </div>
+                <div className="calendar-grid" role="grid">
+                  {calendarDays.map((day) => {
+                    const isUnavailable = unavailableDateSet.has(day.date)
+                    const dayBookings = bookings.filter(
+                      (item) => item.preferred_date === day.date && ['pending', 'confirmed'].includes(item.status),
+                    ).length
+
+                    return (
+                      <button
+                        type="button"
+                        key={day.date}
+                        className={adminSelectedDate === day.date ? 'calendar-day selected' : 'calendar-day'}
+                        disabled={!day.isCurrentMonth}
+                        onClick={() => setAdminSelectedDate(day.date)}
+                      >
+                        <strong>{day.dayNumber}</strong>
+                        <span>
+                          {day.isWeekend
+                            ? 'Fechado'
+                            : isUnavailable
+                              ? 'Bloqueado'
+                              : dayBookings
+                                ? `${dayBookings} agenda(s)`
+                                : 'Livre'}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+              <div className="selected-day-agenda">
+                <strong>{formatFullDate(adminSelectedDate)}</strong>
+                {adminSelectedBookings.length ? (
+                  adminSelectedBookings.map((item) => (
+                    <span key={item.id}>
+                      {item.preferred_time.slice(0, 5)} - {item.client_name} - {item.service_name}
+                    </span>
+                  ))
+                ) : (
+                  <span>Nenhum cliente marcado neste dia.</span>
+                )}
+              </div>
+            </section>
+
+            <section className="unavailable-card" aria-label="Dias indisponiveis">
+              <div className="admin-heading compact">
+                <div>
+                  <p className="eyebrow">Bloqueios</p>
+                  <h2>Dias indisponiveis.</h2>
+                </div>
+              </div>
+              <form className="unavailable-form" onSubmit={handleCreateUnavailableDay}>
+                <label>
+                  Data
+                  <input
+                    required
+                    type="date"
+                    min={getInitialDate()}
+                    value={unavailableDraft.date}
+                    onChange={(event) => setUnavailableDraft({ ...unavailableDraft, date: event.target.value })}
+                  />
+                </label>
+                <label>
+                  Motivo
+                  <input
+                    value={unavailableDraft.reason}
+                    onChange={(event) => setUnavailableDraft({ ...unavailableDraft, reason: event.target.value })}
+                    placeholder="Ex: curso, viagem, feriado"
+                  />
+                </label>
+                <button type="submit">Bloquear dia</button>
+              </form>
+              <p className="form-status" role="status">
+                {unavailableActionStatus}
+              </p>
+              <div className="unavailable-list">
+                {unavailableDays.length ? (
+                  unavailableDays.map((day) => (
+                    <article key={day.id}>
+                      <span>
+                        <strong>{formatFullDate(day.unavailable_date)}</strong>
+                        {day.reason ? <small>{day.reason}</small> : <small>Sem motivo informado</small>}
+                      </span>
+                      <button type="button" onClick={() => void handleDeleteUnavailableDay(day.id)}>
+                        Liberar
+                      </button>
+                    </article>
+                  ))
+                ) : (
+                  <p className="empty-state">Nenhum bloqueio neste mes.</p>
+                )}
+              </div>
+            </section>
+          </div>
+
+          <section className="client-directory" aria-label="Informacoes de clientes">
+            <div className="admin-heading compact">
+              <div>
+                <p className="eyebrow">Clientes</p>
+                <h2>Informacoes e historico rapido.</h2>
+              </div>
+            </div>
+            <div className="client-directory-grid">
+              {clientSummaries.length ? (
+                clientSummaries.map((client) => (
+                  <article key={client.email}>
+                    <strong>{client.name}</strong>
+                    <span>{client.email}</span>
+                    <span>{client.phone}</span>
+                    <small>
+                      {client.total} atendimento(s) - ultimo: {formatFullDate(client.lastDate)} - {client.lastService}
+                    </small>
+                    <small className={getStatusTone(client.lastStatus)}>{statusLabels[client.lastStatus]}</small>
+                  </article>
+                ))
+              ) : (
+                <p className="empty-state">Clientes aparecem aqui apos o primeiro agendamento.</p>
+              )}
+            </div>
+          </section>
+
           <div className="admin-controls">
             <label>
               <span>
@@ -1222,6 +1706,37 @@ function App() {
                     {item.notes ? <p>{item.notes}</p> : <p>Sem observacoes.</p>}
                   </div>
                   <div className="admin-booking-actions">
+                    <div className="reschedule-controls">
+                      <label>
+                        Nova data
+                        <input
+                          type="date"
+                          min={getInitialDate()}
+                          value={rescheduleDrafts[item.id]?.preferredDate ?? item.preferred_date}
+                          onChange={(event) => updateRescheduleDraft(item.id, { preferredDate: event.target.value })}
+                        />
+                      </label>
+                      <label>
+                        Horario
+                        <select
+                          value={rescheduleDrafts[item.id]?.preferredTime ?? item.preferred_time.slice(0, 5)}
+                          onChange={(event) => updateRescheduleDraft(item.id, { preferredTime: event.target.value })}
+                        >
+                          {timeSlots.map((slot) => (
+                            <option key={slot} value={slot}>
+                              {slot}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <button
+                        type="button"
+                        disabled={updatingBookingId === item.id}
+                        onClick={() => void handleBookingReschedule(item)}
+                      >
+                        Remarcar
+                      </button>
+                    </div>
                     <select
                       value={item.status}
                       disabled={updatingBookingId === item.id}

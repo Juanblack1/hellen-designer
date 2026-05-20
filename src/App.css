@@ -738,6 +738,107 @@
   gap: 14px;
 }
 
+.digital-calendar {
+  background: rgba(251, 247, 239, 0.72);
+  border: 1px solid rgba(31, 26, 23, 0.1);
+  border-radius: 22px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.calendar-toolbar {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.calendar-toolbar strong {
+  color: var(--espresso);
+  font-family: var(--display);
+  font-size: 1.25rem;
+  letter-spacing: -0.04em;
+  text-transform: capitalize;
+}
+
+.calendar-toolbar button,
+.unavailable-form button,
+.unavailable-list button,
+.reschedule-controls button {
+  background: var(--espresso);
+  border: 0;
+  border-radius: 999px;
+  color: var(--cream);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 900;
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.calendar-weekdays span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.calendar-day {
+  background: #fbf7ef;
+  border: 1px solid rgba(31, 26, 23, 0.1);
+  border-radius: 14px;
+  color: var(--espresso);
+  cursor: pointer;
+  display: grid;
+  gap: 3px;
+  min-height: 62px;
+  padding: 8px;
+  text-align: left;
+}
+
+.calendar-day strong {
+  font-size: 1rem;
+}
+
+.calendar-day span {
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.calendar-day.selected {
+  background: var(--espresso);
+  color: var(--cream);
+}
+
+.calendar-day.selected span {
+  color: rgba(244, 238, 229, 0.78);
+}
+
+.calendar-day:disabled {
+  background: rgba(109, 98, 89, 0.08);
+  color: rgba(31, 26, 23, 0.38);
+  cursor: not-allowed;
+}
+
+.digital-calendar > p {
+  color: var(--muted);
+  font-size: 0.84rem;
+  margin: 0;
+}
+
 .slot-picker {
   display: grid;
   gap: 10px;
@@ -1041,6 +1142,86 @@ button:disabled {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.admin-ops-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+}
+
+.admin-agenda-card,
+.unavailable-card,
+.client-directory {
+  background: rgba(251, 247, 239, 0.74);
+  border: 1px solid rgba(31, 26, 23, 0.09);
+  border-radius: 24px;
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.compact-calendar .calendar-day {
+  min-height: 56px;
+}
+
+.selected-day-agenda,
+.unavailable-list,
+.client-directory-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.selected-day-agenda {
+  background: var(--sand);
+  border-radius: 18px;
+  padding: 14px;
+}
+
+.selected-day-agenda strong,
+.selected-day-agenda span {
+  color: var(--espresso);
+}
+
+.unavailable-form {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 150px minmax(0, 1fr) auto;
+}
+
+.unavailable-list article,
+.client-directory-grid article {
+  background: #fbf7ef;
+  border: 1px solid rgba(31, 26, 23, 0.08);
+  border-radius: 18px;
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+}
+
+.unavailable-list article {
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.unavailable-list span,
+.client-directory-grid article {
+  min-width: 0;
+}
+
+.unavailable-list small,
+.client-directory-grid span,
+.client-directory-grid small {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.client-directory-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.client-directory-grid strong {
+  color: var(--espresso);
+}
+
 .admin-stats article {
   background: #fbf7ef;
   border: 1px solid rgba(31, 26, 23, 0.08);
@@ -1133,6 +1314,17 @@ button:disabled {
 .admin-booking-actions {
   align-content: start;
   grid-template-columns: minmax(150px, 1fr) auto;
+}
+
+.reschedule-controls {
+  display: grid;
+  gap: 8px;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(135px, 1fr) 110px auto;
+}
+
+.reschedule-controls label {
+  font-size: 0.74rem;
 }
 
 .icon-button {
@@ -1386,6 +1578,10 @@ button:disabled {
   .section-heading,
   .admin-controls,
   .admin-booking-card,
+  .admin-ops-grid,
+  .client-directory-grid,
+  .unavailable-form,
+  .reschedule-controls,
   .new-service-form,
   .service-editor-grid {
     grid-template-columns: 1fr;
@@ -1641,6 +1837,21 @@ button:disabled {
 
   .slot-picker {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .calendar-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .calendar-day {
+    border-radius: 10px;
+    min-height: 46px;
+    padding: 6px;
+  }
+
+  .calendar-day span {
+    display: none;
   }
 
   .auth-page {
