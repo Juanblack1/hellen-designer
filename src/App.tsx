@@ -507,6 +507,8 @@ function App() {
   }, [session, booking.preferredDate, bookingRefreshKey])
 
   const isAuthRoute = route === '/auth'
+  const isCustomerRoute = route === '/cliente'
+  const isAdminRoute = route === '/admin'
   const bookableServices = services.filter((service) => service.active)
   const selectedService =
     bookableServices.find((service) => service.id === booking.serviceId) ??
@@ -550,6 +552,12 @@ function App() {
     })
   }
 
+  function goToPath(path: string) {
+    window.history.pushState(null, '', path)
+    setRoute(path)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   function goToAuth(mode: AuthMode, next?: string) {
     const params = new URLSearchParams({ mode })
 
@@ -570,7 +578,7 @@ function App() {
     const client = supabase
 
     if (!session) {
-      goToAuth('sign-in', 'agenda')
+      goToAuth('sign-in', 'cliente')
       return
     }
 
@@ -665,7 +673,7 @@ function App() {
 
       setAuthStatus('Senha atualizada com sucesso.')
       setAuthForm({ email: '', password: '' })
-      goHome('cliente')
+      goToPath('/cliente')
       return
     }
 
@@ -692,32 +700,7 @@ function App() {
     }
 
     setAuthForm({ email: '', password: '' })
-    goHome(nextTarget === 'agenda' ? 'agenda' : 'cliente')
-  }
-
-  async function handleResendConfirmation() {
-    const client = supabase
-    const email = authForm.email.trim().toLowerCase()
-
-    if (!client || !email) {
-      setAuthStatus('Informe seu email para reenviar a confirmacao.')
-      return
-    }
-
-    setIsSubmittingAuth(true)
-    const { error } = await client.auth.resend({
-      type: 'signup',
-      email,
-      options: { emailRedirectTo: getAuthRedirectUrl('sign-in') },
-    })
-    setIsSubmittingAuth(false)
-
-    if (error) {
-      setAuthStatus(getAuthErrorMessage(error.message))
-      return
-    }
-
-    setAuthStatus('Reenviamos o link de confirmacao para seu email.')
+    goToPath(nextTarget === 'admin' ? '/admin' : '/cliente')
   }
 
   async function handleSignOut() {
@@ -901,6 +884,505 @@ function App() {
     setServiceRefreshKey((key) => key + 1)
   }
 
+  function renderTopbar() {
+    return (
+      <nav className="topbar" aria-label="Navegacao principal">
+        <button type="button" className="brand brand-button" onClick={() => goHome()} aria-label="Hellen Martins Brows">
+          <img src={brandLogo} alt="" className="brand-logo" />
+          <strong>Hellen Martins Brows</strong>
+        </button>
+        <div className="nav-links">
+          <button type="button" onClick={() => goHome('servicos')}>
+            Servicos
+          </button>
+          {session ? (
+            <button type="button" onClick={() => goToPath(isAdmin ? '/admin' : '/cliente')}>
+              {isAdmin ? 'Admin' : 'Cliente'}
+            </button>
+          ) : null}
+          <a href={instagramUrl} target="_blank" rel="noreferrer">
+            Instagram
+          </a>
+        </div>
+        <div className="header-auth" aria-label="Acesso da cliente">
+          {session ? (
+            <button type="button" className="header-signin" onClick={() => goToPath(isAdmin ? '/admin' : '/cliente')}>
+              {isAdmin ? 'Painel admin' : 'Minha agenda'}
+            </button>
+          ) : (
+            <>
+              <button type="button" className="header-signin" onClick={() => goToAuth('sign-in')}>
+                Entrar
+              </button>
+              <button type="button" className="header-signup" onClick={() => goToAuth('sign-up')}>
+                Criar conta
+              </button>
+            </>
+          )}
+        </div>
+      </nav>
+    )
+  }
+
+  function renderBookingSection() {
+    return (
+      <section className="booking-section" id="agenda">
+        <div className="booking-intro">
+          <p className="eyebrow">Agendamento</p>
+          <h2>Escolha uma data e veja os horarios disponiveis.</h2>
+          <p>
+            Esta area fica separada da tela inicial para manter seus dados, historico e pedidos de
+            horario em um espaco reservado.
+          </p>
+          <div className="contact-stack">
+            <span>
+              <Camera size={17} aria-hidden="true" /> @h.ellenmartins
+            </span>
+            <span>
+              <MapPin size={17} aria-hidden="true" /> Atendimento de segunda a sexta
+            </span>
+            <span>
+              <Mail size={17} aria-hidden="true" /> Confirmacao por email
+            </span>
+          </div>
+        </div>
+
+        {session ? (
+          <form className="booking-form" onSubmit={handleBookingSubmit}>
+            <label>
+              Nome completo
+              <input
+                required
+                minLength={2}
+                value={booking.name}
+                onChange={(event) => setBooking({ ...booking, name: event.target.value })}
+                placeholder="Como devemos te chamar?"
+              />
+            </label>
+            <div className="form-row">
+              <label>
+                Email da conta
+                <input readOnly value={bookingEmail} />
+              </label>
+              <label>
+                WhatsApp
+                <input
+                  required
+                  inputMode="tel"
+                  value={booking.phone}
+                  onChange={(event) => setBooking({ ...booking, phone: event.target.value })}
+                  placeholder="(00) 00000-0000"
+                />
+              </label>
+            </div>
+            <label>
+              Servico
+              <select
+                value={selectedService.id}
+                onChange={(event) => setBooking({ ...booking, serviceId: event.target.value })}
+              >
+                {bookableServices.map((service) => (
+                  <option key={service.id} value={service.id}>
+                    {service.name} - {formatPrice(service.priceCents)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="calendar-shell">
+              <label>
+                Data desejada
+                <input
+                  required
+                  type="date"
+                  min={getInitialDate()}
+                  value={booking.preferredDate}
+                  onChange={(event) => setBooking({ ...booking, preferredDate: event.target.value })}
+                />
+              </label>
+              <div className="slot-picker" aria-label="Horarios disponiveis">
+                {timeSlots.map((slot) => {
+                  const isBooked = bookedSlots.includes(slot)
+                  const isSelected = booking.preferredTime === slot
+
+                  return (
+                    <button
+                      type="button"
+                      key={slot}
+                      className={isSelected ? 'slot-button selected' : 'slot-button'}
+                      disabled={isBooked}
+                      onClick={() => setBooking({ ...booking, preferredTime: slot })}
+                    >
+                      <strong>{slot}</strong>
+                      <span>{isBooked ? 'Ocupado' : 'Disponivel'}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            <label>
+              Observacoes
+              <textarea
+                rows={4}
+                value={booking.notes}
+                onChange={(event) => setBooking({ ...booking, notes: event.target.value })}
+                placeholder="Conte se e sua primeira vez, se tem alergias ou objetivo especifico."
+              />
+            </label>
+            <div className="form-actions">
+              <button
+                type="submit"
+                disabled={
+                  isSubmittingBooking ||
+                  !bookableServices.length ||
+                  selectedSlotIsBooked ||
+                  !availableSlots.length
+                }
+              >
+                {isSubmittingBooking ? 'Solicitando...' : 'Solicitar horario'}
+              </button>
+            </div>
+            <p className="form-status" role="status" aria-live="polite">
+              {bookingStatus ||
+                (availableSlots.length
+                  ? 'Voce recebera a confirmacao pelo WhatsApp ou email.'
+                  : 'Nao ha horarios livres nesta data. Escolha outro dia.')}
+            </p>
+          </form>
+        ) : (
+          <div className="booking-gate">
+            <LockKeyhole size={28} aria-hidden="true" />
+            <h3>Entre para escolher um horario.</h3>
+            <p>A agenda com datas e horarios fica disponivel depois do login.</p>
+            <div className="form-actions">
+              <button type="button" onClick={() => goToAuth('sign-in', 'cliente')}>
+                Entrar para agendar
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
+    )
+  }
+
+  function renderCustomerSection() {
+    return (
+      <section className="client-section" id="cliente">
+        <div className="client-card">
+          <div>
+            <p className="eyebrow">Area da cliente</p>
+            <h2>Acompanhe seus horarios com tranquilidade.</h2>
+            <p>
+              Veja seus pedidos, acompanhe confirmacoes e mantenha seus dados organizados para os
+              proximos atendimentos.
+            </p>
+          </div>
+
+          {session ? (
+            <div className="session-box">
+              <LockKeyhole size={22} aria-hidden="true" />
+              <span>Logado como</span>
+              <strong>{session.user.email}</strong>
+              <small>Acesso de cliente ativo</small>
+              <button type="button" onClick={handleSignOut}>
+                Sair
+              </button>
+            </div>
+          ) : null}
+        </div>
+
+        {session ? (
+          <div className="booking-list" aria-live="polite">
+            <div className="section-heading compact">
+              <p className="eyebrow">Pedidos recentes</p>
+              <h2>Minha agenda</h2>
+            </div>
+            {customerBookings.length ? (
+              <div className="booking-items">
+                {customerBookings.map((item) => (
+                  <article key={item.id}>
+                    <time dateTime={item.preferred_date}>{formatDate(item.preferred_date)}</time>
+                    <div>
+                      <strong>{item.client_name}</strong>
+                      <span>
+                        {item.service_name} as {item.preferred_time.slice(0, 5)}
+                      </span>
+                    </div>
+                    <small className={getStatusTone(item.status)}>{statusLabels[item.status]}</small>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="empty-state">
+                Nenhum agendamento para esta conta ainda. Escolha um horario acima e acompanhe o
+                status aqui.
+              </p>
+            )}
+          </div>
+        ) : null}
+      </section>
+    )
+  }
+
+  function renderAdminSection() {
+    if (!session || !isAdmin) {
+      return (
+        <section className="client-section private-access-section">
+          <div className="booking-gate">
+            <LockKeyhole size={28} aria-hidden="true" />
+            <h3>Acesso administrativo restrito.</h3>
+            <p>Entre com a conta autorizada da Hellen para visualizar o painel.</p>
+            <div className="form-actions">
+              <button type="button" onClick={() => goToAuth('sign-in', 'admin')}>
+                Entrar como admin
+              </button>
+            </div>
+          </div>
+        </section>
+      )
+    }
+
+    return (
+      <section className="client-section admin-page-section">
+        <div className="admin-panel" aria-live="polite">
+          <div className="admin-heading">
+            <div>
+              <p className="eyebrow">Painel admin</p>
+              <h2>Agenda completa com filtros e status.</h2>
+              <p>
+                Visualize todos os pedidos com acesso restrito, confirme horarios, finalize
+                atendimentos e pause servicos sem processos manuais.
+              </p>
+            </div>
+            <span className="admin-badge">
+              <UserCheck size={16} aria-hidden="true" /> Admin ativo
+            </span>
+          </div>
+
+          <div className="admin-stats" aria-label="Resumo de status">
+            {bookingStats.map((item) => (
+              <article key={item.status}>
+                <span>{statusLabels[item.status]}</span>
+                <strong>{item.count}</strong>
+              </article>
+            ))}
+          </div>
+
+          <div className="admin-controls">
+            <label>
+              <span>
+                <Filter size={15} aria-hidden="true" /> Status
+              </span>
+              <select
+                value={adminStatusFilter}
+                onChange={(event) => setAdminStatusFilter(event.target.value as AdminStatusFilter)}
+              >
+                <option value="all">Todos</option>
+                {statusOptions.map((status) => (
+                  <option key={status} value={status}>
+                    {statusLabels[status]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Busca
+              <input
+                value={bookingSearch}
+                onChange={(event) => setBookingSearch(event.target.value)}
+                placeholder="Nome, email, telefone ou servico"
+              />
+            </label>
+          </div>
+
+          <p className="form-status" role="status">
+            {bookingActionStatus}
+          </p>
+
+          {adminBookings.length ? (
+            <div className="admin-booking-list">
+              {adminBookings.map((item) => (
+                <article className="admin-booking-card" key={item.id}>
+                  <time dateTime={item.preferred_date}>{formatFullDate(item.preferred_date)}</time>
+                  <div className="admin-booking-main">
+                    <div>
+                      <strong>{item.client_name}</strong>
+                      <span>
+                        {item.service_name} as {item.preferred_time.slice(0, 5)}
+                      </span>
+                    </div>
+                    <small className={getStatusTone(item.status)}>{statusLabels[item.status]}</small>
+                  </div>
+                  <div className="admin-contact-grid">
+                    <span>
+                      <Mail size={14} aria-hidden="true" /> {item.client_email}
+                    </span>
+                    <span>
+                      <Phone size={14} aria-hidden="true" /> {item.client_phone}
+                    </span>
+                    {item.notes ? <p>{item.notes}</p> : <p>Sem observacoes.</p>}
+                  </div>
+                  <div className="admin-booking-actions">
+                    <select
+                      value={item.status}
+                      disabled={updatingBookingId === item.id}
+                      onChange={(event) =>
+                        void handleBookingStatusChange(item.id, event.target.value as BookingStatus)
+                      }
+                    >
+                      {statusOptions.map((status) => (
+                        <option key={status} value={status}>
+                          {statusLabels[status]}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="icon-button danger"
+                      disabled={updatingBookingId === item.id}
+                      onClick={() => void handleBookingDelete(item.id)}
+                      aria-label={`Excluir pedido de ${item.client_name}`}
+                    >
+                      <Trash2 size={16} aria-hidden="true" />
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="empty-state">Nenhum pedido encontrado para os filtros atuais.</p>
+          )}
+
+          <div className="service-manager">
+            <div className="admin-heading compact">
+              <div>
+                <p className="eyebrow">Catalogo</p>
+                <h2>Servicos, precos e disponibilidade.</h2>
+              </div>
+            </div>
+
+            <form className="new-service-form" onSubmit={handleCreateService}>
+              <label>
+                Novo servico
+                <input
+                  value={newService.name}
+                  onChange={(event) => setNewService({ ...newService, name: event.target.value })}
+                  placeholder="Ex: Manutencao mensal"
+                />
+              </label>
+              <label>
+                Preco
+                <input
+                  inputMode="decimal"
+                  value={newService.priceCents}
+                  onChange={(event) => setNewService({ ...newService, priceCents: event.target.value })}
+                  placeholder="95,00"
+                />
+              </label>
+              <label>
+                Duracao
+                <input
+                  inputMode="numeric"
+                  value={newService.durationMinutes}
+                  onChange={(event) => setNewService({ ...newService, durationMinutes: event.target.value })}
+                  placeholder="60"
+                />
+              </label>
+              <label className="wide-field">
+                Descricao
+                <input
+                  value={newService.description}
+                  onChange={(event) => setNewService({ ...newService, description: event.target.value })}
+                  placeholder="Resumo curto para a vitrine"
+                />
+              </label>
+              <button type="submit" disabled={savingServiceId === 'new'}>
+                <Plus size={16} aria-hidden="true" /> Adicionar
+              </button>
+            </form>
+
+            <p className="form-status" role="status">
+              {serviceActionStatus}
+            </p>
+
+            <div className="service-editor-list">
+              {services.map((service) => {
+                const draft = serviceDrafts[service.id] ?? createServiceDraft(service)
+
+                return (
+                  <article
+                    className={!draft.active ? 'service-editor-card is-paused' : 'service-editor-card'}
+                    key={service.id}
+                  >
+                    <div className="service-editor-head">
+                      <strong>{service.id}</strong>
+                      <label className="toggle-label">
+                        <input
+                          type="checkbox"
+                          checked={draft.active}
+                          onChange={(event) => updateServiceDraft(service.id, { active: event.target.checked })}
+                        />
+                        Ativo
+                      </label>
+                    </div>
+                    <div className="service-editor-grid">
+                      <label>
+                        Nome
+                        <input
+                          value={draft.name}
+                          onChange={(event) => updateServiceDraft(service.id, { name: event.target.value })}
+                        />
+                      </label>
+                      <label>
+                        Preco
+                        <input
+                          inputMode="decimal"
+                          value={draft.priceCents}
+                          onChange={(event) => updateServiceDraft(service.id, { priceCents: event.target.value })}
+                        />
+                      </label>
+                      <label>
+                        Minutos
+                        <input
+                          inputMode="numeric"
+                          value={draft.durationMinutes}
+                          onChange={(event) => updateServiceDraft(service.id, { durationMinutes: event.target.value })}
+                        />
+                      </label>
+                      <label>
+                        Ordem
+                        <input
+                          inputMode="numeric"
+                          value={draft.sortOrder}
+                          onChange={(event) => updateServiceDraft(service.id, { sortOrder: event.target.value })}
+                        />
+                      </label>
+                      <label className="wide-field">
+                        Descricao
+                        <textarea
+                          rows={2}
+                          value={draft.description}
+                          onChange={(event) => updateServiceDraft(service.id, { description: event.target.value })}
+                        />
+                      </label>
+                    </div>
+                    <button
+                      type="button"
+                      className="save-service-button"
+                      disabled={savingServiceId === service.id}
+                      onClick={() => void handleServiceSave(service)}
+                    >
+                      <Save size={16} aria-hidden="true" /> Salvar servico
+                    </button>
+                  </article>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
   if (isAuthRoute) {
     const isRecovery = authMode === 'forgot-password'
     const isReset = authMode === 'reset-password'
@@ -961,7 +1443,7 @@ function App() {
               <UserCheck size={24} aria-hidden="true" />
               <h2>Voce ja esta conectado.</h2>
               <p>{session.user.email}</p>
-              <button type="button" onClick={() => goHome(isAdmin ? 'cliente' : 'agenda')}>
+              <button type="button" onClick={() => goToPath(isAdmin ? '/admin' : '/cliente')}>
                 Continuar
               </button>
               <button type="button" className="text-button" onClick={handleSignOut}>
@@ -1009,28 +1491,13 @@ function App() {
                         : 'Criar conta'}
               </button>
 
-              <div className="auth-secondary-actions">
-                {!isRecovery && !isReset ? (
+              {authMode === 'sign-in' ? (
+                <div className="auth-secondary-actions">
                   <button type="button" className="text-button" onClick={() => goToAuth('forgot-password')}>
                     Esqueci minha senha
                   </button>
-                ) : null}
-                {authMode !== 'sign-up' && !isReset ? (
-                  <button type="button" className="text-button" onClick={() => goToAuth('sign-up')}>
-                    Criar nova conta
-                  </button>
-                ) : null}
-                {!isRecovery && !isReset ? (
-                  <button
-                    type="button"
-                    className="text-button"
-                    disabled={isSubmittingAuth}
-                    onClick={() => void handleResendConfirmation()}
-                  >
-                    Reenviar confirmacao
-                  </button>
-                ) : null}
-              </div>
+                </div>
+              ) : null}
 
               <p className="form-status" role="status" aria-live="polite">
                 {authStatus}
@@ -1042,40 +1509,46 @@ function App() {
     )
   }
 
+  if (isCustomerRoute) {
+    return (
+      <main>
+        <section className="page-header-section">
+          <div className="hero-noise" aria-hidden="true" />
+          {renderTopbar()}
+          <div className="page-heading">
+            <p className="eyebrow">Area da cliente</p>
+            <h1>Agenda, historico e pedidos em uma tela reservada.</h1>
+            <p>Entre na sua conta para escolher horarios livres e acompanhar suas confirmacoes.</p>
+          </div>
+        </section>
+        {renderBookingSection()}
+        {session ? renderCustomerSection() : null}
+      </main>
+    )
+  }
+
+  if (isAdminRoute) {
+    return (
+      <main>
+        <section className="page-header-section admin-header-section">
+          <div className="hero-noise" aria-hidden="true" />
+          {renderTopbar()}
+          <div className="page-heading">
+            <p className="eyebrow">Painel privado</p>
+            <h1>Controle administrativo separado da vitrine e da area da cliente.</h1>
+            <p>Gerencie pedidos, status e catalogo com acesso exclusivo.</p>
+          </div>
+        </section>
+        {renderAdminSection()}
+      </main>
+    )
+  }
+
   return (
-    <main>
+    <main className="home-page">
       <section className="hero-section" id="inicio">
         <div className="hero-noise" aria-hidden="true" />
-        <nav className="topbar" aria-label="Navegacao principal">
-          <button type="button" className="brand brand-button" onClick={() => goHome()} aria-label="Hellen Martins Brows">
-            <img src={brandLogo} alt="" className="brand-logo" />
-            <strong>Hellen Martins Brows</strong>
-          </button>
-          <div className="nav-links">
-            <a href="#servicos">Servicos</a>
-            <a href="#agenda">Agenda</a>
-            <a href="#cliente">Cliente</a>
-            <a href={instagramUrl} target="_blank" rel="noreferrer">
-              Instagram
-            </a>
-          </div>
-          <div className="header-auth" aria-label="Acesso da cliente">
-            {session ? (
-              <button type="button" className="header-signin" onClick={() => goHome('cliente')}>
-                {isAdmin ? 'Painel admin' : 'Minha agenda'}
-              </button>
-            ) : (
-              <>
-                <button type="button" className="header-signin" onClick={() => goToAuth('sign-in')}>
-                  Entrar
-                </button>
-                <button type="button" className="header-signup" onClick={() => goToAuth('sign-up')}>
-                  Criar conta
-                </button>
-              </>
-            )}
-          </div>
-        </nav>
+        {renderTopbar()}
 
         <div className="hero-grid">
           <div className="hero-copy">
@@ -1086,14 +1559,14 @@ function App() {
             <p className="eyebrow">Hellen Martins Beauty</p>
             <h1>Sobrancelhas naturais com medida, tecnica e acabamento fino.</h1>
             <p className="hero-lede">
-              Separe um tempinho para voce. Escolha o servico, veja horarios livres e acompanhe
-              a confirmacao em uma experiencia elegante e reservada.
+              Design personalizado para realcar seu olhar com naturalidade, conforto e
+              acabamento delicado.
             </p>
             <div className="hero-actions">
               <button
                 type="button"
                 className="primary-action"
-                onClick={() => (session ? goHome('agenda') : goToAuth('sign-in', 'agenda'))}
+                onClick={() => (session ? goToPath(isAdmin ? '/admin' : '/cliente') : goToAuth('sign-in', 'cliente'))}
               >
                 Agendar agora
                 <ArrowRight size={18} aria-hidden="true" />
@@ -1115,13 +1588,8 @@ function App() {
               <div className="appointment-card glass-card">
                 <CalendarCheck size={18} aria-hidden="true" />
                 <span>Agenda aberta</span>
-                <strong>Ter a Sab</strong>
+                <strong>Seg a Sex</strong>
               </div>
-            </div>
-            <div className="metric-card glass-card">
-              <span>Agenda online</span>
-              <strong>Agora</strong>
-              <small>Escolha seu horario sem troca de mensagens</small>
             </div>
           </div>
         </div>
@@ -1137,8 +1605,8 @@ function App() {
           <span>Desenho guiado pelo rosto e estilo da cliente</span>
         </article>
         <article>
-          <strong>Agenda online</strong>
-          <span>Separe um tempinho para voce e agende agora</span>
+          <strong>Seg a Sex</strong>
+          <span>Atendimento organizado em dias uteis</span>
         </article>
       </section>
 
@@ -1295,11 +1763,8 @@ function App() {
               mesmo periodo.
             </p>
             <div className="form-actions">
-              <button type="button" onClick={() => goToAuth('sign-in', 'agenda')}>
+              <button type="button" onClick={() => goToAuth('sign-in', 'cliente')}>
                 Entrar para agendar
-              </button>
-              <button type="button" className="secondary-button" onClick={() => goToAuth('sign-up', 'agenda')}>
-                Criar conta
               </button>
             </div>
           </div>

@@ -10,6 +10,59 @@
   padding: 22px clamp(18px, 4vw, 56px) 56px;
 }
 
+.home-page > .booking-section,
+.home-page > .client-section {
+  display: none;
+}
+
+.page-header-section {
+  background:
+    radial-gradient(circle at 86% 18%, rgba(159, 143, 89, 0.18), transparent 26%),
+    linear-gradient(115deg, rgba(31, 26, 23, 0.07), transparent 34%),
+    var(--cream);
+  min-height: 360px;
+  overflow: hidden;
+  padding: 22px clamp(18px, 4vw, 56px) 64px;
+  position: relative;
+}
+
+.admin-header-section {
+  background:
+    radial-gradient(circle at 86% 18%, rgba(229, 217, 162, 0.16), transparent 26%),
+    linear-gradient(135deg, rgba(31, 26, 23, 0.96), rgba(58, 49, 41, 0.96));
+}
+
+.page-heading {
+  margin: 108px auto 0;
+  max-width: 1080px;
+  position: relative;
+  z-index: 1;
+}
+
+.page-heading h1 {
+  color: var(--espresso);
+  font-family: var(--display);
+  font-size: clamp(2.65rem, 5.6vw, 5.4rem);
+  letter-spacing: -0.06em;
+  line-height: 0.92;
+  margin: 0;
+  max-width: 850px;
+}
+
+.page-heading p:not(.eyebrow) {
+  color: var(--muted);
+  font-size: clamp(1rem, 1.4vw, 1.14rem);
+  line-height: 1.65;
+  margin: 22px 0 0;
+  max-width: 620px;
+}
+
+.admin-header-section .page-heading h1,
+.admin-header-section .page-heading p:not(.eyebrow),
+.admin-header-section .page-heading .eyebrow {
+  color: var(--cream);
+}
+
 .hero-section::before {
   background:
     linear-gradient(rgba(31, 26, 23, 0.035) 1px, transparent 1px),
@@ -112,10 +165,14 @@
   margin-left: auto;
 }
 
-.nav-links a {
+.nav-links a,
+.nav-links button {
+  background: transparent;
   border: 1px solid transparent;
   border-radius: 999px;
   color: var(--muted);
+  cursor: pointer;
+  font: inherit;
   font-size: 0.82rem;
   font-weight: 700;
   padding: 8px 12px;
@@ -124,7 +181,9 @@
 }
 
 .nav-links a:hover,
-.nav-links a:focus-visible {
+.nav-links a:focus-visible,
+.nav-links button:hover,
+.nav-links button:focus-visible {
   background: rgba(31, 26, 23, 0.06);
   border-color: rgba(31, 26, 23, 0.12);
   color: var(--espresso);
@@ -169,9 +228,9 @@
   align-items: center;
   display: grid;
   gap: clamp(28px, 5vw, 64px);
-  grid-template-columns: minmax(0, 0.98fr) minmax(320px, 0.74fr);
+  grid-template-columns: minmax(0, 0.88fr) minmax(420px, 0.9fr);
   margin: 92px auto 0;
-  max-width: 1120px;
+  max-width: 1240px;
 }
 
 .hero-copy {
@@ -367,7 +426,7 @@
 }
 
 .hero-visual {
-  min-height: 520px;
+  min-height: 620px;
   position: relative;
 }
 
@@ -376,7 +435,7 @@
   border: 1px solid rgba(31, 26, 23, 0.16);
   border-radius: 220px 220px 24px 24px;
   box-shadow: 0 34px 100px rgba(31, 26, 23, 0.2);
-  min-height: 470px;
+  min-height: 580px;
   overflow: hidden;
   position: relative;
 }
@@ -411,7 +470,7 @@
   inset: 0;
   max-width: none;
   object-fit: cover;
-  object-position: center;
+  object-position: center 42%;
   position: absolute;
   transform: none;
   width: 100%;
@@ -1278,6 +1337,16 @@ button:disabled {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+.auth-form .auth-secondary-actions .text-button {
+  background: transparent;
+  box-shadow: none;
+  color: var(--gold-dark);
+  justify-content: flex-start;
+  min-height: auto;
+  padding: 0;
+  width: auto;
 }
 
 .auth-connected {
