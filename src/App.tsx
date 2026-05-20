@@ -51,6 +51,7 @@ type BookingForm = {
   serviceId: string
   preferredDate: string
   preferredTime: string
+  preferredEndTime: string
   notes: string
 }
 
@@ -70,6 +71,7 @@ type BookingRecord = {
   service_name: string
   preferred_date: string
   preferred_time: string
+  preferred_end_time: string
   notes: string | null
   status: BookingStatus
   source: string
@@ -77,6 +79,12 @@ type BookingRecord = {
 
 type BookedSlotRow = {
   preferred_time: string
+  preferred_end_time: string
+}
+
+type BookedSlot = {
+  startTime: string
+  endTime: string
 }
 
 type UnavailableDay = {
@@ -86,9 +94,26 @@ type UnavailableDay = {
   created_at: string
 }
 
+type AvailabilitySlot = {
+  id: string
+  weekday: number
+  start_time: string
+  end_time: string
+  active: boolean
+  sort_order: number
+  created_at: string
+}
+
 type RescheduleDraft = {
   preferredDate: string
   preferredTime: string
+  preferredEndTime: string
+}
+
+type AvailabilityDraft = {
+  weekday: string
+  startTime: string
+  endTime: string
 }
 
 type ServiceDraft = {
@@ -149,8 +174,6 @@ const serviceSeeds: ServiceOption[] = [
   },
 ]
 
-const timeSlots = ['09:00', '10:30', '12:00', '14:00', '15:30', '17:00', '18:30']
-
 const statusLabels: Record<BookingStatus, string> = {
   pending: 'Aguardando confirmacao',
   confirmed: 'Confirmado',
@@ -160,9 +183,24 @@ const statusLabels: Record<BookingStatus, string> = {
 
 const statusOptions: BookingStatus[] = ['pending', 'confirmed', 'done', 'cancelled']
 const weekdayLabels = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom']
+const weekdayOptions = [
+  { value: 1, label: 'Segunda' },
+  { value: 2, label: 'Terca' },
+  { value: 3, label: 'Quarta' },
+  { value: 4, label: 'Quinta' },
+  { value: 5, label: 'Sexta' },
+]
 
 function toDateOnly(date: Date) {
-  return date.toISOString().slice(0, 10)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+function getTodayDate() {
+  return toDateOnly(new Date())
 }
 
 function parseDateOnly(date: string) {
@@ -172,6 +210,15 @@ function parseDateOnly(date: string) {
 function isWeekendDate(date: string) {
   const day = parseDateOnly(date).getDay()
   return day === 0 || day === 6
+}
+
+function getIsoWeekday(date: string) {
+  const day = parseDateOnly(date).getDay()
+  return day === 0 ? 7 : day
+}
+
+function getWeekdayName(weekday: number) {
+  return weekdayOptions.find((option) => option.value === weekday)?.label ?? 'Fim de semana'
 }
 
 function getNextBusinessDate(date: Date) {
@@ -217,6 +264,7 @@ function getCalendarDays(monthDate: string) {
   const firstDay = new Date(monthStart)
   const mondayOffset = (firstDay.getDay() + 6) % 7
   firstDay.setDate(firstDay.getDate() - mondayOffset)
+  const today = getTodayDate()
 
   return Array.from({ length: 42 }, (_, index) => {
     const day = new Date(firstDay)
@@ -227,10 +275,22 @@ function getCalendarDays(monthDate: string) {
       date,
       dayNumber: day.getDate(),
       isCurrentMonth: day.getMonth() === monthStart.getMonth(),
-      isPast: date < getInitialDate(),
+      isPast: date < today,
       isWeekend: day.getDay() === 0 || day.getDay() === 6,
     }
   })
+}
+
+function timeLabel(time: string) {
+  return time.slice(0, 5)
+}
+
+function getSlotKey(startTime: string, endTime: string) {
+  return `${timeLabel(startTime)}-${timeLabel(endTime)}`
+}
+
+function formatTimeRange(startTime: string, endTime: string) {
+  return `${timeLabel(startTime)} ate ${timeLabel(endTime)}`
 }
 
 function getInitialAuthMode(): AuthMode {
@@ -273,12 +333,38 @@ function getAuthErrorMessage(message: string) {
 function getBookingErrorMessage(message: string, conflictMessage: string) {
   const normalized = message.toLowerCase()
 
+  if (normalized.includes('booking_date_in_past')) {
+    return 'Nao e possivel marcar ou remarcar para uma data anterior ao dia atual.'
+  }
+
   if (normalized.includes('booking_date_unavailable')) {
     return 'Este dia nao esta disponivel para atendimento. Escolha outra data no calendario.'
   }
 
+  if (normalized.includes('booking_slot_unavailable')) {
+    return 'Este horario nao esta liberado para atendimento. Escolha um periodo disponivel.'
+  }
+
   if (normalized.includes('duplicate')) {
     return conflictMessage
+  }
+
+  return message
+}
+
+function getAvailabilityErrorMessage(message: string) {
+  const normalized = message.toLowerCase()
+
+  if (normalized.includes('availability_slot_overlap')) {
+    return 'Ja existe um horario ativo que cruza com esse periodo.'
+  }
+
+  if (normalized.includes('availability_slot_invalid')) {
+    return 'O horario final precisa ser maior que o horario inicial.'
+  }
+
+  if (normalized.includes('duplicate')) {
+    return 'Esse periodo ja existe para este dia da semana.'
   }
 
   return message
@@ -396,7 +482,8 @@ function App() {
     phone: '',
     serviceId: serviceSeeds[0].id,
     preferredDate: getInitialDate(),
-    preferredTime: timeSlots[1],
+    preferredTime: '',
+    preferredEndTime: '',
     notes: '',
   })
   const [session, setSession] = useState<Session | null>(null)
@@ -406,24 +493,33 @@ function App() {
   const [bookingStatus, setBookingStatus] = useState('')
   const [bookingActionStatus, setBookingActionStatus] = useState('')
   const [serviceActionStatus, setServiceActionStatus] = useState('')
+  const [availabilityActionStatus, setAvailabilityActionStatus] = useState('')
   const [unavailableActionStatus, setUnavailableActionStatus] = useState('')
   const [isSubmittingBooking, setIsSubmittingBooking] = useState(false)
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [bookings, setBookings] = useState<BookingRecord[]>([])
-  const [bookedSlots, setBookedSlots] = useState<string[]>([])
+  const [bookedSlots, setBookedSlots] = useState<BookedSlot[]>([])
+  const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([])
   const [unavailableDays, setUnavailableDays] = useState<UnavailableDay[]>([])
   const [bookingRefreshKey, setBookingRefreshKey] = useState(0)
   const [serviceRefreshKey, setServiceRefreshKey] = useState(0)
+  const [availabilityRefreshKey, setAvailabilityRefreshKey] = useState(0)
   const [adminStatusFilter, setAdminStatusFilter] = useState<AdminStatusFilter>('all')
-  const [adminSelectedDate, setAdminSelectedDate] = useState(() => getInitialDate())
+  const [adminSelectedDate, setAdminSelectedDate] = useState(() => getTodayDate())
   const [bookingSearch, setBookingSearch] = useState('')
   const [calendarMonth, setCalendarMonth] = useState(() => getMonthStart(getInitialDate()))
   const [serviceDrafts, setServiceDrafts] = useState<Record<string, ServiceDraft>>({})
   const [newService, setNewService] = useState<ServiceDraft>(() => createEmptyServiceDraft())
-  const [unavailableDraft, setUnavailableDraft] = useState({ date: getInitialDate(), reason: '' })
+  const [availabilityDraft, setAvailabilityDraft] = useState<AvailabilityDraft>({
+    weekday: '1',
+    startTime: '08:00',
+    endTime: '08:40',
+  })
+  const [unavailableDraft, setUnavailableDraft] = useState({ date: getTodayDate(), reason: '' })
   const [rescheduleDrafts, setRescheduleDrafts] = useState<Record<string, RescheduleDraft>>({})
   const [savingServiceId, setSavingServiceId] = useState('')
+  const [savingAvailabilityId, setSavingAvailabilityId] = useState('')
   const [updatingBookingId, setUpdatingBookingId] = useState('')
 
   useEffect(() => {
@@ -456,6 +552,7 @@ function App() {
           setIsAdmin(false)
           setBookings([])
           setBookedSlots([])
+          setAvailabilitySlots([])
         }
       }
     })
@@ -466,6 +563,7 @@ function App() {
         setIsAdmin(false)
         setBookings([])
         setBookedSlots([])
+        setAvailabilitySlots([])
       }
 
       if (event === 'PASSWORD_RECOVERY') {
@@ -560,7 +658,7 @@ function App() {
     void client
       .from('bookings')
       .select(
-        'id,created_at,updated_at,user_id,client_name,client_email,client_phone,service_id,service_name,preferred_date,preferred_time,notes,status,source',
+        'id,created_at,updated_at,user_id,client_name,client_email,client_phone,service_id,service_name,preferred_date,preferred_time,preferred_end_time,notes,status,source',
       )
       .order('preferred_date', { ascending: true })
       .order('preferred_time', { ascending: true })
@@ -579,7 +677,8 @@ function App() {
             nextBookings.forEach((item) => {
               next[item.id] = current[item.id] ?? {
                 preferredDate: item.preferred_date,
-                preferredTime: item.preferred_time.slice(0, 5),
+                preferredTime: timeLabel(item.preferred_time),
+                preferredEndTime: timeLabel(item.preferred_end_time),
               }
             })
 
@@ -623,6 +722,32 @@ function App() {
   useEffect(() => {
     const client = supabase
 
+    if (!client || !session) {
+      return
+    }
+
+    let isMounted = true
+    void client
+      .from('admin_availability_slots')
+      .select('id,weekday,start_time,end_time,active,sort_order,created_at')
+      .order('weekday', { ascending: true })
+      .order('start_time', { ascending: true })
+      .then(({ data, error }) => {
+        if (!isMounted || error) {
+          return
+        }
+
+        setAvailabilitySlots((data ?? []) as AvailabilitySlot[])
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [session, availabilityRefreshKey])
+
+  useEffect(() => {
+    const client = supabase
+
     if (!client || !session || !booking.preferredDate) {
       return
     }
@@ -636,7 +761,10 @@ function App() {
         }
 
         setBookedSlots(
-          ((data ?? []) as BookedSlotRow[]).map((slot) => slot.preferred_time.slice(0, 5)),
+          ((data ?? []) as BookedSlotRow[]).map((slot) => ({
+            startTime: timeLabel(slot.preferred_time),
+            endTime: timeLabel(slot.preferred_end_time),
+          })),
         )
       })
 
@@ -655,10 +783,25 @@ function App() {
     serviceSeeds[0]
   const bookingEmail = session?.user.email ?? ''
   const unavailableDateSet = new Set(unavailableDays.map((day) => day.unavailable_date))
+  const activeAvailabilitySlots = availabilitySlots.filter((slot) => slot.active)
+  const getAvailabilitySlotsForDate = (date: string) =>
+    activeAvailabilitySlots.filter((slot) => slot.weekday === getIsoWeekday(date))
+  const selectedDateAvailabilitySlots = getAvailabilitySlotsForDate(booking.preferredDate)
+  const bookedSlotSet = new Set(bookedSlots.map((slot) => getSlotKey(slot.startTime, slot.endTime)))
+  const selectedSlotKey = booking.preferredTime && booking.preferredEndTime
+    ? getSlotKey(booking.preferredTime, booking.preferredEndTime)
+    : ''
   const selectedDateIsUnavailable =
-    unavailableDateSet.has(booking.preferredDate) || isWeekendDate(booking.preferredDate)
-  const selectedSlotIsBooked = bookedSlots.includes(booking.preferredTime)
-  const availableSlots = selectedDateIsUnavailable ? [] : timeSlots.filter((slot) => !bookedSlots.includes(slot))
+    booking.preferredDate < getTodayDate() ||
+    unavailableDateSet.has(booking.preferredDate) ||
+    !selectedDateAvailabilitySlots.length
+  const selectedSlotIsBooked = Boolean(selectedSlotKey && bookedSlotSet.has(selectedSlotKey))
+  const availableSlots = selectedDateIsUnavailable
+    ? []
+    : selectedDateAvailabilitySlots.filter((slot) => !bookedSlotSet.has(getSlotKey(slot.start_time, slot.end_time)))
+  const selectedSlotIsAvailable = Boolean(
+    selectedSlotKey && availableSlots.some((slot) => getSlotKey(slot.start_time, slot.end_time) === selectedSlotKey),
+  )
   const calendarDays = getCalendarDays(calendarMonth)
   const adminSelectedBookings = bookings.filter((item) => item.preferred_date === adminSelectedDate)
   const clientSummaries = Array.from(
@@ -778,6 +921,11 @@ function App() {
       return
     }
 
+    if (!selectedSlotIsAvailable) {
+      setBookingStatus('Escolha um periodo disponivel para concluir o agendamento.')
+      return
+    }
+
     setIsSubmittingBooking(true)
     const { error } = await client.from('bookings').insert({
       user_id: session.user.id,
@@ -788,6 +936,7 @@ function App() {
       service_name: selectedService.name,
       preferred_date: booking.preferredDate,
       preferred_time: booking.preferredTime,
+      preferred_end_time: booking.preferredEndTime,
       notes: booking.notes.trim() || null,
       source: 'site',
     })
@@ -812,6 +961,8 @@ function App() {
       phone: '',
       notes: '',
       preferredDate: nextDate,
+      preferredTime: '',
+      preferredEndTime: '',
     }))
     setCalendarMonth(getMonthStart(nextDate))
     setBookingRefreshKey((key) => key + 1)
@@ -898,6 +1049,7 @@ function App() {
     await client.auth.signOut()
     setBookings([])
     setBookedSlots([])
+    setAvailabilitySlots([])
     setIsAdmin(false)
     setAuthStatus('Sessao encerrada.')
   }
@@ -955,7 +1107,7 @@ function App() {
     setRescheduleDrafts((current) => ({
       ...current,
       [bookingId]: {
-        ...(current[bookingId] ?? { preferredDate: getInitialDate(), preferredTime: timeSlots[0] }),
+        ...(current[bookingId] ?? { preferredDate: getInitialDate(), preferredTime: '', preferredEndTime: '' }),
         ...patch,
       },
     }))
@@ -965,15 +1117,25 @@ function App() {
     const client = supabase
     const draft = rescheduleDrafts[item.id] ?? {
       preferredDate: item.preferred_date,
-      preferredTime: item.preferred_time.slice(0, 5),
+      preferredTime: timeLabel(item.preferred_time),
+      preferredEndTime: timeLabel(item.preferred_end_time),
     }
 
     if (!client || !isAdmin) {
       return
     }
 
-    if (isWeekendDate(draft.preferredDate) || unavailableDateSet.has(draft.preferredDate)) {
-      setBookingActionStatus('Nao e possivel remarcar para fim de semana ou dia bloqueado.')
+    if (draft.preferredDate < getTodayDate() || unavailableDateSet.has(draft.preferredDate)) {
+      setBookingActionStatus('Nao e possivel remarcar para data passada ou dia bloqueado.')
+      return
+    }
+
+    const draftSlotIsAvailable = getAvailabilitySlotsForDate(draft.preferredDate).some(
+      (slot) => getSlotKey(slot.start_time, slot.end_time) === getSlotKey(draft.preferredTime, draft.preferredEndTime),
+    )
+
+    if (!draftSlotIsAvailable) {
+      setBookingActionStatus('Escolha um periodo liberado nos horarios de atendimento.')
       return
     }
 
@@ -984,6 +1146,7 @@ function App() {
       .update({
         preferred_date: draft.preferredDate,
         preferred_time: draft.preferredTime,
+        preferred_end_time: draft.preferredEndTime,
         updated_at: new Date().toISOString(),
       })
       .eq('id', item.id)
@@ -1003,7 +1166,12 @@ function App() {
     setBookings((current) =>
       current.map((bookingItem) =>
         bookingItem.id === item.id
-          ? { ...bookingItem, preferred_date: draft.preferredDate, preferred_time: draft.preferredTime }
+          ? {
+              ...bookingItem,
+              preferred_date: draft.preferredDate,
+              preferred_time: draft.preferredTime,
+              preferred_end_time: draft.preferredEndTime,
+            }
           : bookingItem,
       ),
     )
@@ -1040,7 +1208,7 @@ function App() {
     }
 
     setUnavailableActionStatus('Dia bloqueado na agenda.')
-    setUnavailableDraft({ date: getInitialDate(), reason: '' })
+    setUnavailableDraft({ date: getTodayDate(), reason: '' })
     setBookingRefreshKey((key) => key + 1)
   }
 
@@ -1061,6 +1229,86 @@ function App() {
 
     setUnavailableActionStatus('Dia liberado novamente.')
     setBookingRefreshKey((key) => key + 1)
+  }
+
+  async function handleCreateAvailabilitySlot(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const client = supabase
+
+    if (!client || !isAdmin || !session) {
+      return
+    }
+
+    if (availabilityDraft.endTime <= availabilityDraft.startTime) {
+      setAvailabilityActionStatus('O horario final precisa ser maior que o horario inicial.')
+      return
+    }
+
+    setSavingAvailabilityId('new')
+    setAvailabilityActionStatus('')
+    const { error } = await client.from('admin_availability_slots').insert({
+      weekday: Number(availabilityDraft.weekday),
+      start_time: availabilityDraft.startTime,
+      end_time: availabilityDraft.endTime,
+      active: true,
+      created_by: session.user.id,
+    })
+    setSavingAvailabilityId('')
+
+    if (error) {
+      setAvailabilityActionStatus(`Nao foi possivel criar o horario: ${getAvailabilityErrorMessage(error.message)}`)
+      return
+    }
+
+    setAvailabilityActionStatus('Horario liberado para agendamento.')
+    setAvailabilityRefreshKey((key) => key + 1)
+  }
+
+  async function handleAvailabilitySlotActiveChange(slot: AvailabilitySlot, active: boolean) {
+    const client = supabase
+
+    if (!client || !isAdmin) {
+      return
+    }
+
+    setSavingAvailabilityId(slot.id)
+    setAvailabilityActionStatus('')
+    const { error } = await client
+      .from('admin_availability_slots')
+      .update({ active, updated_at: new Date().toISOString() })
+      .eq('id', slot.id)
+    setSavingAvailabilityId('')
+
+    if (error) {
+      setAvailabilityActionStatus(`Nao foi possivel atualizar o horario: ${getAvailabilityErrorMessage(error.message)}`)
+      return
+    }
+
+    setAvailabilitySlots((current) => current.map((item) => (item.id === slot.id ? { ...item, active } : item)))
+    setAvailabilityActionStatus(active ? 'Horario reativado.' : 'Horario pausado.')
+    setAvailabilityRefreshKey((key) => key + 1)
+  }
+
+  async function handleDeleteAvailabilitySlot(slotId: string) {
+    const client = supabase
+
+    if (!client || !isAdmin || !window.confirm('Remover este horario de atendimento?')) {
+      return
+    }
+
+    setSavingAvailabilityId(slotId)
+    setAvailabilityActionStatus('')
+    const { error } = await client.from('admin_availability_slots').delete().eq('id', slotId)
+    setSavingAvailabilityId('')
+
+    if (error) {
+      setAvailabilityActionStatus(`Nao foi possivel remover o horario: ${error.message}`)
+      return
+    }
+
+    setAvailabilitySlots((current) => current.filter((slot) => slot.id !== slotId))
+    setAvailabilityActionStatus('Horario removido da agenda.')
+    setAvailabilityRefreshKey((key) => key + 1)
   }
 
   function updateServiceDraft(serviceId: string, patch: Partial<ServiceDraft>) {
@@ -1203,9 +1451,14 @@ function App() {
         </div>
         <div className="header-auth" aria-label="Acesso da cliente">
           {session ? (
-            <button type="button" className="header-signin" onClick={() => goToPath(isAdmin ? '/admin' : '/cliente')}>
-              {isAdmin ? 'Painel admin' : 'Minha agenda'}
-            </button>
+            <>
+              <button type="button" className="header-signin" onClick={() => goToPath(isAdmin ? '/admin' : '/cliente')}>
+                {isAdmin ? 'Painel admin' : 'Minha agenda'}
+              </button>
+              <button type="button" className="header-logout" onClick={handleSignOut}>
+                Sair
+              </button>
+            </>
           ) : (
             <>
               <button type="button" className="header-signin" onClick={() => goToAuth('sign-in')}>
@@ -1305,7 +1558,8 @@ function App() {
                   {calendarDays.map((day) => {
                     const isUnavailable = unavailableDateSet.has(day.date)
                     const isSelected = booking.preferredDate === day.date
-                    const isDisabled = !day.isCurrentMonth || day.isPast || day.isWeekend || isUnavailable
+                    const dayHasSlots = getAvailabilitySlotsForDate(day.date).length > 0
+                    const isDisabled = !day.isCurrentMonth || day.isPast || isUnavailable || !dayHasSlots
                     const dayBookings = isAdmin
                       ? bookings.filter(
                           (item) =>
@@ -1319,17 +1573,21 @@ function App() {
                         key={day.date}
                         className={isSelected ? 'calendar-day selected' : 'calendar-day'}
                         disabled={isDisabled}
-                        onClick={() => setBooking({ ...booking, preferredDate: day.date })}
+                        onClick={() =>
+                          setBooking({ ...booking, preferredDate: day.date, preferredTime: '', preferredEndTime: '' })
+                        }
                       >
                         <strong>{day.dayNumber}</strong>
                         <span>
-                          {day.isWeekend
-                            ? 'Fechado'
+                          {day.isPast
+                            ? 'Encerrado'
                             : isUnavailable
                               ? 'Bloqueado'
-                              : dayBookings
-                                ? `${dayBookings} ocupado(s)`
-                                : 'Aberto'}
+                              : !dayHasSlots
+                                ? 'Sem horarios'
+                                : dayBookings
+                                  ? `${dayBookings} ocupado(s)`
+                                  : 'Aberto'}
                         </span>
                       </button>
                     )
@@ -1340,23 +1598,34 @@ function App() {
                 </p>
               </div>
               <div className="slot-picker" aria-label="Horarios disponiveis">
-                {timeSlots.map((slot) => {
-                  const isBooked = bookedSlots.includes(slot)
-                  const isSelected = booking.preferredTime === slot
+                {selectedDateAvailabilitySlots.length ? (
+                  selectedDateAvailabilitySlots.map((slot) => {
+                    const slotKey = getSlotKey(slot.start_time, slot.end_time)
+                    const isBooked = bookedSlotSet.has(slotKey)
+                    const isSelected = selectedSlotKey === slotKey
 
-                  return (
-                    <button
-                      type="button"
-                      key={slot}
-                      className={isSelected ? 'slot-button selected' : 'slot-button'}
-                      disabled={isBooked || selectedDateIsUnavailable}
-                      onClick={() => setBooking({ ...booking, preferredTime: slot })}
-                    >
-                      <strong>{slot}</strong>
-                      <span>{selectedDateIsUnavailable ? 'Indisponivel' : isBooked ? 'Ocupado' : 'Disponivel'}</span>
-                    </button>
-                  )
-                })}
+                    return (
+                      <button
+                        type="button"
+                        key={slot.id}
+                        className={isSelected ? 'slot-button selected' : 'slot-button'}
+                        disabled={isBooked || selectedDateIsUnavailable}
+                        onClick={() =>
+                          setBooking({
+                            ...booking,
+                            preferredTime: timeLabel(slot.start_time),
+                            preferredEndTime: timeLabel(slot.end_time),
+                          })
+                        }
+                      >
+                        <strong>{formatTimeRange(slot.start_time, slot.end_time)}</strong>
+                        <span>{selectedDateIsUnavailable ? 'Indisponivel' : isBooked ? 'Ocupado' : 'Disponivel'}</span>
+                      </button>
+                    )
+                  })
+                ) : (
+                  <p className="empty-state">Nenhum horario liberado para este dia.</p>
+                )}
               </div>
             </div>
             <label>
@@ -1375,6 +1644,7 @@ function App() {
                   isSubmittingBooking ||
                   !bookableServices.length ||
                   selectedSlotIsBooked ||
+                  !selectedSlotIsAvailable ||
                   !availableSlots.length
                 }
               >
@@ -1384,7 +1654,7 @@ function App() {
             <p className="form-status" role="status" aria-live="polite">
               {bookingStatus ||
                 (availableSlots.length
-                  ? 'Voce recebera a confirmacao pelo WhatsApp ou email.'
+                  ? 'Escolha um periodo e receba a confirmacao pelo WhatsApp ou email.'
                   : 'Nao ha horarios livres nesta data. Escolha outro dia.')}
             </p>
           </form>
@@ -1444,7 +1714,7 @@ function App() {
                     <div>
                       <strong>{item.client_name}</strong>
                       <span>
-                        {item.service_name} as {item.preferred_time.slice(0, 5)}
+                        {item.service_name} as {formatTimeRange(item.preferred_time, item.preferred_end_time)}
                       </span>
                     </div>
                     <small className={getStatusTone(item.status)}>{statusLabels[item.status]}</small>
@@ -1533,6 +1803,7 @@ function App() {
                 <div className="calendar-grid" role="grid">
                   {calendarDays.map((day) => {
                     const isUnavailable = unavailableDateSet.has(day.date)
+                    const dayHasSlots = getAvailabilitySlotsForDate(day.date).length > 0
                     const dayBookings = bookings.filter(
                       (item) => item.preferred_date === day.date && ['pending', 'confirmed'].includes(item.status),
                     ).length
@@ -1542,18 +1813,20 @@ function App() {
                         type="button"
                         key={day.date}
                         className={adminSelectedDate === day.date ? 'calendar-day selected' : 'calendar-day'}
-                        disabled={!day.isCurrentMonth}
+                        disabled={!day.isCurrentMonth || day.isPast}
                         onClick={() => setAdminSelectedDate(day.date)}
                       >
                         <strong>{day.dayNumber}</strong>
                         <span>
-                          {day.isWeekend
-                            ? 'Fechado'
+                          {day.isPast
+                            ? 'Encerrado'
                             : isUnavailable
                               ? 'Bloqueado'
-                              : dayBookings
-                                ? `${dayBookings} agenda(s)`
-                                : 'Livre'}
+                              : !dayHasSlots
+                                ? 'Sem horarios'
+                                : dayBookings
+                                  ? `${dayBookings} agenda(s)`
+                                  : 'Livre'}
                         </span>
                       </button>
                     )
@@ -1565,7 +1838,8 @@ function App() {
                 {adminSelectedBookings.length ? (
                   adminSelectedBookings.map((item) => (
                     <span key={item.id}>
-                      {item.preferred_time.slice(0, 5)} - {item.client_name} - {item.service_name}
+                      {formatTimeRange(item.preferred_time, item.preferred_end_time)} - {item.client_name} -{' '}
+                      {item.service_name}
                     </span>
                   ))
                 ) : (
@@ -1587,7 +1861,7 @@ function App() {
                   <input
                     required
                     type="date"
-                    min={getInitialDate()}
+                    min={getTodayDate()}
                     value={unavailableDraft.date}
                     onChange={(event) => setUnavailableDraft({ ...unavailableDraft, date: event.target.value })}
                   />
@@ -1620,6 +1894,84 @@ function App() {
                   ))
                 ) : (
                   <p className="empty-state">Nenhum bloqueio neste mes.</p>
+                )}
+              </div>
+            </section>
+
+            <section className="availability-card" aria-label="Horarios de atendimento">
+              <div className="admin-heading compact">
+                <div>
+                  <p className="eyebrow">Horarios</p>
+                  <h2>Periodos liberados.</h2>
+                </div>
+              </div>
+              <form className="availability-form" onSubmit={handleCreateAvailabilitySlot}>
+                <label>
+                  Dia
+                  <select
+                    value={availabilityDraft.weekday}
+                    onChange={(event) => setAvailabilityDraft({ ...availabilityDraft, weekday: event.target.value })}
+                  >
+                    {weekdayOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Inicio
+                  <input
+                    required
+                    type="time"
+                    value={availabilityDraft.startTime}
+                    onChange={(event) => setAvailabilityDraft({ ...availabilityDraft, startTime: event.target.value })}
+                  />
+                </label>
+                <label>
+                  Fim
+                  <input
+                    required
+                    type="time"
+                    value={availabilityDraft.endTime}
+                    onChange={(event) => setAvailabilityDraft({ ...availabilityDraft, endTime: event.target.value })}
+                  />
+                </label>
+                <button type="submit" disabled={savingAvailabilityId === 'new'}>
+                  Liberar horario
+                </button>
+              </form>
+              <p className="form-status" role="status">
+                {availabilityActionStatus}
+              </p>
+              <div className="availability-list">
+                {availabilitySlots.length ? (
+                  availabilitySlots.map((slot) => (
+                    <article key={slot.id} className={!slot.active ? 'is-paused' : ''}>
+                      <span>
+                        <strong>{getWeekdayName(slot.weekday)}</strong>
+                        <small>{formatTimeRange(slot.start_time, slot.end_time)}</small>
+                      </span>
+                      <label className="toggle-label">
+                        <input
+                          type="checkbox"
+                          checked={slot.active}
+                          disabled={savingAvailabilityId === slot.id}
+                          onChange={(event) => void handleAvailabilitySlotActiveChange(slot, event.target.checked)}
+                        />
+                        Ativo
+                      </label>
+                      <button
+                        type="button"
+                        disabled={savingAvailabilityId === slot.id}
+                        onClick={() => void handleDeleteAvailabilitySlot(slot.id)}
+                      >
+                        Remover
+                      </button>
+                    </article>
+                  ))
+                ) : (
+                  <p className="empty-state">Nenhum horario liberado ainda.</p>
                 )}
               </div>
             </section>
@@ -1684,14 +2036,24 @@ function App() {
 
           {adminBookings.length ? (
             <div className="admin-booking-list">
-              {adminBookings.map((item) => (
-                <article className="admin-booking-card" key={item.id}>
+              {adminBookings.map((item) => {
+                const draft = rescheduleDrafts[item.id] ?? {
+                  preferredDate: item.preferred_date,
+                  preferredTime: timeLabel(item.preferred_time),
+                  preferredEndTime: timeLabel(item.preferred_end_time),
+                }
+                const draftSlots = getAvailabilitySlotsForDate(draft.preferredDate)
+                const draftSlotValue =
+                  draft.preferredTime && draft.preferredEndTime ? getSlotKey(draft.preferredTime, draft.preferredEndTime) : ''
+
+                return (
+                  <article className="admin-booking-card" key={item.id}>
                   <time dateTime={item.preferred_date}>{formatFullDate(item.preferred_date)}</time>
                   <div className="admin-booking-main">
                     <div>
                       <strong>{item.client_name}</strong>
                       <span>
-                        {item.service_name} as {item.preferred_time.slice(0, 5)}
+                        {item.service_name} as {formatTimeRange(item.preferred_time, item.preferred_end_time)}
                       </span>
                     </div>
                     <small className={getStatusTone(item.status)}>{statusLabels[item.status]}</small>
@@ -1711,20 +2073,30 @@ function App() {
                         Nova data
                         <input
                           type="date"
-                          min={getInitialDate()}
-                          value={rescheduleDrafts[item.id]?.preferredDate ?? item.preferred_date}
-                          onChange={(event) => updateRescheduleDraft(item.id, { preferredDate: event.target.value })}
+                          min={getTodayDate()}
+                          value={draft.preferredDate}
+                          onChange={(event) =>
+                            updateRescheduleDraft(item.id, {
+                              preferredDate: event.target.value,
+                              preferredTime: '',
+                              preferredEndTime: '',
+                            })
+                          }
                         />
                       </label>
                       <label>
                         Horario
                         <select
-                          value={rescheduleDrafts[item.id]?.preferredTime ?? item.preferred_time.slice(0, 5)}
-                          onChange={(event) => updateRescheduleDraft(item.id, { preferredTime: event.target.value })}
+                          value={draftSlotValue}
+                          onChange={(event) => {
+                            const [preferredTime, preferredEndTime] = event.target.value.split('-')
+                            updateRescheduleDraft(item.id, { preferredTime, preferredEndTime })
+                          }}
                         >
-                          {timeSlots.map((slot) => (
-                            <option key={slot} value={slot}>
-                              {slot}
+                          <option value="">Selecione</option>
+                          {draftSlots.map((slot) => (
+                            <option key={slot.id} value={getSlotKey(slot.start_time, slot.end_time)}>
+                              {formatTimeRange(slot.start_time, slot.end_time)}
                             </option>
                           ))}
                         </select>
@@ -1761,7 +2133,8 @@ function App() {
                     </button>
                   </div>
                 </article>
-              ))}
+                )
+              })}
             </div>
           ) : (
             <p className="empty-state">Nenhum pedido encontrado para os filtros atuais.</p>
@@ -2215,29 +2588,42 @@ function App() {
                 <input
                   required
                   type="date"
-                  min={getInitialDate()}
+                  min={getTodayDate()}
                   value={booking.preferredDate}
-                  onChange={(event) => setBooking({ ...booking, preferredDate: event.target.value })}
+                  onChange={(event) =>
+                    setBooking({ ...booking, preferredDate: event.target.value, preferredTime: '', preferredEndTime: '' })
+                  }
                 />
               </label>
               <div className="slot-picker" aria-label="Horarios disponiveis">
-                {timeSlots.map((slot) => {
-                  const isBooked = bookedSlots.includes(slot)
-                  const isSelected = booking.preferredTime === slot
+                {selectedDateAvailabilitySlots.length ? (
+                  selectedDateAvailabilitySlots.map((slot) => {
+                    const slotKey = getSlotKey(slot.start_time, slot.end_time)
+                    const isBooked = bookedSlotSet.has(slotKey)
+                    const isSelected = selectedSlotKey === slotKey
 
-                  return (
-                    <button
-                      type="button"
-                      key={slot}
-                      className={isSelected ? 'slot-button selected' : 'slot-button'}
-                      disabled={isBooked}
-                      onClick={() => setBooking({ ...booking, preferredTime: slot })}
-                    >
-                      <strong>{slot}</strong>
-                      <span>{isBooked ? 'Ocupado' : 'Disponivel'}</span>
-                    </button>
-                  )
-                })}
+                    return (
+                      <button
+                        type="button"
+                        key={slot.id}
+                        className={isSelected ? 'slot-button selected' : 'slot-button'}
+                        disabled={isBooked || selectedDateIsUnavailable}
+                        onClick={() =>
+                          setBooking({
+                            ...booking,
+                            preferredTime: timeLabel(slot.start_time),
+                            preferredEndTime: timeLabel(slot.end_time),
+                          })
+                        }
+                      >
+                        <strong>{formatTimeRange(slot.start_time, slot.end_time)}</strong>
+                        <span>{selectedDateIsUnavailable ? 'Indisponivel' : isBooked ? 'Ocupado' : 'Disponivel'}</span>
+                      </button>
+                    )
+                  })
+                ) : (
+                  <p className="empty-state">Nenhum horario liberado para este dia.</p>
+                )}
               </div>
             </div>
             <label>
@@ -2256,6 +2642,7 @@ function App() {
                   isSubmittingBooking ||
                   !bookableServices.length ||
                   selectedSlotIsBooked ||
+                  !selectedSlotIsAvailable ||
                   !availableSlots.length
                 }
               >
@@ -2265,7 +2652,7 @@ function App() {
             <p className="form-status" role="status" aria-live="polite">
               {bookingStatus ||
                 (availableSlots.length
-                  ? 'Voce recebera a confirmacao pelo WhatsApp ou email.'
+                  ? 'Escolha um periodo e receba a confirmacao pelo WhatsApp ou email.'
                   : 'Nao ha horarios livres nesta data. Escolha outro dia.')}
             </p>
           </form>
@@ -2398,7 +2785,7 @@ function App() {
                       <div>
                         <strong>{item.client_name}</strong>
                         <span>
-                          {item.service_name} as {item.preferred_time.slice(0, 5)}
+                          {item.service_name} as {formatTimeRange(item.preferred_time, item.preferred_end_time)}
                         </span>
                       </div>
                       <small className={getStatusTone(item.status)}>{statusLabels[item.status]}</small>
@@ -2588,7 +2975,7 @@ function App() {
                     <div>
                       <strong>{item.client_name}</strong>
                       <span>
-                        {item.service_name} as {item.preferred_time.slice(0, 5)}
+                        {item.service_name} as {formatTimeRange(item.preferred_time, item.preferred_end_time)}
                       </span>
                     </div>
                     <small className={getStatusTone(item.status)}>{statusLabels[item.status]}</small>

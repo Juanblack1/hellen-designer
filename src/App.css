@@ -224,6 +224,11 @@
   color: var(--cream);
 }
 
+.header-logout {
+  background: rgba(155, 92, 56, 0.14);
+  color: var(--terracotta);
+}
+
 .hero-grid {
   align-items: center;
   display: grid;
@@ -765,6 +770,8 @@
 .calendar-toolbar button,
 .unavailable-form button,
 .unavailable-list button,
+.availability-form button,
+.availability-list button,
 .reschedule-controls button {
   background: var(--espresso);
   border: 0;
@@ -1150,6 +1157,7 @@ button:disabled {
 
 .admin-agenda-card,
 .unavailable-card,
+.availability-card,
 .client-directory {
   background: rgba(251, 247, 239, 0.74);
   border: 1px solid rgba(31, 26, 23, 0.09);
@@ -1159,12 +1167,17 @@ button:disabled {
   padding: 16px;
 }
 
+.availability-card {
+  grid-column: 1 / -1;
+}
+
 .compact-calendar .calendar-day {
   min-height: 56px;
 }
 
 .selected-day-agenda,
 .unavailable-list,
+.availability-list,
 .client-directory-grid {
   display: grid;
   gap: 10px;
@@ -1181,13 +1194,19 @@ button:disabled {
   color: var(--espresso);
 }
 
-.unavailable-form {
+.unavailable-form,
+.availability-form {
   display: grid;
   gap: 10px;
   grid-template-columns: 150px minmax(0, 1fr) auto;
 }
 
+.availability-form {
+  grid-template-columns: minmax(150px, 0.8fr) repeat(2, minmax(130px, 0.6fr)) auto;
+}
+
 .unavailable-list article,
+.availability-list article,
 .client-directory-grid article {
   background: #fbf7ef;
   border: 1px solid rgba(31, 26, 23, 0.08);
@@ -1202,12 +1221,27 @@ button:disabled {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
+.availability-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.availability-list article {
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.availability-list article.is-paused {
+  opacity: 0.58;
+}
+
 .unavailable-list span,
+.availability-list span,
 .client-directory-grid article {
   min-width: 0;
 }
 
 .unavailable-list small,
+.availability-list small,
 .client-directory-grid span,
 .client-directory-grid small {
   color: var(--muted);
@@ -1580,7 +1614,9 @@ button:disabled {
   .admin-booking-card,
   .admin-ops-grid,
   .client-directory-grid,
+  .availability-list,
   .unavailable-form,
+  .availability-form,
   .reschedule-controls,
   .new-service-form,
   .service-editor-grid {
