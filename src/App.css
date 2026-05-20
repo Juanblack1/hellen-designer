@@ -1139,13 +1139,19 @@ button:disabled {
 }
 
 .admin-stats,
+.admin-reports,
 .admin-controls,
-.new-service-form {
+.new-service-form,
+.policy-form {
   display: grid;
   gap: 12px;
 }
 
 .admin-stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.admin-reports {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
@@ -1158,7 +1164,9 @@ button:disabled {
 .admin-agenda-card,
 .unavailable-card,
 .availability-card,
-.client-directory {
+.client-directory,
+.policy-manager,
+.notification-queue {
   background: rgba(251, 247, 239, 0.74);
   border: 1px solid rgba(31, 26, 23, 0.09);
   border-radius: 24px;
@@ -1256,7 +1264,8 @@ button:disabled {
   color: var(--espresso);
 }
 
-.admin-stats article {
+.admin-stats article,
+.admin-reports article {
   background: #fbf7ef;
   border: 1px solid rgba(31, 26, 23, 0.08);
   border-radius: 20px;
@@ -1265,13 +1274,15 @@ button:disabled {
   padding: 16px;
 }
 
-.admin-stats span {
+.admin-stats span,
+.admin-reports span {
   color: var(--muted);
   font-size: 0.78rem;
   font-weight: 800;
 }
 
-.admin-stats strong {
+.admin-stats strong,
+.admin-reports strong {
   color: var(--espresso);
   font-family: var(--display);
   font-size: 2.2rem;
@@ -1384,14 +1395,177 @@ button:disabled {
   color: #2b744a;
 }
 
-.status-done {
+.status-completed {
   background: rgba(31, 26, 23, 0.11);
   color: var(--espresso);
 }
 
-.status-cancelled {
+.status-canceled_by_client,
+.status-canceled_by_admin,
+.status-no_show {
   background: rgba(153, 45, 29, 0.12);
   color: #992d1d;
+}
+
+.booking-confirmation-card {
+  background: var(--sand);
+  border: 1px solid rgba(31, 26, 23, 0.08);
+  border-radius: 22px;
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+}
+
+.booking-confirmation-card strong,
+.customer-booking-main strong {
+  color: var(--espresso);
+}
+
+.booking-confirmation-card span,
+.booking-confirmation-card small,
+.customer-booking-main span,
+.customer-booking-main small {
+  color: var(--muted);
+}
+
+.policy-check {
+  align-items: start;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto 1fr;
+}
+
+.policy-check input {
+  margin-top: 4px;
+  width: auto;
+}
+
+.policy-check small {
+  display: block;
+  line-height: 1.55;
+  margin-top: 6px;
+}
+
+.policy-form {
+  grid-template-columns: repeat(3, minmax(120px, 0.7fr)) minmax(220px, 1fr) auto;
+}
+
+.policy-form .wide-field {
+  grid-column: 1 / -1;
+}
+
+.policy-form button,
+.internal-note-form button,
+.notification-actions button,
+.notification-actions a,
+.danger-action {
+  align-items: center;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 900;
+  gap: 8px;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 14px;
+  text-decoration: none;
+}
+
+.policy-form button,
+.internal-note-form button,
+.notification-actions button,
+.notification-actions a {
+  background: var(--espresso);
+  color: var(--cream);
+}
+
+.danger-action {
+  background: rgba(153, 45, 29, 0.12);
+  color: #992d1d;
+}
+
+.customer-booking-card {
+  align-items: start !important;
+  grid-template-columns: auto minmax(0, 1fr) auto !important;
+}
+
+.customer-actions,
+.admin-booking-ops,
+.booking-timeline,
+.booking-notes-list {
+  display: grid;
+  gap: 10px;
+  grid-column: 1 / -1;
+}
+
+.customer-reschedule-controls {
+  grid-template-columns: minmax(135px, 0.8fr) 130px minmax(170px, 1fr) auto;
+}
+
+.cancel-controls,
+.internal-note-form,
+.notification-actions {
+  align-items: end;
+  display: grid;
+  gap: 10px;
+}
+
+.cancel-controls,
+.internal-note-form {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.booking-timeline,
+.booking-notes-list {
+  background: rgba(31, 26, 23, 0.04);
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.booking-timeline span,
+.booking-notes-list span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.notification-list {
+  display: grid;
+  gap: 12px;
+}
+
+.notification-card {
+  background: #fbf7ef;
+  border: 1px solid rgba(31, 26, 23, 0.08);
+  border-radius: 20px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, auto);
+  padding: 16px;
+}
+
+.notification-card > div:first-child {
+  display: grid;
+  gap: 8px;
+}
+
+.notification-card strong {
+  color: var(--espresso);
+}
+
+.notification-card p,
+.notification-card small {
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.notification-actions {
+  align-content: start;
+  grid-template-columns: 1fr;
 }
 
 .service-manager {
@@ -1611,6 +1785,7 @@ button:disabled {
   .auth-page,
   .section-heading,
   .admin-controls,
+  .admin-reports,
   .admin-booking-card,
   .admin-ops-grid,
   .client-directory-grid,
@@ -1618,6 +1793,11 @@ button:disabled {
   .unavailable-form,
   .availability-form,
   .reschedule-controls,
+  .customer-reschedule-controls,
+  .cancel-controls,
+  .internal-note-form,
+  .notification-card,
+  .policy-form,
   .new-service-form,
   .service-editor-grid {
     grid-template-columns: 1fr;
@@ -1652,7 +1832,8 @@ button:disabled {
     position: static;
   }
 
-  .admin-stats {
+  .admin-stats,
+  .admin-reports {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1847,7 +2028,8 @@ button:disabled {
     display: grid;
   }
 
-  .admin-stats {
+  .admin-stats,
+  .admin-reports {
     grid-template-columns: 1fr;
   }
 

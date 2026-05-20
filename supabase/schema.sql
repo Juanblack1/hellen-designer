@@ -70,12 +70,51 @@ create table if not exists public.bookings (
   preferred_time time not null,
   preferred_end_time time,
   notes text check (notes is null or char_length(notes) <= 1200),
-  status text not null default 'pending' check (status in ('pending', 'confirmed', 'cancelled', 'done')),
-  source text not null default 'site'
+  status text not null default 'pending',
+  source text not null default 'site',
+  canceled_at timestamptz,
+  canceled_by uuid references auth.users(id) on delete set null,
+  cancellation_reason text check (cancellation_reason is null or char_length(cancellation_reason) <= 500),
+  confirmed_at timestamptz,
+  completed_at timestamptz,
+  no_show_at timestamptz
 );
 
 alter table public.bookings
+drop constraint if exists bookings_status_check;
+
+update public.bookings
+set status = case
+  when status = 'done' then 'completed'
+  when status = 'cancelled' then 'canceled_by_admin'
+  else status
+end
+where status in ('done', 'cancelled');
+
+alter table public.bookings
+add constraint bookings_status_check
+check (status in ('pending', 'confirmed', 'completed', 'canceled_by_client', 'canceled_by_admin', 'no_show'));
+
+alter table public.bookings
 add column if not exists preferred_end_time time;
+
+alter table public.bookings
+add column if not exists canceled_at timestamptz;
+
+alter table public.bookings
+add column if not exists canceled_by uuid references auth.users(id) on delete set null;
+
+alter table public.bookings
+add column if not exists cancellation_reason text check (cancellation_reason is null or char_length(cancellation_reason) <= 500);
+
+alter table public.bookings
+add column if not exists confirmed_at timestamptz;
+
+alter table public.bookings
+add column if not exists completed_at timestamptz;
+
+alter table public.bookings
+add column if not exists no_show_at timestamptz;
 
 update public.bookings
 set preferred_end_time = preferred_time + interval '40 minutes'
@@ -122,6 +161,61 @@ create table if not exists public.admin_availability_slots (
   constraint admin_availability_slots_unique_period unique (weekday, start_time, end_time)
 );
 
+create table if not exists public.booking_policies (
+  id text primary key default 'default',
+  cancellation_cutoff_hours integer not null default 12 check (cancellation_cutoff_hours between 0 and 168),
+  reschedule_cutoff_hours integer not null default 12 check (reschedule_cutoff_hours between 0 and 168),
+  no_show_grace_minutes integer not null default 15 check (no_show_grace_minutes between 0 and 180),
+  auto_confirm_enabled boolean not null default false,
+  policy_text text not null check (char_length(policy_text) between 20 and 2000),
+  active boolean not null default true,
+  updated_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+insert into public.booking_policies (id, policy_text)
+values (
+  'default',
+  'Cancelamentos e remarcacoes devem ser solicitados com antecedencia. Atrasos podem reduzir o tempo de atendimento ou exigir novo agendamento. A confirmacao final pode ser enviada por WhatsApp ou email.'
+)
+on conflict (id) do nothing;
+
+create table if not exists public.booking_status_events (
+  id uuid primary key default gen_random_uuid(),
+  booking_id uuid not null references public.bookings(id) on delete cascade,
+  from_status text,
+  to_status text not null,
+  actor_user_id uuid references auth.users(id) on delete set null,
+  actor_role text not null default 'system' check (actor_role in ('client', 'admin', 'system')),
+  reason text check (reason is null or char_length(reason) <= 500),
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.booking_internal_notes (
+  id uuid primary key default gen_random_uuid(),
+  booking_id uuid not null references public.bookings(id) on delete cascade,
+  admin_user_id uuid references auth.users(id) on delete set null,
+  note text not null check (char_length(note) between 2 and 1200),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.booking_notification_queue (
+  id uuid primary key default gen_random_uuid(),
+  booking_id uuid not null references public.bookings(id) on delete cascade,
+  type text not null check (type in ('confirmation', 'reminder', 'cancellation', 'follow_up')),
+  channel text not null default 'manual_whatsapp' check (channel in ('manual_whatsapp', 'manual_email', 'in_app')),
+  status text not null default 'pending' check (status in ('pending', 'done', 'skipped')),
+  scheduled_for timestamptz not null default now(),
+  message_template text not null check (char_length(message_template) between 2 and 1200),
+  done_by uuid references auth.users(id) on delete set null,
+  done_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 with weekdays as (
   select generate_series(1, 5) as weekday
 ), default_slots(start_time, end_time, sort_order) as (
@@ -148,6 +242,7 @@ on conflict (weekday, start_time, end_time) do nothing;
 create index if not exists bookings_user_id_idx on public.bookings (user_id);
 create index if not exists bookings_service_id_idx on public.bookings (service_id);
 create index if not exists bookings_date_status_idx on public.bookings (preferred_date, status);
+create index if not exists bookings_canceled_by_idx on public.bookings (canceled_by);
 create unique index if not exists bookings_unique_active_slot_idx
 on public.bookings (preferred_date, preferred_time)
 where status in ('pending', 'confirmed');
@@ -157,6 +252,22 @@ create index if not exists admin_unavailable_days_created_by_idx on public.admin
 create index if not exists admin_availability_slots_weekday_active_idx
 on public.admin_availability_slots (weekday, active, start_time);
 create index if not exists admin_availability_slots_created_by_idx on public.admin_availability_slots (created_by);
+create index if not exists booking_status_events_booking_created_idx
+on public.booking_status_events (booking_id, created_at desc);
+create index if not exists booking_status_events_actor_user_id_idx
+on public.booking_status_events (actor_user_id);
+create index if not exists booking_internal_notes_booking_created_idx
+on public.booking_internal_notes (booking_id, created_at desc);
+create index if not exists booking_internal_notes_admin_user_id_idx
+on public.booking_internal_notes (admin_user_id);
+create index if not exists booking_notification_queue_status_scheduled_idx
+on public.booking_notification_queue (status, scheduled_for);
+create index if not exists booking_notification_queue_booking_idx
+on public.booking_notification_queue (booking_id);
+create index if not exists booking_notification_queue_done_by_idx
+on public.booking_notification_queue (done_by);
+create index if not exists booking_policies_updated_by_idx
+on public.booking_policies (updated_by);
 
 create or replace function public.ensure_availability_slot_valid()
 returns trigger
@@ -266,11 +377,291 @@ $$;
 revoke execute on function public.get_booked_slots(date) from public, anon;
 grant execute on function public.get_booked_slots(date) to authenticated;
 
+create or replace function public.get_active_booking_policy()
+returns public.booking_policies
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  select *
+  from public.booking_policies
+  where active
+  order by updated_at desc
+  limit 1;
+$$;
+
+revoke execute on function public.get_active_booking_policy() from public;
+grant execute on function public.get_active_booking_policy() to anon, authenticated;
+
+create or replace function public.ensure_booking_status_transition()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'UPDATE' and new.status is distinct from old.status then
+    if old.status in ('completed', 'canceled_by_client', 'canceled_by_admin', 'no_show') then
+      raise exception 'booking_status_final';
+    end if;
+
+    if old.status = 'pending' and new.status not in ('confirmed', 'canceled_by_client', 'canceled_by_admin') then
+      raise exception 'booking_status_transition_invalid';
+    end if;
+
+    if old.status = 'confirmed' and new.status not in ('pending', 'completed', 'canceled_by_client', 'canceled_by_admin', 'no_show') then
+      raise exception 'booking_status_transition_invalid';
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke execute on function public.ensure_booking_status_transition() from public, anon, authenticated;
+
+drop trigger if exists bookings_ensure_status_transition on public.bookings;
+create trigger bookings_ensure_status_transition
+before update of status
+on public.bookings
+for each row
+execute function public.ensure_booking_status_transition();
+
+create or replace function public.record_booking_status_event()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  actor_role_value text := 'system';
+begin
+  if (tg_op = 'INSERT') or (new.status is distinct from old.status) then
+    if auth.uid() is not null then
+      actor_role_value := case when public.is_booking_admin() then 'admin' else 'client' end;
+    end if;
+
+    insert into public.booking_status_events (
+      booking_id,
+      from_status,
+      to_status,
+      actor_user_id,
+      actor_role,
+      reason
+    ) values (
+      new.id,
+      case when tg_op = 'INSERT' then null else old.status end,
+      new.status,
+      auth.uid(),
+      actor_role_value,
+      case when tg_op = 'INSERT' then 'Agendamento criado' else 'Status atualizado' end
+    );
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke execute on function public.record_booking_status_event() from public, anon, authenticated;
+
+drop trigger if exists bookings_record_status_event on public.bookings;
+create trigger bookings_record_status_event
+after insert or update of status
+on public.bookings
+for each row
+execute function public.record_booking_status_event();
+
+create or replace function public.queue_initial_booking_notifications()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  appointment_at timestamptz;
+begin
+  appointment_at := ((new.preferred_date + new.preferred_time) at time zone 'America/Sao_Paulo');
+
+  insert into public.booking_notification_queue (booking_id, type, scheduled_for, message_template)
+  values (
+    new.id,
+    'confirmation',
+    now(),
+    case
+      when new.status = 'confirmed' then
+        'Ola ' || new.client_name || ', seu horario para ' || new.service_name || ' em ' || to_char(new.preferred_date, 'DD/MM/YYYY') || ' das ' || to_char(new.preferred_time, 'HH24:MI') || ' as ' || to_char(new.preferred_end_time, 'HH24:MI') || ' esta confirmado.'
+      else
+        'Ola ' || new.client_name || ', seu horario para ' || new.service_name || ' em ' || to_char(new.preferred_date, 'DD/MM/YYYY') || ' das ' || to_char(new.preferred_time, 'HH24:MI') || ' as ' || to_char(new.preferred_end_time, 'HH24:MI') || ' foi registrado. A Hellen vai confirmar por aqui.'
+    end
+  );
+
+  insert into public.booking_notification_queue (booking_id, type, scheduled_for, message_template)
+  values (
+    new.id,
+    'reminder',
+    greatest(now(), appointment_at - interval '24 hours'),
+    'Lembrete: seu atendimento com Hellen Martins Brows e amanha/hoje, ' || to_char(new.preferred_date, 'DD/MM/YYYY') || ', das ' || to_char(new.preferred_time, 'HH24:MI') || ' as ' || to_char(new.preferred_end_time, 'HH24:MI') || '.'
+  );
+
+  return new;
+end;
+$$;
+
+revoke execute on function public.queue_initial_booking_notifications() from public, anon, authenticated;
+
+drop trigger if exists bookings_queue_initial_notifications on public.bookings;
+create trigger bookings_queue_initial_notifications
+after insert
+on public.bookings
+for each row
+execute function public.queue_initial_booking_notifications();
+
+create or replace function public.client_cancel_booking(booking_id uuid, reason text default null)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_booking public.bookings;
+  policy public.booking_policies;
+  appointment_at timestamp;
+begin
+  select * into target_booking
+  from public.bookings
+  where id = booking_id
+  for update;
+
+  if not found or target_booking.user_id <> auth.uid() then
+    raise exception 'booking_not_found';
+  end if;
+
+  if target_booking.status not in ('pending', 'confirmed') then
+    raise exception 'booking_status_final';
+  end if;
+
+  select * into policy from public.get_active_booking_policy();
+  appointment_at := target_booking.preferred_date + target_booking.preferred_time;
+
+  if appointment_at - (now() at time zone 'America/Sao_Paulo') < make_interval(hours => policy.cancellation_cutoff_hours) then
+    raise exception 'booking_policy_cutoff';
+  end if;
+
+  update public.bookings
+  set status = 'canceled_by_client',
+      canceled_at = now(),
+      canceled_by = auth.uid(),
+      cancellation_reason = nullif(trim(reason), ''),
+      updated_at = now()
+  where id = booking_id;
+
+  insert into public.booking_notification_queue (booking_id, type, scheduled_for, message_template)
+  values (
+    booking_id,
+    'cancellation',
+    now(),
+    'Ola ' || target_booking.client_name || ', seu horario em ' || to_char(target_booking.preferred_date, 'DD/MM/YYYY') || ' foi cancelado. Se quiser remarcar, acesse a area da cliente.'
+  );
+end;
+$$;
+
+revoke execute on function public.client_cancel_booking(uuid, text) from public, anon;
+grant execute on function public.client_cancel_booking(uuid, text) to authenticated;
+
+create or replace function public.client_reschedule_booking(
+  booking_id uuid,
+  new_date date,
+  new_start_time time,
+  new_end_time time,
+  reason text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  target_booking public.bookings;
+  policy public.booking_policies;
+  appointment_at timestamp;
+  next_status text;
+begin
+  select * into target_booking
+  from public.bookings
+  where id = booking_id
+  for update;
+
+  if not found or target_booking.user_id <> auth.uid() then
+    raise exception 'booking_not_found';
+  end if;
+
+  if target_booking.status not in ('pending', 'confirmed') then
+    raise exception 'booking_status_final';
+  end if;
+
+  select * into policy from public.get_active_booking_policy();
+  appointment_at := target_booking.preferred_date + target_booking.preferred_time;
+
+  if appointment_at - (now() at time zone 'America/Sao_Paulo') < make_interval(hours => policy.reschedule_cutoff_hours) then
+    raise exception 'booking_policy_cutoff';
+  end if;
+
+  next_status := case when policy.auto_confirm_enabled then 'confirmed' else 'pending' end;
+
+  update public.bookings
+  set preferred_date = new_date,
+      preferred_time = new_start_time,
+      preferred_end_time = new_end_time,
+      status = next_status,
+      updated_at = now()
+  where id = booking_id;
+
+  insert into public.booking_status_events (
+    booking_id,
+    from_status,
+    to_status,
+    actor_user_id,
+    actor_role,
+    reason,
+    metadata
+  ) values (
+    booking_id,
+    target_booking.status,
+    target_booking.status,
+    auth.uid(),
+    'client',
+    coalesce(nullif(trim(reason), ''), 'Remarcacao solicitada pela cliente'),
+    jsonb_build_object(
+      'from_date', target_booking.preferred_date,
+      'from_time', target_booking.preferred_time,
+      'to_date', new_date,
+      'to_time', new_start_time
+    )
+  );
+
+  insert into public.booking_notification_queue (booking_id, type, scheduled_for, message_template)
+  values (
+    booking_id,
+    'confirmation',
+    now(),
+    'Ola ' || target_booking.client_name || ', sua remarcacao para ' || to_char(new_date, 'DD/MM/YYYY') || ' das ' || to_char(new_start_time, 'HH24:MI') || ' as ' || to_char(new_end_time, 'HH24:MI') || ' foi registrada. A Hellen vai confirmar por aqui.'
+  );
+end;
+$$;
+
+revoke execute on function public.client_reschedule_booking(uuid, date, time, time, text) from public, anon;
+grant execute on function public.client_reschedule_booking(uuid, date, time, time, text) to authenticated;
+
 alter table public.admin_profiles enable row level security;
 alter table public.service_catalog enable row level security;
 alter table public.bookings enable row level security;
 alter table public.admin_unavailable_days enable row level security;
 alter table public.admin_availability_slots enable row level security;
+alter table public.booking_policies enable row level security;
+alter table public.booking_status_events enable row level security;
+alter table public.booking_internal_notes enable row level security;
+alter table public.booking_notification_queue enable row level security;
 
 drop policy if exists "Admins and owners can read admin profiles" on public.admin_profiles;
 create policy "Admins and owners can read admin profiles"
@@ -424,6 +815,108 @@ with check ((select public.is_booking_admin()));
 drop policy if exists "Admins can delete availability slots" on public.admin_availability_slots;
 create policy "Admins can delete availability slots"
 on public.admin_availability_slots
+for delete
+to authenticated
+using ((select public.is_booking_admin()));
+
+drop policy if exists "Anyone can read active booking policy" on public.booking_policies;
+create policy "Anyone can read active booking policy"
+on public.booking_policies
+for select
+to anon
+using (active = true);
+
+drop policy if exists "Users can read active booking policy" on public.booking_policies;
+create policy "Users can read active booking policy"
+on public.booking_policies
+for select
+to authenticated
+using (active = true or (select public.is_booking_admin()));
+
+drop policy if exists "Admins can insert booking policies" on public.booking_policies;
+create policy "Admins can insert booking policies"
+on public.booking_policies
+for insert
+to authenticated
+with check ((select public.is_booking_admin()));
+
+drop policy if exists "Admins can update booking policies" on public.booking_policies;
+create policy "Admins can update booking policies"
+on public.booking_policies
+for update
+to authenticated
+using ((select public.is_booking_admin()))
+with check ((select public.is_booking_admin()));
+
+drop policy if exists "Users and admins can read booking status events" on public.booking_status_events;
+create policy "Users and admins can read booking status events"
+on public.booking_status_events
+for select
+to authenticated
+using (
+  (select public.is_booking_admin())
+  or exists (
+    select 1
+    from public.bookings b
+    where b.id = booking_status_events.booking_id
+      and b.user_id = (select auth.uid())
+  )
+);
+
+drop policy if exists "Admins can read internal notes" on public.booking_internal_notes;
+create policy "Admins can read internal notes"
+on public.booking_internal_notes
+for select
+to authenticated
+using ((select public.is_booking_admin()));
+
+drop policy if exists "Admins can insert internal notes" on public.booking_internal_notes;
+create policy "Admins can insert internal notes"
+on public.booking_internal_notes
+for insert
+to authenticated
+with check ((select public.is_booking_admin()));
+
+drop policy if exists "Admins can update internal notes" on public.booking_internal_notes;
+create policy "Admins can update internal notes"
+on public.booking_internal_notes
+for update
+to authenticated
+using ((select public.is_booking_admin()))
+with check ((select public.is_booking_admin()));
+
+drop policy if exists "Admins can delete internal notes" on public.booking_internal_notes;
+create policy "Admins can delete internal notes"
+on public.booking_internal_notes
+for delete
+to authenticated
+using ((select public.is_booking_admin()));
+
+drop policy if exists "Admins can read notification queue" on public.booking_notification_queue;
+create policy "Admins can read notification queue"
+on public.booking_notification_queue
+for select
+to authenticated
+using ((select public.is_booking_admin()));
+
+drop policy if exists "Admins can insert notification queue" on public.booking_notification_queue;
+create policy "Admins can insert notification queue"
+on public.booking_notification_queue
+for insert
+to authenticated
+with check ((select public.is_booking_admin()));
+
+drop policy if exists "Admins can update notification queue" on public.booking_notification_queue;
+create policy "Admins can update notification queue"
+on public.booking_notification_queue
+for update
+to authenticated
+using ((select public.is_booking_admin()))
+with check ((select public.is_booking_admin()));
+
+drop policy if exists "Admins can delete notification queue" on public.booking_notification_queue;
+create policy "Admins can delete notification queue"
+on public.booking_notification_queue
 for delete
 to authenticated
 using ((select public.is_booking_admin()));

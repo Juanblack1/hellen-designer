@@ -6,11 +6,13 @@ import {
   CalendarCheck,
   Camera,
   CheckCircle2,
+  Clipboard,
   Clock3,
   Filter,
   LockKeyhole,
   Mail,
   MapPin,
+  MessageCircle,
   Phone,
   Plus,
   Save,
@@ -55,8 +57,9 @@ type BookingForm = {
   notes: string
 }
 
-type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'done'
+type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'canceled_by_client' | 'canceled_by_admin' | 'no_show'
 type AdminStatusFilter = BookingStatus | 'all'
+type NotificationStatus = 'pending' | 'done' | 'skipped'
 type AuthMode = 'sign-in' | 'sign-up' | 'forgot-password' | 'reset-password'
 
 type BookingRecord = {
@@ -75,6 +78,61 @@ type BookingRecord = {
   notes: string | null
   status: BookingStatus
   source: string
+  canceled_at?: string | null
+  canceled_by?: string | null
+  cancellation_reason?: string | null
+  confirmed_at?: string | null
+  completed_at?: string | null
+  no_show_at?: string | null
+}
+
+type BookingPolicy = {
+  id: string
+  cancellation_cutoff_hours: number
+  reschedule_cutoff_hours: number
+  no_show_grace_minutes: number
+  auto_confirm_enabled: boolean
+  policy_text: string
+  active: boolean
+  updated_at: string
+}
+
+type PolicyDraft = {
+  cancellationCutoffHours: string
+  rescheduleCutoffHours: string
+  noShowGraceMinutes: string
+  autoConfirmEnabled: boolean
+  policyText: string
+}
+
+type BookingStatusEvent = {
+  id: string
+  booking_id: string
+  from_status: BookingStatus | null
+  to_status: BookingStatus
+  actor_role: 'client' | 'admin' | 'system'
+  reason: string | null
+  created_at: string
+}
+
+type BookingInternalNote = {
+  id: string
+  booking_id: string
+  note: string
+  created_at: string
+  updated_at: string
+}
+
+type BookingNotificationQueueItem = {
+  id: string
+  booking_id: string
+  type: 'confirmation' | 'reminder' | 'cancellation' | 'follow_up'
+  channel: 'manual_whatsapp' | 'manual_email' | 'in_app'
+  status: NotificationStatus
+  scheduled_for: string
+  message_template: string
+  done_at: string | null
+  created_at: string
 }
 
 type BookedSlotRow = {
@@ -108,6 +166,7 @@ type RescheduleDraft = {
   preferredDate: string
   preferredTime: string
   preferredEndTime: string
+  reason: string
 }
 
 type AvailabilityDraft = {
@@ -177,11 +236,29 @@ const serviceSeeds: ServiceOption[] = [
 const statusLabels: Record<BookingStatus, string> = {
   pending: 'Aguardando confirmacao',
   confirmed: 'Confirmado',
-  cancelled: 'Cancelado',
-  done: 'Concluido',
+  completed: 'Concluido',
+  canceled_by_client: 'Cancelado pela cliente',
+  canceled_by_admin: 'Cancelado pela Hellen',
+  no_show: 'Nao compareceu',
 }
 
-const statusOptions: BookingStatus[] = ['pending', 'confirmed', 'done', 'cancelled']
+const statusOptions: BookingStatus[] = [
+  'pending',
+  'confirmed',
+  'completed',
+  'canceled_by_client',
+  'canceled_by_admin',
+  'no_show',
+]
+const activeBookingStatuses: BookingStatus[] = ['pending', 'confirmed']
+const finalBookingStatuses: BookingStatus[] = ['completed', 'canceled_by_client', 'canceled_by_admin', 'no_show']
+const notificationStatusLabels: Record<NotificationStatus, string> = {
+  pending: 'Pendente',
+  done: 'Feita',
+  skipped: 'Ignorada',
+}
+const defaultPolicyText =
+  'Cancelamentos e remarcacoes devem ser solicitados com antecedencia. Atrasos podem reduzir o tempo de atendimento ou exigir novo agendamento. A confirmacao final pode ser enviada por WhatsApp ou email.'
 const weekdayLabels = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom']
 const weekdayOptions = [
   { value: 1, label: 'Segunda' },
@@ -333,6 +410,22 @@ function getAuthErrorMessage(message: string) {
 function getBookingErrorMessage(message: string, conflictMessage: string) {
   const normalized = message.toLowerCase()
 
+  if (normalized.includes('booking_policy_cutoff')) {
+    return 'Este horario esta fora do prazo permitido para cancelar ou remarcar. Fale com a Hellen para ajustar manualmente.'
+  }
+
+  if (normalized.includes('booking_status_final')) {
+    return 'Este agendamento ja esta em status final e nao pode ser alterado.'
+  }
+
+  if (normalized.includes('booking_status_transition_invalid')) {
+    return 'Essa mudanca de status nao e permitida. Confirme o horario antes de concluir, cancelar ou marcar falta.'
+  }
+
+  if (normalized.includes('booking_not_found')) {
+    return 'Agendamento nao encontrado para esta conta.'
+  }
+
   if (normalized.includes('booking_date_in_past')) {
     return 'Nao e possivel marcar ou remarcar para uma data anterior ao dia atual.'
   }
@@ -413,6 +506,15 @@ function formatDate(date: string) {
   }).format(new Date(`${date}T12:00:00`))
 }
 
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value))
+}
+
 function formatFullDate(date: string) {
   return new Intl.DateTimeFormat('pt-BR', {
     weekday: 'short',
@@ -461,6 +563,56 @@ function createEmptyServiceDraft(): ServiceDraft {
   }
 }
 
+function createPolicyDraft(policy?: BookingPolicy | null): PolicyDraft {
+  return {
+    cancellationCutoffHours: String(policy?.cancellation_cutoff_hours ?? 12),
+    rescheduleCutoffHours: String(policy?.reschedule_cutoff_hours ?? 12),
+    noShowGraceMinutes: String(policy?.no_show_grace_minutes ?? 15),
+    autoConfirmEnabled: Boolean(policy?.auto_confirm_enabled),
+    policyText: policy?.policy_text ?? defaultPolicyText,
+  }
+}
+
+function isActiveBookingStatus(status: BookingStatus) {
+  return activeBookingStatuses.includes(status)
+}
+
+function isFinalBookingStatus(status: BookingStatus) {
+  return finalBookingStatuses.includes(status)
+}
+
+function getAdminStatusOptions(currentStatus: BookingStatus) {
+  if (currentStatus === 'pending') {
+    return ['pending', 'confirmed', 'canceled_by_admin'] satisfies BookingStatus[]
+  }
+
+  if (currentStatus === 'confirmed') {
+    return ['confirmed', 'pending', 'completed', 'canceled_by_admin', 'no_show'] satisfies BookingStatus[]
+  }
+
+  return [currentStatus]
+}
+
+function normalizeWhatsAppPhone(phone: string) {
+  const digits = phone.replace(/\D/g, '')
+
+  if (!digits) {
+    return ''
+  }
+
+  return digits.startsWith('55') ? digits : `55${digits}`
+}
+
+function getWhatsAppUrl(phone: string, message: string) {
+  const normalizedPhone = normalizeWhatsAppPhone(phone)
+
+  if (!normalizedPhone) {
+    return ''
+  }
+
+  return `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(message)}`
+}
+
 function slugifyServiceId(value: string) {
   return value
     .normalize('NFD')
@@ -491,10 +643,12 @@ function App() {
   const [authForm, setAuthForm] = useState({ email: '', password: '' })
   const [authStatus, setAuthStatus] = useState('')
   const [bookingStatus, setBookingStatus] = useState('')
+  const [customerActionStatus, setCustomerActionStatus] = useState('')
   const [bookingActionStatus, setBookingActionStatus] = useState('')
   const [serviceActionStatus, setServiceActionStatus] = useState('')
   const [availabilityActionStatus, setAvailabilityActionStatus] = useState('')
   const [unavailableActionStatus, setUnavailableActionStatus] = useState('')
+  const [policyActionStatus, setPolicyActionStatus] = useState('')
   const [isSubmittingBooking, setIsSubmittingBooking] = useState(false)
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -502,9 +656,16 @@ function App() {
   const [bookedSlots, setBookedSlots] = useState<BookedSlot[]>([])
   const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([])
   const [unavailableDays, setUnavailableDays] = useState<UnavailableDay[]>([])
+  const [bookingPolicy, setBookingPolicy] = useState<BookingPolicy | null>(null)
+  const [policyDraft, setPolicyDraft] = useState<PolicyDraft>(() => createPolicyDraft())
+  const [policyAccepted, setPolicyAccepted] = useState(false)
+  const [statusEvents, setStatusEvents] = useState<BookingStatusEvent[]>([])
+  const [internalNotes, setInternalNotes] = useState<BookingInternalNote[]>([])
+  const [notificationQueue, setNotificationQueue] = useState<BookingNotificationQueueItem[]>([])
   const [bookingRefreshKey, setBookingRefreshKey] = useState(0)
   const [serviceRefreshKey, setServiceRefreshKey] = useState(0)
   const [availabilityRefreshKey, setAvailabilityRefreshKey] = useState(0)
+  const [operationalRefreshKey, setOperationalRefreshKey] = useState(0)
   const [adminStatusFilter, setAdminStatusFilter] = useState<AdminStatusFilter>('all')
   const [adminSelectedDate, setAdminSelectedDate] = useState(() => getTodayDate())
   const [bookingSearch, setBookingSearch] = useState('')
@@ -518,9 +679,12 @@ function App() {
   })
   const [unavailableDraft, setUnavailableDraft] = useState({ date: getTodayDate(), reason: '' })
   const [rescheduleDrafts, setRescheduleDrafts] = useState<Record<string, RescheduleDraft>>({})
+  const [cancelReasonDrafts, setCancelReasonDrafts] = useState<Record<string, string>>({})
+  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({})
   const [savingServiceId, setSavingServiceId] = useState('')
   const [savingAvailabilityId, setSavingAvailabilityId] = useState('')
   const [updatingBookingId, setUpdatingBookingId] = useState('')
+  const [updatingQueueId, setUpdatingQueueId] = useState('')
 
   useEffect(() => {
     function handlePopState() {
@@ -553,6 +717,9 @@ function App() {
           setBookings([])
           setBookedSlots([])
           setAvailabilitySlots([])
+          setStatusEvents([])
+          setInternalNotes([])
+          setNotificationQueue([])
         }
       }
     })
@@ -564,6 +731,9 @@ function App() {
         setBookings([])
         setBookedSlots([])
         setAvailabilitySlots([])
+        setStatusEvents([])
+        setInternalNotes([])
+        setNotificationQueue([])
       }
 
       if (event === 'PASSWORD_RECOVERY') {
@@ -606,6 +776,30 @@ function App() {
       isMounted = false
     }
   }, [session])
+
+  useEffect(() => {
+    const client = supabase
+
+    if (!client) {
+      return
+    }
+
+    let isMounted = true
+
+    void client.rpc('get_active_booking_policy').then(({ data, error }) => {
+      if (!isMounted || error || !data) {
+        return
+      }
+
+      const policy = (Array.isArray(data) ? data[0] : data) as BookingPolicy
+      setBookingPolicy(policy)
+      setPolicyDraft(createPolicyDraft(policy))
+    })
+
+    return () => {
+      isMounted = false
+    }
+  }, [operationalRefreshKey])
 
   useEffect(() => {
     const client = supabase
@@ -658,7 +852,7 @@ function App() {
     void client
       .from('bookings')
       .select(
-        'id,created_at,updated_at,user_id,client_name,client_email,client_phone,service_id,service_name,preferred_date,preferred_time,preferred_end_time,notes,status,source',
+        'id,created_at,updated_at,user_id,client_name,client_email,client_phone,service_id,service_name,preferred_date,preferred_time,preferred_end_time,notes,status,source,canceled_at,canceled_by,cancellation_reason,confirmed_at,completed_at,no_show_at',
       )
       .order('preferred_date', { ascending: true })
       .order('preferred_time', { ascending: true })
@@ -679,6 +873,7 @@ function App() {
                 preferredDate: item.preferred_date,
                 preferredTime: timeLabel(item.preferred_time),
                 preferredEndTime: timeLabel(item.preferred_end_time),
+                reason: '',
               }
             })
 
@@ -691,6 +886,62 @@ function App() {
       isMounted = false
     }
   }, [session, isAdmin, bookingRefreshKey])
+
+  useEffect(() => {
+    const client = supabase
+
+    if (!client || !session) {
+      return
+    }
+
+    let isMounted = true
+
+    void client
+      .from('booking_status_events')
+      .select('id,booking_id,from_status,to_status,actor_role,reason,created_at')
+      .order('created_at', { ascending: false })
+      .limit(isAdmin ? 300 : 80)
+      .then(({ data, error }) => {
+        if (!isMounted || error) {
+          return
+        }
+
+        setStatusEvents((data ?? []) as BookingStatusEvent[])
+      })
+
+    if (isAdmin) {
+      void client
+        .from('booking_internal_notes')
+        .select('id,booking_id,note,created_at,updated_at')
+        .order('created_at', { ascending: false })
+        .limit(300)
+        .then(({ data, error }) => {
+          if (!isMounted || error) {
+            return
+          }
+
+          setInternalNotes((data ?? []) as BookingInternalNote[])
+        })
+
+      void client
+        .from('booking_notification_queue')
+        .select('id,booking_id,type,channel,status,scheduled_for,message_template,done_at,created_at')
+        .order('status', { ascending: false })
+        .order('scheduled_for', { ascending: true })
+        .limit(120)
+        .then(({ data, error }) => {
+          if (!isMounted || error) {
+            return
+          }
+
+          setNotificationQueue((data ?? []) as BookingNotificationQueueItem[])
+        })
+    }
+
+    return () => {
+      isMounted = false
+    }
+  }, [session, isAdmin, bookingRefreshKey, operationalRefreshKey])
 
   useEffect(() => {
     const client = supabase
@@ -857,6 +1108,22 @@ function App() {
     status,
     count: bookings.filter((item) => item.status === status).length,
   }))
+  const notesByBooking = internalNotes.reduce<Record<string, BookingInternalNote[]>>((notes, note) => {
+    notes[note.booking_id] = [...(notes[note.booking_id] ?? []), note]
+    return notes
+  }, {})
+  const eventsByBooking = statusEvents.reduce<Record<string, BookingStatusEvent[]>>((events, event) => {
+    events[event.booking_id] = [...(events[event.booking_id] ?? []), event]
+    return events
+  }, {})
+  const pendingNotificationCount = notificationQueue.filter((item) => item.status === 'pending').length
+  const activeBookingCount = bookings.filter((item) => isActiveBookingStatus(item.status)).length
+  const upcomingConfirmedCount = bookings.filter(
+    (item) => item.status === 'confirmed' && item.preferred_date >= getTodayDate(),
+  ).length
+  const completedRevenueCents = bookings
+    .filter((item) => item.status === 'completed')
+    .reduce((total, item) => total + (services.find((service) => service.id === item.service_id)?.priceCents ?? 0), 0)
 
   function goHome(targetId?: string) {
     window.history.pushState(null, '', targetId ? `/#${targetId}` : '/')
@@ -926,7 +1193,13 @@ function App() {
       return
     }
 
+    if (!policyAccepted) {
+      setBookingStatus('Confirme que leu a politica de cancelamento e remarcacao para solicitar o horario.')
+      return
+    }
+
     setIsSubmittingBooking(true)
+    const nextStatus: BookingStatus = bookingPolicy?.auto_confirm_enabled ? 'confirmed' : 'pending'
     const { error } = await client.from('bookings').insert({
       user_id: session.user.id,
       client_name: booking.name.trim(),
@@ -938,6 +1211,7 @@ function App() {
       preferred_time: booking.preferredTime,
       preferred_end_time: booking.preferredEndTime,
       notes: booking.notes.trim() || null,
+      status: nextStatus,
       source: 'site',
     })
 
@@ -953,7 +1227,11 @@ function App() {
       return
     }
 
-    setBookingStatus('Horario solicitado. A confirmacao chega por WhatsApp ou email.')
+    setBookingStatus(
+      nextStatus === 'confirmed'
+        ? 'Horario confirmado. A mensagem fica registrada para envio pelo WhatsApp.'
+        : 'Horario solicitado. A confirmacao chega por WhatsApp ou email.',
+    )
     const nextDate = getInitialDate()
     setBooking((current) => ({
       ...current,
@@ -964,6 +1242,7 @@ function App() {
       preferredTime: '',
       preferredEndTime: '',
     }))
+    setPolicyAccepted(false)
     setCalendarMonth(getMonthStart(nextDate))
     setBookingRefreshKey((key) => key + 1)
   }
@@ -1050,35 +1329,88 @@ function App() {
     setBookings([])
     setBookedSlots([])
     setAvailabilitySlots([])
+    setStatusEvents([])
+    setInternalNotes([])
+    setNotificationQueue([])
     setIsAdmin(false)
     setAuthStatus('Sessao encerrada.')
   }
 
   async function handleBookingStatusChange(bookingId: string, status: BookingStatus) {
     const client = supabase
+    const bookingItem = bookings.find((item) => item.id === bookingId)
 
-    if (!client || !isAdmin) {
+    if (!client || !isAdmin || !session || !bookingItem) {
       return
     }
 
     setUpdatingBookingId(bookingId)
     setBookingActionStatus('')
+    const now = new Date().toISOString()
+    const statusPayload: Partial<BookingRecord> & Record<string, string | null> = {
+      status,
+      updated_at: now,
+    }
+
+    if (status === 'confirmed') {
+      statusPayload.confirmed_at = now
+    }
+
+    if (status === 'completed') {
+      statusPayload.completed_at = now
+    }
+
+    if (status === 'canceled_by_admin') {
+      statusPayload.canceled_at = now
+      statusPayload.canceled_by = session.user.id
+    }
+
+    if (status === 'no_show') {
+      statusPayload.no_show_at = now
+    }
+
     const { error } = await client
       .from('bookings')
-      .update({ status, updated_at: new Date().toISOString() })
+      .update(statusPayload)
       .eq('id', bookingId)
     setUpdatingBookingId('')
 
     if (error) {
-      setBookingActionStatus(`Nao foi possivel atualizar o pedido: ${error.message}`)
+      setBookingActionStatus(
+        `Nao foi possivel atualizar o pedido: ${getBookingErrorMessage(error.message, 'Esse horario ja esta ocupado.')}`,
+      )
       return
+    }
+
+    if (status === 'confirmed' || status === 'canceled_by_admin' || status === 'completed' || status === 'no_show') {
+      const notificationType = status === 'completed' || status === 'no_show' ? 'follow_up' : status === 'canceled_by_admin' ? 'cancellation' : 'confirmation'
+      const message =
+        status === 'confirmed'
+          ? `Ola ${bookingItem.client_name}, seu horario para ${bookingItem.service_name} em ${formatFullDate(
+              bookingItem.preferred_date,
+            )} das ${formatTimeRange(bookingItem.preferred_time, bookingItem.preferred_end_time)} esta confirmado.`
+          : status === 'canceled_by_admin'
+            ? `Ola ${bookingItem.client_name}, precisamos cancelar seu horario de ${formatFullDate(
+                bookingItem.preferred_date,
+              )} das ${formatTimeRange(bookingItem.preferred_time, bookingItem.preferred_end_time)}. Fale com a Hellen para remarcar.`
+            : status === 'completed'
+              ? `Ola ${bookingItem.client_name}, obrigada pelo atendimento de hoje. Se quiser manter o desenho em dia, fale com a Hellen para combinar o proximo horario.`
+              : `Ola ${bookingItem.client_name}, sentimos sua ausencia no horario de hoje. Se quiser remarcar, fale com a Hellen.`
+
+      await client.from('booking_notification_queue').insert({
+        booking_id: bookingId,
+        type: notificationType,
+        scheduled_for: now,
+        message_template: message,
+      })
     }
 
     setBookingActionStatus('Status atualizado.')
     setBookings((current) =>
-      current.map((item) => (item.id === bookingId ? { ...item, status } : item)),
+      current.map((item) => (item.id === bookingId ? { ...item, ...statusPayload, status } : item)),
     )
     setBookingRefreshKey((key) => key + 1)
+    setOperationalRefreshKey((key) => key + 1)
   }
 
   async function handleBookingDelete(bookingId: string) {
@@ -1107,7 +1439,7 @@ function App() {
     setRescheduleDrafts((current) => ({
       ...current,
       [bookingId]: {
-        ...(current[bookingId] ?? { preferredDate: getInitialDate(), preferredTime: '', preferredEndTime: '' }),
+        ...(current[bookingId] ?? { preferredDate: getInitialDate(), preferredTime: '', preferredEndTime: '', reason: '' }),
         ...patch,
       },
     }))
@@ -1119,6 +1451,7 @@ function App() {
       preferredDate: item.preferred_date,
       preferredTime: timeLabel(item.preferred_time),
       preferredEndTime: timeLabel(item.preferred_end_time),
+      reason: '',
     }
 
     if (!client || !isAdmin) {
@@ -1176,6 +1509,82 @@ function App() {
       ),
     )
     setBookingRefreshKey((key) => key + 1)
+  }
+
+  async function handleCustomerCancel(item: BookingRecord) {
+    const client = supabase
+
+    if (!client || !session || !isActiveBookingStatus(item.status)) {
+      return
+    }
+
+    if (!window.confirm('Cancelar este horario?')) {
+      return
+    }
+
+    setUpdatingBookingId(item.id)
+    setCustomerActionStatus('')
+    const { error } = await client.rpc('client_cancel_booking', {
+      booking_id: item.id,
+      reason: cancelReasonDrafts[item.id]?.trim() || null,
+    })
+    setUpdatingBookingId('')
+
+    if (error) {
+      setCustomerActionStatus(
+        `Nao foi possivel cancelar: ${getBookingErrorMessage(error.message, 'Esse horario ja foi reservado.')}`,
+      )
+      return
+    }
+
+    setCustomerActionStatus('Horario cancelado. Se precisar, escolha uma nova data na agenda.')
+    setCancelReasonDrafts((current) => ({ ...current, [item.id]: '' }))
+    setBookingRefreshKey((key) => key + 1)
+    setOperationalRefreshKey((key) => key + 1)
+  }
+
+  async function handleCustomerReschedule(item: BookingRecord) {
+    const client = supabase
+    const draft = rescheduleDrafts[item.id] ?? {
+      preferredDate: item.preferred_date,
+      preferredTime: timeLabel(item.preferred_time),
+      preferredEndTime: timeLabel(item.preferred_end_time),
+      reason: '',
+    }
+
+    if (!client || !session || !isActiveBookingStatus(item.status)) {
+      return
+    }
+
+    if (!draft.preferredDate || !draft.preferredTime || !draft.preferredEndTime) {
+      setCustomerActionStatus('Escolha uma nova data e horario para remarcar.')
+      return
+    }
+
+    setUpdatingBookingId(item.id)
+    setCustomerActionStatus('')
+    const { error } = await client.rpc('client_reschedule_booking', {
+      booking_id: item.id,
+      new_date: draft.preferredDate,
+      new_start_time: draft.preferredTime,
+      new_end_time: draft.preferredEndTime,
+      reason: draft.reason.trim() || null,
+    })
+    setUpdatingBookingId('')
+
+    if (error) {
+      setCustomerActionStatus(
+        `Nao foi possivel remarcar: ${getBookingErrorMessage(
+          error.message,
+          'Ja existe um agendamento ativo nesse horario. Escolha outro periodo.',
+        )}`,
+      )
+      return
+    }
+
+    setCustomerActionStatus('Remarcacao registrada. Acompanhe o novo status aqui.')
+    setBookingRefreshKey((key) => key + 1)
+    setOperationalRefreshKey((key) => key + 1)
   }
 
   async function handleCreateUnavailableDay(event: FormEvent<HTMLFormElement>) {
@@ -1429,6 +1838,127 @@ function App() {
     setServiceRefreshKey((key) => key + 1)
   }
 
+  async function handlePolicySave(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const client = supabase
+
+    if (!client || !isAdmin || !session) {
+      return
+    }
+
+    const cancellationCutoffHours = Number.parseInt(policyDraft.cancellationCutoffHours, 10)
+    const rescheduleCutoffHours = Number.parseInt(policyDraft.rescheduleCutoffHours, 10)
+    const noShowGraceMinutes = Number.parseInt(policyDraft.noShowGraceMinutes, 10)
+
+    if (
+      !Number.isFinite(cancellationCutoffHours) ||
+      !Number.isFinite(rescheduleCutoffHours) ||
+      !Number.isFinite(noShowGraceMinutes) ||
+      policyDraft.policyText.trim().length < 20
+    ) {
+      setPolicyActionStatus('Revise os prazos e escreva uma politica com pelo menos 20 caracteres.')
+      return
+    }
+
+    setPolicyActionStatus('')
+    const { error } = await client.from('booking_policies').upsert(
+      {
+        id: bookingPolicy?.id ?? 'default',
+        cancellation_cutoff_hours: cancellationCutoffHours,
+        reschedule_cutoff_hours: rescheduleCutoffHours,
+        no_show_grace_minutes: noShowGraceMinutes,
+        auto_confirm_enabled: policyDraft.autoConfirmEnabled,
+        policy_text: policyDraft.policyText.trim(),
+        active: true,
+        updated_by: session.user.id,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'id' },
+    )
+
+    if (error) {
+      setPolicyActionStatus(`Nao foi possivel salvar a politica: ${error.message}`)
+      return
+    }
+
+    setPolicyActionStatus('Politica atualizada.')
+    setOperationalRefreshKey((key) => key + 1)
+  }
+
+  async function handleInternalNoteCreate(event: FormEvent<HTMLFormElement>, bookingId: string) {
+    event.preventDefault()
+    const client = supabase
+    const note = noteDrafts[bookingId]?.trim() ?? ''
+
+    if (!client || !isAdmin || !session || note.length < 2) {
+      setBookingActionStatus('Escreva uma nota interna antes de salvar.')
+      return
+    }
+
+    setUpdatingBookingId(bookingId)
+    setBookingActionStatus('')
+    const { error } = await client.from('booking_internal_notes').insert({
+      booking_id: bookingId,
+      admin_user_id: session.user.id,
+      note,
+    })
+    setUpdatingBookingId('')
+
+    if (error) {
+      setBookingActionStatus(`Nao foi possivel salvar a nota: ${error.message}`)
+      return
+    }
+
+    setNoteDrafts((current) => ({ ...current, [bookingId]: '' }))
+    setBookingActionStatus('Nota interna salva.')
+    setOperationalRefreshKey((key) => key + 1)
+  }
+
+  async function handleNotificationStatusChange(item: BookingNotificationQueueItem, status: NotificationStatus) {
+    const client = supabase
+
+    if (!client || !isAdmin || !session) {
+      return
+    }
+
+    setUpdatingQueueId(item.id)
+    const now = new Date().toISOString()
+    const { error } = await client
+      .from('booking_notification_queue')
+      .update({
+        status,
+        done_by: status === 'done' ? session.user.id : null,
+        done_at: status === 'done' ? now : null,
+        updated_at: now,
+      })
+      .eq('id', item.id)
+    setUpdatingQueueId('')
+
+    if (error) {
+      setBookingActionStatus(`Nao foi possivel atualizar a fila: ${error.message}`)
+      return
+    }
+
+    setNotificationQueue((current) =>
+      current.map((queueItem) =>
+        queueItem.id === item.id
+          ? { ...queueItem, status, done_at: status === 'done' ? now : null }
+          : queueItem,
+      ),
+    )
+    setBookingActionStatus('Fila atualizada.')
+  }
+
+  async function handleCopyNotification(message: string) {
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(message)
+      setBookingActionStatus('Mensagem copiada.')
+      return
+    }
+
+    window.prompt('Copie a mensagem:', message)
+  }
+
   function renderTopbar() {
     return (
       <nav className="topbar" aria-label="Navegacao principal">
@@ -1563,7 +2093,7 @@ function App() {
                     const dayBookings = isAdmin
                       ? bookings.filter(
                           (item) =>
-                            item.preferred_date === day.date && ['pending', 'confirmed'].includes(item.status),
+                            item.preferred_date === day.date && isActiveBookingStatus(item.status),
                         ).length
                       : 0
 
@@ -1637,6 +2167,32 @@ function App() {
                 placeholder="Conte se e sua primeira vez, se tem alergias ou objetivo especifico."
               />
             </label>
+            <div className="booking-confirmation-card" aria-label="Resumo do agendamento">
+              <div>
+                <p className="eyebrow">Resumo</p>
+                <strong>{selectedService.name}</strong>
+                <span>
+                  {formatFullDate(booking.preferredDate)}
+                  {booking.preferredTime && booking.preferredEndTime
+                    ? `, das ${formatTimeRange(booking.preferredTime, booking.preferredEndTime)}`
+                    : ', escolha um horario'}
+                </span>
+                <small>{formatPrice(selectedService.priceCents)} - {selectedService.durationMinutes} min</small>
+              </div>
+              <label className="policy-check">
+                <input
+                  type="checkbox"
+                  checked={policyAccepted}
+                  onChange={(event) => setPolicyAccepted(event.target.checked)}
+                />
+                <span>
+                  Li e aceito a politica de cancelamento e remarcacao.
+                  <small>
+                    {bookingPolicy?.policy_text ?? defaultPolicyText}
+                  </small>
+                </span>
+              </label>
+            </div>
             <div className="form-actions">
               <button
                 type="submit"
@@ -1645,7 +2201,8 @@ function App() {
                   !bookableServices.length ||
                   selectedSlotIsBooked ||
                   !selectedSlotIsAvailable ||
-                  !availableSlots.length
+                  !availableSlots.length ||
+                  !policyAccepted
                 }
               >
                 {isSubmittingBooking ? 'Solicitando...' : 'Solicitar horario'}
@@ -1708,18 +2265,113 @@ function App() {
             </div>
             {customerBookings.length ? (
               <div className="booking-items">
-                {customerBookings.map((item) => (
-                  <article key={item.id}>
-                    <time dateTime={item.preferred_date}>{formatDate(item.preferred_date)}</time>
-                    <div>
-                      <strong>{item.client_name}</strong>
-                      <span>
-                        {item.service_name} as {formatTimeRange(item.preferred_time, item.preferred_end_time)}
-                      </span>
-                    </div>
-                    <small className={getStatusTone(item.status)}>{statusLabels[item.status]}</small>
-                  </article>
-                ))}
+                {customerBookings.map((item) => {
+                  const draft = rescheduleDrafts[item.id] ?? {
+                    preferredDate: item.preferred_date,
+                    preferredTime: timeLabel(item.preferred_time),
+                    preferredEndTime: timeLabel(item.preferred_end_time),
+                    reason: '',
+                  }
+                  const draftSlotValue =
+                    draft.preferredTime && draft.preferredEndTime
+                      ? getSlotKey(draft.preferredTime, draft.preferredEndTime)
+                      : ''
+                  const isActionable = isActiveBookingStatus(item.status)
+                  const bookingEvents = eventsByBooking[item.id] ?? []
+
+                  return (
+                    <article key={item.id} className="customer-booking-card">
+                      <time dateTime={item.preferred_date}>{formatDate(item.preferred_date)}</time>
+                      <div className="customer-booking-main">
+                        <strong>{item.client_name}</strong>
+                        <span>
+                          {item.service_name} as {formatTimeRange(item.preferred_time, item.preferred_end_time)}
+                        </span>
+                        {item.cancellation_reason ? <small>Motivo: {item.cancellation_reason}</small> : null}
+                      </div>
+                      <small className={getStatusTone(item.status)}>{statusLabels[item.status]}</small>
+                      {isActionable ? (
+                        <div className="customer-actions">
+                          <div className="reschedule-controls customer-reschedule-controls">
+                            <label>
+                              Nova data
+                              <input
+                                type="date"
+                                min={getTodayDate()}
+                                value={draft.preferredDate}
+                                onChange={(event) =>
+                                  updateRescheduleDraft(item.id, {
+                                    preferredDate: event.target.value,
+                                    preferredTime: '',
+                                    preferredEndTime: '',
+                                  })
+                                }
+                              />
+                            </label>
+                            <label>
+                              Horario
+                              <select
+                                value={draftSlotValue}
+                                onChange={(event) => {
+                                  const [preferredTime, preferredEndTime] = event.target.value.split('-')
+                                  updateRescheduleDraft(item.id, { preferredTime, preferredEndTime })
+                                }}
+                              >
+                                <option value="">Selecione</option>
+                                {getAvailabilitySlotsForDate(draft.preferredDate).map((slot) => (
+                                  <option key={slot.id} value={getSlotKey(slot.start_time, slot.end_time)}>
+                                    {formatTimeRange(slot.start_time, slot.end_time)}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <label>
+                              Motivo
+                              <input
+                                value={draft.reason}
+                                onChange={(event) => updateRescheduleDraft(item.id, { reason: event.target.value })}
+                                placeholder="Opcional"
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              disabled={updatingBookingId === item.id}
+                              onClick={() => void handleCustomerReschedule(item)}
+                            >
+                              Remarcar
+                            </button>
+                          </div>
+                          <div className="cancel-controls">
+                            <input
+                              value={cancelReasonDrafts[item.id] ?? ''}
+                              onChange={(event) =>
+                                setCancelReasonDrafts((current) => ({ ...current, [item.id]: event.target.value }))
+                              }
+                              placeholder="Motivo do cancelamento (opcional)"
+                            />
+                            <button
+                              type="button"
+                              className="danger-action"
+                              disabled={updatingBookingId === item.id}
+                              onClick={() => void handleCustomerCancel(item)}
+                            >
+                              Cancelar horario
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+                      {bookingEvents.length ? (
+                        <div className="booking-timeline">
+                          {bookingEvents.slice(0, 3).map((event) => (
+                            <span key={event.id}>
+                              {formatDateTime(event.created_at)} - {event.reason ?? statusLabels[event.to_status]}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </article>
+                  )
+                })}
               </div>
             ) : (
               <p className="empty-state">
@@ -1727,6 +2379,9 @@ function App() {
                 status aqui.
               </p>
             )}
+            <p className="form-status" role="status" aria-live="polite">
+              {customerActionStatus}
+            </p>
           </div>
         ) : null}
       </section>
@@ -1777,6 +2432,83 @@ function App() {
             ))}
           </div>
 
+          <div className="admin-reports" aria-label="Relatorios simples">
+            <article>
+              <span>Agendamentos ativos</span>
+              <strong>{activeBookingCount}</strong>
+            </article>
+            <article>
+              <span>Confirmados futuros</span>
+              <strong>{upcomingConfirmedCount}</strong>
+            </article>
+            <article>
+              <span>Fila WhatsApp pendente</span>
+              <strong>{pendingNotificationCount}</strong>
+            </article>
+            <article>
+              <span>Receita concluida</span>
+              <strong>{formatPrice(completedRevenueCents)}</strong>
+            </article>
+          </div>
+
+          <section className="policy-manager" aria-label="Politica de agendamento">
+            <div className="admin-heading compact">
+              <div>
+                <p className="eyebrow">Politica</p>
+                <h2>Prazos de cancelamento e remarcacao.</h2>
+              </div>
+            </div>
+            <form className="policy-form" onSubmit={handlePolicySave}>
+              <label>
+                Cancelamento ate
+                <input
+                  inputMode="numeric"
+                  value={policyDraft.cancellationCutoffHours}
+                  onChange={(event) => setPolicyDraft({ ...policyDraft, cancellationCutoffHours: event.target.value })}
+                />
+                <small>horas antes</small>
+              </label>
+              <label>
+                Remarcacao ate
+                <input
+                  inputMode="numeric"
+                  value={policyDraft.rescheduleCutoffHours}
+                  onChange={(event) => setPolicyDraft({ ...policyDraft, rescheduleCutoffHours: event.target.value })}
+                />
+                <small>horas antes</small>
+              </label>
+              <label>
+                Tolerancia falta
+                <input
+                  inputMode="numeric"
+                  value={policyDraft.noShowGraceMinutes}
+                  onChange={(event) => setPolicyDraft({ ...policyDraft, noShowGraceMinutes: event.target.value })}
+                />
+                <small>minutos</small>
+              </label>
+              <label className="toggle-label policy-toggle">
+                <input
+                  type="checkbox"
+                  checked={policyDraft.autoConfirmEnabled}
+                  onChange={(event) => setPolicyDraft({ ...policyDraft, autoConfirmEnabled: event.target.checked })}
+                />
+                Confirmar novos horarios automaticamente
+              </label>
+              <label className="wide-field">
+                Texto exibido para cliente
+                <textarea
+                  rows={3}
+                  value={policyDraft.policyText}
+                  onChange={(event) => setPolicyDraft({ ...policyDraft, policyText: event.target.value })}
+                />
+              </label>
+              <button type="submit">Salvar politica</button>
+            </form>
+            <p className="form-status" role="status">
+              {policyActionStatus}
+            </p>
+          </section>
+
           <div className="admin-ops-grid">
             <section className="admin-agenda-card" aria-label="Agenda do mes">
               <div className="admin-heading compact">
@@ -1805,7 +2537,7 @@ function App() {
                     const isUnavailable = unavailableDateSet.has(day.date)
                     const dayHasSlots = getAvailabilitySlotsForDate(day.date).length > 0
                     const dayBookings = bookings.filter(
-                      (item) => item.preferred_date === day.date && ['pending', 'confirmed'].includes(item.status),
+                      (item) => item.preferred_date === day.date && isActiveBookingStatus(item.status),
                     ).length
 
                     return (
@@ -2045,6 +2777,9 @@ function App() {
                 const draftSlots = getAvailabilitySlotsForDate(draft.preferredDate)
                 const draftSlotValue =
                   draft.preferredTime && draft.preferredEndTime ? getSlotKey(draft.preferredTime, draft.preferredEndTime) : ''
+                const statusChoices = getAdminStatusOptions(item.status)
+                const bookingNotes = notesByBooking[item.id] ?? []
+                const bookingEvents = eventsByBooking[item.id] ?? []
 
                 return (
                   <article className="admin-booking-card" key={item.id}>
@@ -2103,7 +2838,7 @@ function App() {
                       </label>
                       <button
                         type="button"
-                        disabled={updatingBookingId === item.id}
+                        disabled={updatingBookingId === item.id || isFinalBookingStatus(item.status)}
                         onClick={() => void handleBookingReschedule(item)}
                       >
                         Remarcar
@@ -2111,12 +2846,12 @@ function App() {
                     </div>
                     <select
                       value={item.status}
-                      disabled={updatingBookingId === item.id}
+                      disabled={updatingBookingId === item.id || isFinalBookingStatus(item.status)}
                       onChange={(event) =>
                         void handleBookingStatusChange(item.id, event.target.value as BookingStatus)
                       }
                     >
-                      {statusOptions.map((status) => (
+                      {statusChoices.map((status) => (
                         <option key={status} value={status}>
                           {statusLabels[status]}
                         </option>
@@ -2132,6 +2867,45 @@ function App() {
                       <Trash2 size={16} aria-hidden="true" />
                     </button>
                   </div>
+                  <div className="admin-booking-ops">
+                    <form className="internal-note-form" onSubmit={(event) => void handleInternalNoteCreate(event, item.id)}>
+                      <label>
+                        Nota interna
+                        <input
+                          value={noteDrafts[item.id] ?? ''}
+                          onChange={(event) =>
+                            setNoteDrafts((current) => ({ ...current, [item.id]: event.target.value }))
+                          }
+                          placeholder="Ex: preferencia de formato, historico, atencao especial"
+                        />
+                      </label>
+                      <button type="submit" disabled={updatingBookingId === item.id}>
+                        Salvar nota
+                      </button>
+                    </form>
+                    <div className="booking-notes-list">
+                      {bookingNotes.length ? (
+                        bookingNotes.slice(0, 3).map((note) => (
+                          <span key={note.id}>
+                            {formatDateTime(note.created_at)} - {note.note}
+                          </span>
+                        ))
+                      ) : (
+                        <span>Sem notas internas.</span>
+                      )}
+                    </div>
+                    <div className="booking-timeline">
+                      {bookingEvents.length ? (
+                        bookingEvents.slice(0, 4).map((event) => (
+                          <span key={event.id}>
+                            {formatDateTime(event.created_at)} - {event.reason ?? statusLabels[event.to_status]}
+                          </span>
+                        ))
+                      ) : (
+                        <span>Historico ainda nao carregado.</span>
+                      )}
+                    </div>
+                  </div>
                 </article>
                 )
               })}
@@ -2139,6 +2913,65 @@ function App() {
           ) : (
             <p className="empty-state">Nenhum pedido encontrado para os filtros atuais.</p>
           )}
+
+          <section className="notification-queue" aria-label="Fila manual de WhatsApp">
+            <div className="admin-heading compact">
+              <div>
+                <p className="eyebrow">WhatsApp manual</p>
+                <h2>Mensagens para copiar e enviar.</h2>
+              </div>
+            </div>
+            <div className="notification-list">
+              {notificationQueue.length ? (
+                notificationQueue.map((queueItem) => {
+                  const relatedBooking = bookings.find((bookingItem) => bookingItem.id === queueItem.booking_id)
+                  const whatsappUrl = relatedBooking
+                    ? getWhatsAppUrl(relatedBooking.client_phone, queueItem.message_template)
+                    : ''
+
+                  return (
+                    <article key={queueItem.id} className="notification-card">
+                      <div>
+                        <span className={queueItem.status === 'pending' ? 'status-pill status-pending' : 'status-pill status-completed'}>
+                          {notificationStatusLabels[queueItem.status]}
+                        </span>
+                        <strong>{relatedBooking?.client_name ?? 'Cliente'}</strong>
+                        <small>
+                          {queueItem.type} - {formatDateTime(queueItem.scheduled_for)}
+                        </small>
+                        <p>{queueItem.message_template}</p>
+                      </div>
+                      <div className="notification-actions">
+                        <button type="button" onClick={() => void handleCopyNotification(queueItem.message_template)}>
+                          <Clipboard size={15} aria-hidden="true" /> Copiar
+                        </button>
+                        {whatsappUrl ? (
+                          <a href={whatsappUrl} target="_blank" rel="noreferrer">
+                            <MessageCircle size={15} aria-hidden="true" /> Abrir WhatsApp
+                          </a>
+                        ) : null}
+                        <select
+                          value={queueItem.status}
+                          disabled={updatingQueueId === queueItem.id}
+                          onChange={(event) =>
+                            void handleNotificationStatusChange(queueItem, event.target.value as NotificationStatus)
+                          }
+                        >
+                          {Object.entries(notificationStatusLabels).map(([status, label]) => (
+                            <option key={status} value={status}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </article>
+                  )
+                })
+              ) : (
+                <p className="empty-state">A fila aparece quando houver agendamentos ou mudancas de status.</p>
+              )}
+            </div>
+          </section>
 
           <div className="service-manager">
             <div className="admin-heading compact">
