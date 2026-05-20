@@ -47,7 +47,6 @@ type BookingSummary = {
 type AuthMode = 'sign-in' | 'sign-up'
 
 const instagramUrl = 'https://www.instagram.com/h.ellenmartins'
-const styleReferenceUrl = 'https://www.instagram.com/micheleserigatti/'
 const whatsappNumber = import.meta.env.VITE_BOOKING_WHATSAPP ?? ''
 
 const serviceSeeds: ServiceOption[] = [
@@ -375,9 +374,6 @@ function App() {
               <a className="primary-action" href="#agenda">
                 Agendar agora
                 <ArrowRight size={18} aria-hidden="true" />
-              </a>
-              <a className="ghost-action" href={styleReferenceUrl} target="_blank" rel="noreferrer">
-                Referencia visual
               </a>
             </div>
             <div className="trust-row" aria-label="Diferenciais">
