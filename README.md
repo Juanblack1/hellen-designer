@@ -1,10 +1,10 @@
-# Ellen Martins Brows
+# Hellen Martins Brows
 
 Site de agendamento para servicos de sobrancelhas, construido com React, Vite, Supabase Auth/Postgres e deploy na Vercel.
 
-Live: https://ellen-brows.vercel.app
+Live: https://hellen-brows.vercel.app
 
-GitHub: https://github.com/Juanblack1/ellen-brows
+GitHub: https://github.com/Juanblack1/hellen-brows
 
 ## Stack
 
@@ -61,5 +61,5 @@ npm run build
 - `docs/prd.md`
 - `docs/techspec.md`
 - `docs/tasks.md`
-- `docs/plans/2026-05-19-ellen-brows-design.md`
+- `docs/plans/2026-05-19-hellen-brows-design.md`
 - `docs/visual-prompts.md`

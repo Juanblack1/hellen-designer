@@ -249,6 +249,18 @@
   z-index: 1;
 }
 
+.generated-portrait img {
+  border-radius: 46% 46% 18px 18px;
+  height: 100%;
+  inset: 0;
+  max-width: none;
+  object-fit: cover;
+  object-position: center;
+  position: absolute;
+  transform: none;
+  width: 100%;
+}
+
 .glass-card {
   backdrop-filter: blur(18px);
   background: rgba(255, 251, 244, 0.78);

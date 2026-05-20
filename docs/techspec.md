@@ -1,4 +1,4 @@
-# Tech Spec: Ellen Martins Brows
+# Tech Spec: Hellen Martins Brows
 
 ## Arquitetura
 

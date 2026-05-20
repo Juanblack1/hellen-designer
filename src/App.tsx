@@ -12,7 +12,7 @@ import {
   ShieldCheck,
   Sparkles,
 } from 'lucide-react'
-import browAtelier from './assets/brow-atelier.svg'
+import browAtelier from './assets/hellen-brows-chatgpt-image.png'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 import './App.css'
 
@@ -349,9 +349,9 @@ function App() {
       <section className="hero-section" id="inicio">
         <div className="hero-noise" aria-hidden="true" />
         <nav className="topbar" aria-label="Navegacao principal">
-          <a className="brand" href="#inicio" aria-label="Ellen Martins Brows">
-            <span>EM</span>
-            <strong>Ellen Martins Brows</strong>
+          <a className="brand" href="#inicio" aria-label="Hellen Martins Brows">
+            <span>HM</span>
+            <strong>Hellen Martins Brows</strong>
           </a>
           <div className="nav-links">
             <a href="#servicos">Servicos</a>
@@ -391,8 +391,8 @@ function App() {
           </div>
 
           <div className="hero-visual" aria-label="Ilustracao editorial de sobrancelhas">
-            <div className="portrait-frame">
-              <img src={browAtelier} alt="Arte editorial de um olhar com sobrancelhas desenhadas" />
+            <div className="portrait-frame generated-portrait">
+              <img src={browAtelier} alt="Imagem editorial original para Hellen Martins Brows" />
               <div className="appointment-card glass-card">
                 <CalendarCheck size={18} aria-hidden="true" />
                 <span>Agenda aberta</span>

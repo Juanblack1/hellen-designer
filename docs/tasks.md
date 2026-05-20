@@ -1,4 +1,4 @@
-# Tasks: Ellen Martins Brows
+# Tasks: Hellen Martins Brows
 
 ## Produto e Planejamento
 
@@ -10,7 +10,7 @@
 
 ## Frontend
 
-- [x] Criar app React/Vite em `Projetos/ellen-brows`.
+- [x] Criar app React/Vite em `Projetos/hellen-brows`.
 - [x] Implementar landing page responsiva.
 - [x] Implementar catalogo de servicos com fallback local.
 - [x] Implementar formulario de agendamento.
