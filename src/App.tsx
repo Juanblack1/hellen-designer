@@ -426,6 +426,18 @@ function getBookingErrorMessage(message: string, conflictMessage: string) {
     return 'Agendamento nao encontrado para esta conta.'
   }
 
+  if (normalized.includes('booking_auth_required') || normalized.includes('booking_user_mismatch')) {
+    return 'Entre novamente na sua conta antes de continuar.'
+  }
+
+  if (normalized.includes('booking_email_required')) {
+    return 'Nao foi possivel confirmar o email da conta. Saia e entre novamente.'
+  }
+
+  if (normalized.includes('booking_service_unavailable')) {
+    return 'Este servico nao esta disponivel para agendamento agora.'
+  }
+
   if (normalized.includes('booking_date_in_past')) {
     return 'Nao e possivel marcar ou remarcar para uma data anterior ao dia atual.'
   }
@@ -1199,21 +1211,17 @@ function App() {
     }
 
     setIsSubmittingBooking(true)
-    const nextStatus: BookingStatus = bookingPolicy?.auto_confirm_enabled ? 'confirmed' : 'pending'
-    const { error } = await client.from('bookings').insert({
+    const { data, error } = await client.from('bookings').insert({
       user_id: session.user.id,
       client_name: booking.name.trim(),
-      client_email: bookingEmail.trim().toLowerCase(),
       client_phone: booking.phone.trim(),
       service_id: selectedService.id,
-      service_name: selectedService.name,
       preferred_date: booking.preferredDate,
       preferred_time: booking.preferredTime,
       preferred_end_time: booking.preferredEndTime,
       notes: booking.notes.trim() || null,
-      status: nextStatus,
       source: 'site',
-    })
+    }).select('status').single()
 
     setIsSubmittingBooking(false)
 
@@ -1227,8 +1235,10 @@ function App() {
       return
     }
 
+    const createdStatus = (data?.status ?? 'pending') as BookingStatus
+
     setBookingStatus(
-      nextStatus === 'confirmed'
+      createdStatus === 'confirmed'
         ? 'Horario confirmado. A mensagem fica registrada para envio pelo WhatsApp.'
         : 'Horario solicitado. A confirmacao chega por WhatsApp ou email.',
     )

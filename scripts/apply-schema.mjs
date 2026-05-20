@@ -13,7 +13,7 @@ const schemaUrl = new URL('../supabase/schema.sql', import.meta.url)
 const sql = await readFile(schemaUrl, 'utf8')
 const client = new Client({
   connectionString,
-  ssl: { rejectUnauthorized: false },
+  ssl: { rejectUnauthorized: true },
 })
 
 try {

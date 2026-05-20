@@ -2,12 +2,17 @@ begin;
 
 create extension if not exists pgcrypto;
 
+create schema if not exists app_private;
+
+revoke all on schema app_private from public, anon, authenticated;
+grant usage on schema app_private to authenticated;
+
 create table if not exists public.admin_profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
   created_at timestamptz not null default now()
 );
 
-create or replace function public.is_booking_admin()
+create or replace function app_private.is_booking_admin()
 returns boolean
 language sql
 stable
@@ -21,8 +26,8 @@ as $$
   );
 $$;
 
-revoke execute on function public.is_booking_admin() from public, anon;
-grant execute on function public.is_booking_admin() to authenticated;
+revoke execute on function app_private.is_booking_admin() from public, anon;
+grant execute on function app_private.is_booking_admin() to authenticated;
 
 create table if not exists public.service_catalog (
   id text primary key,
@@ -64,7 +69,7 @@ create table if not exists public.bookings (
   client_name text not null check (char_length(client_name) between 2 and 120),
   client_email text not null check (char_length(client_email) <= 160),
   client_phone text not null check (char_length(client_phone) between 8 and 30),
-  service_id text references public.service_catalog(id) on update cascade,
+  service_id text not null references public.service_catalog(id) on update cascade,
   service_name text not null,
   preferred_date date not null,
   preferred_time time not null,
@@ -115,6 +120,9 @@ add column if not exists completed_at timestamptz;
 
 alter table public.bookings
 add column if not exists no_show_at timestamptz;
+
+alter table public.bookings
+alter column service_id set not null;
 
 update public.bookings
 set preferred_end_time = preferred_time + interval '40 minutes'
@@ -360,7 +368,7 @@ execute function public.ensure_booking_date_available();
 
 drop function if exists public.get_booked_slots(date);
 
-create or replace function public.get_booked_slots(slot_date date)
+create or replace function app_private.get_booked_slots(slot_date date)
 returns table (preferred_time time, preferred_end_time time)
 language sql
 stable
@@ -372,6 +380,20 @@ as $$
   where b.preferred_date = slot_date
     and b.status in ('pending', 'confirmed')
   order by b.preferred_time;
+$$;
+
+revoke execute on function app_private.get_booked_slots(date) from public, anon;
+grant execute on function app_private.get_booked_slots(date) to authenticated;
+
+create or replace function public.get_booked_slots(slot_date date)
+returns table (preferred_time time, preferred_end_time time)
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  select *
+  from app_private.get_booked_slots(slot_date);
 $$;
 
 revoke execute on function public.get_booked_slots(date) from public, anon;
@@ -439,7 +461,7 @@ declare
 begin
   if (tg_op = 'INSERT') or (new.status is distinct from old.status) then
     if auth.uid() is not null then
-      actor_role_value := case when public.is_booking_admin() then 'admin' else 'client' end;
+      actor_role_value := case when app_private.is_booking_admin() then 'admin' else 'client' end;
     end if;
 
     insert into public.booking_status_events (
@@ -517,7 +539,69 @@ on public.bookings
 for each row
 execute function public.queue_initial_booking_notifications();
 
-create or replace function public.client_cancel_booking(booking_id uuid, reason text default null)
+create or replace function app_private.prepare_booking_insert()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  selected_service_name text;
+  is_admin boolean;
+  active_policy public.booking_policies;
+  account_email text;
+begin
+  is_admin := app_private.is_booking_admin();
+  account_email := lower(coalesce(auth.jwt() ->> 'email', ''));
+
+  if auth.uid() is null then
+    raise exception 'booking_auth_required';
+  end if;
+
+  if not is_admin then
+    if new.user_id is distinct from auth.uid() then
+      raise exception 'booking_user_mismatch';
+    end if;
+
+    if account_email = '' then
+      raise exception 'booking_email_required';
+    end if;
+
+    new.client_email := account_email;
+    select * into active_policy from public.get_active_booking_policy();
+    new.status := case when active_policy.auto_confirm_enabled then 'confirmed' else 'pending' end;
+  else
+    new.client_email := lower(trim(new.client_email));
+  end if;
+
+  select service.name into selected_service_name
+  from public.service_catalog service
+  where service.id = new.service_id
+    and (service.active or is_admin);
+
+  if not found then
+    raise exception 'booking_service_unavailable';
+  end if;
+
+  new.service_name := selected_service_name;
+  new.source := coalesce(nullif(trim(new.source), ''), 'site');
+  new.updated_at := now();
+
+  return new;
+end;
+$$;
+
+revoke execute on function app_private.prepare_booking_insert() from public, anon, authenticated;
+
+drop trigger if exists bookings_prepare_insert on public.bookings;
+drop trigger if exists bookings_010_prepare_insert on public.bookings;
+create trigger bookings_010_prepare_insert
+before insert
+on public.bookings
+for each row
+execute function app_private.prepare_booking_insert();
+
+create or replace function app_private.client_cancel_booking(booking_id uuid, reason text default null)
 returns void
 language plpgsql
 security definer
@@ -528,6 +612,10 @@ declare
   policy public.booking_policies;
   appointment_at timestamp;
 begin
+  if auth.uid() is null then
+    raise exception 'booking_auth_required';
+  end if;
+
   select * into target_booking
   from public.bookings
   where id = booking_id
@@ -566,10 +654,22 @@ begin
 end;
 $$;
 
+revoke execute on function app_private.client_cancel_booking(uuid, text) from public, anon;
+grant execute on function app_private.client_cancel_booking(uuid, text) to authenticated;
+
+create or replace function public.client_cancel_booking(booking_id uuid, reason text default null)
+returns void
+language sql
+security invoker
+set search_path = public
+as $$
+  select app_private.client_cancel_booking(booking_id, reason);
+$$;
+
 revoke execute on function public.client_cancel_booking(uuid, text) from public, anon;
 grant execute on function public.client_cancel_booking(uuid, text) to authenticated;
 
-create or replace function public.client_reschedule_booking(
+create or replace function app_private.client_reschedule_booking(
   booking_id uuid,
   new_date date,
   new_start_time time,
@@ -587,6 +687,14 @@ declare
   appointment_at timestamp;
   next_status text;
 begin
+  if auth.uid() is null then
+    raise exception 'booking_auth_required';
+  end if;
+
+  if new_date is null or new_start_time is null or new_end_time is null or new_end_time <= new_start_time then
+    raise exception 'booking_slot_unavailable';
+  end if;
+
   select * into target_booking
   from public.bookings
   where id = booking_id
@@ -650,6 +758,24 @@ begin
 end;
 $$;
 
+revoke execute on function app_private.client_reschedule_booking(uuid, date, time, time, text) from public, anon;
+grant execute on function app_private.client_reschedule_booking(uuid, date, time, time, text) to authenticated;
+
+create or replace function public.client_reschedule_booking(
+  booking_id uuid,
+  new_date date,
+  new_start_time time,
+  new_end_time time,
+  reason text default null
+)
+returns void
+language sql
+security invoker
+set search_path = public
+as $$
+  select app_private.client_reschedule_booking(booking_id, new_date, new_start_time, new_end_time, reason);
+$$;
+
 revoke execute on function public.client_reschedule_booking(uuid, date, time, time, text) from public, anon;
 grant execute on function public.client_reschedule_booking(uuid, date, time, time, text) to authenticated;
 
@@ -668,7 +794,7 @@ create policy "Admins and owners can read admin profiles"
 on public.admin_profiles
 for select
 to authenticated
-using (user_id = (select auth.uid()) or (select public.is_booking_admin()));
+using (user_id = (select auth.uid()) or (select app_private.is_booking_admin()));
 
 drop policy if exists "Only admins can write admin profiles" on public.admin_profiles;
 drop policy if exists "Admins can insert admin profiles" on public.admin_profiles;
@@ -676,22 +802,22 @@ create policy "Admins can insert admin profiles"
 on public.admin_profiles
 for insert
 to authenticated
-with check ((select public.is_booking_admin()));
+with check ((select app_private.is_booking_admin()));
 
 drop policy if exists "Admins can update admin profiles" on public.admin_profiles;
 create policy "Admins can update admin profiles"
 on public.admin_profiles
 for update
 to authenticated
-using ((select public.is_booking_admin()))
-with check ((select public.is_booking_admin()));
+using ((select app_private.is_booking_admin()))
+with check ((select app_private.is_booking_admin()));
 
 drop policy if exists "Admins can delete admin profiles" on public.admin_profiles;
 create policy "Admins can delete admin profiles"
 on public.admin_profiles
 for delete
 to authenticated
-using ((select public.is_booking_admin()));
+using ((select app_private.is_booking_admin()));
 
 drop policy if exists "Anyone can read active services" on public.service_catalog;
 drop policy if exists "Visitors can read active services" on public.service_catalog;
@@ -706,7 +832,7 @@ create policy "Users can read active services"
 on public.service_catalog
 for select
 to authenticated
-using (active = true or (select public.is_booking_admin()));
+using (active = true or (select app_private.is_booking_admin()));
 
 drop policy if exists "Admins can manage services" on public.service_catalog;
 drop policy if exists "Admins can insert services" on public.service_catalog;
@@ -714,22 +840,22 @@ create policy "Admins can insert services"
 on public.service_catalog
 for insert
 to authenticated
-with check ((select public.is_booking_admin()));
+with check ((select app_private.is_booking_admin()));
 
 drop policy if exists "Admins can update services" on public.service_catalog;
 create policy "Admins can update services"
 on public.service_catalog
 for update
 to authenticated
-using ((select public.is_booking_admin()))
-with check ((select public.is_booking_admin()));
+using ((select app_private.is_booking_admin()))
+with check ((select app_private.is_booking_admin()));
 
 drop policy if exists "Admins can delete services" on public.service_catalog;
 create policy "Admins can delete services"
 on public.service_catalog
 for delete
 to authenticated
-using ((select public.is_booking_admin()));
+using ((select app_private.is_booking_admin()));
 
 drop policy if exists "Anyone can request a booking" on public.bookings;
 drop policy if exists "Authenticated users can request a booking" on public.bookings;
@@ -737,29 +863,35 @@ create policy "Authenticated users can request a booking"
 on public.bookings
 for insert
 to authenticated
-with check (user_id = (select auth.uid()) or (select public.is_booking_admin()));
+with check (
+  (select app_private.is_booking_admin())
+  or (
+    user_id = (select auth.uid())
+    and status in ('pending', 'confirmed')
+  )
+);
 
 drop policy if exists "Users and admins can read bookings" on public.bookings;
 create policy "Users and admins can read bookings"
 on public.bookings
 for select
 to authenticated
-using (user_id = (select auth.uid()) or (select public.is_booking_admin()));
+using (user_id = (select auth.uid()) or (select app_private.is_booking_admin()));
 
 drop policy if exists "Admins can update bookings" on public.bookings;
 create policy "Admins can update bookings"
 on public.bookings
 for update
 to authenticated
-using ((select public.is_booking_admin()))
-with check ((select public.is_booking_admin()));
+using ((select app_private.is_booking_admin()))
+with check ((select app_private.is_booking_admin()));
 
 drop policy if exists "Admins can delete bookings" on public.bookings;
 create policy "Admins can delete bookings"
 on public.bookings
 for delete
 to authenticated
-using ((select public.is_booking_admin()));
+using ((select app_private.is_booking_admin()));
 
 drop policy if exists "Users can read unavailable days" on public.admin_unavailable_days;
 create policy "Users can read unavailable days"
@@ -773,51 +905,51 @@ create policy "Admins can insert unavailable days"
 on public.admin_unavailable_days
 for insert
 to authenticated
-with check ((select public.is_booking_admin()));
+with check ((select app_private.is_booking_admin()));
 
 drop policy if exists "Admins can update unavailable days" on public.admin_unavailable_days;
 create policy "Admins can update unavailable days"
 on public.admin_unavailable_days
 for update
 to authenticated
-using ((select public.is_booking_admin()))
-with check ((select public.is_booking_admin()));
+using ((select app_private.is_booking_admin()))
+with check ((select app_private.is_booking_admin()));
 
 drop policy if exists "Admins can delete unavailable days" on public.admin_unavailable_days;
 create policy "Admins can delete unavailable days"
 on public.admin_unavailable_days
 for delete
 to authenticated
-using ((select public.is_booking_admin()));
+using ((select app_private.is_booking_admin()));
 
 drop policy if exists "Users can read availability slots" on public.admin_availability_slots;
 create policy "Users can read availability slots"
 on public.admin_availability_slots
 for select
 to authenticated
-using (active = true or (select public.is_booking_admin()));
+using (active = true or (select app_private.is_booking_admin()));
 
 drop policy if exists "Admins can insert availability slots" on public.admin_availability_slots;
 create policy "Admins can insert availability slots"
 on public.admin_availability_slots
 for insert
 to authenticated
-with check ((select public.is_booking_admin()));
+with check ((select app_private.is_booking_admin()));
 
 drop policy if exists "Admins can update availability slots" on public.admin_availability_slots;
 create policy "Admins can update availability slots"
 on public.admin_availability_slots
 for update
 to authenticated
-using ((select public.is_booking_admin()))
-with check ((select public.is_booking_admin()));
+using ((select app_private.is_booking_admin()))
+with check ((select app_private.is_booking_admin()));
 
 drop policy if exists "Admins can delete availability slots" on public.admin_availability_slots;
 create policy "Admins can delete availability slots"
 on public.admin_availability_slots
 for delete
 to authenticated
-using ((select public.is_booking_admin()));
+using ((select app_private.is_booking_admin()));
 
 drop policy if exists "Anyone can read active booking policy" on public.booking_policies;
 create policy "Anyone can read active booking policy"
@@ -831,22 +963,22 @@ create policy "Users can read active booking policy"
 on public.booking_policies
 for select
 to authenticated
-using (active = true or (select public.is_booking_admin()));
+using (active = true or (select app_private.is_booking_admin()));
 
 drop policy if exists "Admins can insert booking policies" on public.booking_policies;
 create policy "Admins can insert booking policies"
 on public.booking_policies
 for insert
 to authenticated
-with check ((select public.is_booking_admin()));
+with check ((select app_private.is_booking_admin()));
 
 drop policy if exists "Admins can update booking policies" on public.booking_policies;
 create policy "Admins can update booking policies"
 on public.booking_policies
 for update
 to authenticated
-using ((select public.is_booking_admin()))
-with check ((select public.is_booking_admin()));
+using ((select app_private.is_booking_admin()))
+with check ((select app_private.is_booking_admin()));
 
 drop policy if exists "Users and admins can read booking status events" on public.booking_status_events;
 create policy "Users and admins can read booking status events"
@@ -854,7 +986,7 @@ on public.booking_status_events
 for select
 to authenticated
 using (
-  (select public.is_booking_admin())
+  (select app_private.is_booking_admin())
   or exists (
     select 1
     from public.bookings b
@@ -868,57 +1000,61 @@ create policy "Admins can read internal notes"
 on public.booking_internal_notes
 for select
 to authenticated
-using ((select public.is_booking_admin()));
+using ((select app_private.is_booking_admin()));
 
 drop policy if exists "Admins can insert internal notes" on public.booking_internal_notes;
 create policy "Admins can insert internal notes"
 on public.booking_internal_notes
 for insert
 to authenticated
-with check ((select public.is_booking_admin()));
+with check ((select app_private.is_booking_admin()));
 
 drop policy if exists "Admins can update internal notes" on public.booking_internal_notes;
 create policy "Admins can update internal notes"
 on public.booking_internal_notes
 for update
 to authenticated
-using ((select public.is_booking_admin()))
-with check ((select public.is_booking_admin()));
+using ((select app_private.is_booking_admin()))
+with check ((select app_private.is_booking_admin()));
 
 drop policy if exists "Admins can delete internal notes" on public.booking_internal_notes;
 create policy "Admins can delete internal notes"
 on public.booking_internal_notes
 for delete
 to authenticated
-using ((select public.is_booking_admin()));
+using ((select app_private.is_booking_admin()));
 
 drop policy if exists "Admins can read notification queue" on public.booking_notification_queue;
 create policy "Admins can read notification queue"
 on public.booking_notification_queue
 for select
 to authenticated
-using ((select public.is_booking_admin()));
+using ((select app_private.is_booking_admin()));
 
 drop policy if exists "Admins can insert notification queue" on public.booking_notification_queue;
 create policy "Admins can insert notification queue"
 on public.booking_notification_queue
 for insert
 to authenticated
-with check ((select public.is_booking_admin()));
+with check ((select app_private.is_booking_admin()));
 
 drop policy if exists "Admins can update notification queue" on public.booking_notification_queue;
 create policy "Admins can update notification queue"
 on public.booking_notification_queue
 for update
 to authenticated
-using ((select public.is_booking_admin()))
-with check ((select public.is_booking_admin()));
+using ((select app_private.is_booking_admin()))
+with check ((select app_private.is_booking_admin()));
 
 drop policy if exists "Admins can delete notification queue" on public.booking_notification_queue;
 create policy "Admins can delete notification queue"
 on public.booking_notification_queue
 for delete
 to authenticated
-using ((select public.is_booking_admin()));
+using ((select app_private.is_booking_admin()));
+
+drop function if exists public.is_booking_admin();
+
+alter default privileges in schema public revoke execute on functions from public, anon, authenticated;
 
 commit;
