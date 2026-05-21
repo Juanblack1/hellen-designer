@@ -1,4 +1,6 @@
-import type { IncomingMessage, ServerResponse } from 'node:http'
+/// <reference types="node" />
+
+import type { IncomingMessage, ServerResponse } from 'http'
 import {
   compactPhone,
   getAsaasApiBaseUrl,
@@ -10,7 +12,7 @@ import {
   readJsonBody,
   sendJson,
   truncateText,
-} from '../server/payments'
+} from '../server/payments.js'
 
 type BookingRow = {
   id: string

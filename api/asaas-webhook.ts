@@ -1,5 +1,7 @@
-import type { IncomingMessage, ServerResponse } from 'node:http'
-import { getRequiredEnv, getSupabaseAdmin, isUuid, readJsonBody, sendJson } from '../server/payments'
+/// <reference types="node" />
+
+import type { IncomingMessage, ServerResponse } from 'http'
+import { getRequiredEnv, getSupabaseAdmin, isUuid, readJsonBody, sendJson } from '../server/payments.js'
 
 type AsaasCheckout = {
   id?: string

@@ -1,5 +1,7 @@
+/// <reference types="node" />
+
 import { createClient } from '@supabase/supabase-js'
-import type { IncomingMessage, ServerResponse } from 'node:http'
+import type { IncomingMessage, ServerResponse } from 'http'
 
 type JsonResponse = Record<string, unknown>
 
