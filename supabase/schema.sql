@@ -885,13 +885,6 @@ for delete
 to authenticated
 using ((select app_private.is_booking_admin()));
 
-drop policy if exists "Public can read service images" on storage.objects;
-create policy "Public can read service images"
-on storage.objects
-for select
-to public
-using (bucket_id = 'service-images');
-
 drop policy if exists "Admins can upload service images" on storage.objects;
 create policy "Admins can upload service images"
 on storage.objects
