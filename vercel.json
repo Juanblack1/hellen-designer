@@ -5,7 +5,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://kniocopvrlzdmnzczffq.supabase.co wss://kniocopvrlzdmnzczffq.supabase.co; upgrade-insecure-requests"
+          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://kniocopvrlzdmnzczffq.supabase.co; connect-src 'self' https://kniocopvrlzdmnzczffq.supabase.co wss://kniocopvrlzdmnzczffq.supabase.co; upgrade-insecure-requests"
         },
         {
           "key": "Strict-Transport-Security",

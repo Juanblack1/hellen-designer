@@ -35,11 +35,35 @@ create table if not exists public.service_catalog (
   duration_minutes integer not null check (duration_minutes between 15 and 240),
   price_cents integer check (price_cents is null or price_cents >= 0),
   description text not null,
+  image_path text,
   active boolean not null default true,
   sort_order integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.service_catalog
+add column if not exists image_path text;
+
+alter table public.service_catalog
+drop constraint if exists service_catalog_image_path_length_check;
+
+alter table public.service_catalog
+add constraint service_catalog_image_path_length_check
+check (image_path is null or char_length(image_path) <= 500);
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'service-images',
+  'service-images',
+  true,
+  2097152,
+  array['image/jpeg', 'image/png', 'image/webp', 'image/avif']
+)
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
 
 insert into public.service_catalog (id, name, duration_minutes, price_cents, description, active, sort_order)
 values
@@ -860,6 +884,43 @@ on public.service_catalog
 for delete
 to authenticated
 using ((select app_private.is_booking_admin()));
+
+drop policy if exists "Public can read service images" on storage.objects;
+create policy "Public can read service images"
+on storage.objects
+for select
+to public
+using (bucket_id = 'service-images');
+
+drop policy if exists "Admins can upload service images" on storage.objects;
+create policy "Admins can upload service images"
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'service-images'
+  and (select app_private.is_booking_admin())
+  and lower(coalesce(storage.extension(name), '')) in ('jpg', 'jpeg', 'png', 'webp', 'avif')
+);
+
+drop policy if exists "Admins can update service images" on storage.objects;
+create policy "Admins can update service images"
+on storage.objects
+for update
+to authenticated
+using (bucket_id = 'service-images' and (select app_private.is_booking_admin()))
+with check (
+  bucket_id = 'service-images'
+  and (select app_private.is_booking_admin())
+  and lower(coalesce(storage.extension(name), '')) in ('jpg', 'jpeg', 'png', 'webp', 'avif')
+);
+
+drop policy if exists "Admins can delete service images" on storage.objects;
+create policy "Admins can delete service images"
+on storage.objects
+for delete
+to authenticated
+using (bucket_id = 'service-images' and (select app_private.is_booking_admin()));
 
 drop policy if exists "Anyone can request a booking" on public.bookings;
 drop policy if exists "Authenticated users can request a booking" on public.bookings;

@@ -33,6 +33,7 @@ type ServiceOption = {
   priceCents?: number
   description: string
   eyebrow: string
+  imagePath?: string | null
   active: boolean
   sortOrder: number
 }
@@ -43,6 +44,7 @@ type ServiceCatalogRow = {
   duration_minutes: number
   price_cents: number | null
   description: string
+  image_path: string | null
   active: boolean
   sort_order: number
 }
@@ -185,6 +187,15 @@ type ServiceDraft = {
 }
 
 const instagramUrl = 'https://www.instagram.com/h.ellenmartins'
+const serviceImageBucket = 'service-images'
+const maxServiceImageBytes = 2 * 1024 * 1024
+const allowedServiceImageTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif'])
+const serviceImageExtensions: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/avif': 'avif',
+}
 
 const serviceSeeds: ServiceOption[] = [
   {
@@ -606,9 +617,24 @@ function mapServiceRow(service: ServiceCatalogRow, index: number): ServiceOption
     priceCents: service.price_cents ?? undefined,
     description: service.description,
     eyebrow: getServiceEyebrow(service.id, index),
+    imagePath: service.image_path,
     active: service.active,
     sortOrder: service.sort_order,
   }
+}
+
+function getServiceCoverUrl(service: ServiceOption) {
+  if (!service.imagePath || !supabase) {
+    return browAtelier
+  }
+
+  return supabase.storage.from(serviceImageBucket).getPublicUrl(service.imagePath).data.publicUrl
+}
+
+function getServiceImagePath(serviceId: string, file: File) {
+  const extension = serviceImageExtensions[file.type]
+
+  return `${serviceId}/${Date.now()}.${extension}`
 }
 
 function createServiceDraft(service: ServiceOption): ServiceDraft {
@@ -753,6 +779,7 @@ function App() {
   const [cancelReasonDrafts, setCancelReasonDrafts] = useState<Record<string, string>>({})
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({})
   const [savingServiceId, setSavingServiceId] = useState('')
+  const [uploadingServiceImageId, setUploadingServiceImageId] = useState('')
   const [savingAvailabilityId, setSavingAvailabilityId] = useState('')
   const [updatingBookingId, setUpdatingBookingId] = useState('')
   const [updatingQueueId, setUpdatingQueueId] = useState('')
@@ -892,7 +919,7 @@ function App() {
     let isMounted = true
     let query = client
       .from('service_catalog')
-      .select('id,name,duration_minutes,price_cents,description,active,sort_order')
+      .select('id,name,duration_minutes,price_cents,description,image_path,active,sort_order')
       .order('sort_order', { ascending: true })
 
     if (!isAdmin) {
@@ -1958,6 +1985,87 @@ function App() {
     setServiceRefreshKey((key) => key + 1)
   }
 
+  async function handleServiceImageUpload(service: ServiceOption, fileList: FileList | null) {
+    const client = supabase
+    const file = fileList?.[0]
+
+    if (!file || !client || !isAdmin) {
+      return
+    }
+
+    if (!allowedServiceImageTypes.has(file.type)) {
+      setServiceActionStatus('Envie uma imagem JPG, PNG, WebP ou AVIF.')
+      return
+    }
+
+    if (file.size > maxServiceImageBytes) {
+      setServiceActionStatus('A foto precisa ter ate 2 MB.')
+      return
+    }
+
+    const imagePath = getServiceImagePath(service.id, file)
+    setUploadingServiceImageId(service.id)
+    setServiceActionStatus('')
+
+    const { error: uploadError } = await client.storage.from(serviceImageBucket).upload(imagePath, file, {
+      cacheControl: '31536000',
+      contentType: file.type,
+      upsert: false,
+    })
+
+    if (uploadError) {
+      setUploadingServiceImageId('')
+      setServiceActionStatus(`Nao foi possivel enviar a foto: ${uploadError.message}`)
+      return
+    }
+
+    const { error: updateError } = await client
+      .from('service_catalog')
+      .update({ image_path: imagePath, updated_at: new Date().toISOString() })
+      .eq('id', service.id)
+
+    if (updateError) {
+      await client.storage.from(serviceImageBucket).remove([imagePath])
+      setUploadingServiceImageId('')
+      setServiceActionStatus(`Foto enviada, mas nao foi possivel salvar no servico: ${updateError.message}`)
+      return
+    }
+
+    if (service.imagePath && service.imagePath !== imagePath) {
+      await client.storage.from(serviceImageBucket).remove([service.imagePath])
+    }
+
+    setUploadingServiceImageId('')
+    setServiceActionStatus('Foto do servico atualizada.')
+    setServiceRefreshKey((key) => key + 1)
+  }
+
+  async function handleServiceImageRemove(service: ServiceOption) {
+    const client = supabase
+
+    if (!client || !isAdmin || !service.imagePath) {
+      return
+    }
+
+    setUploadingServiceImageId(service.id)
+    setServiceActionStatus('')
+    const { error } = await client
+      .from('service_catalog')
+      .update({ image_path: null, updated_at: new Date().toISOString() })
+      .eq('id', service.id)
+
+    if (error) {
+      setUploadingServiceImageId('')
+      setServiceActionStatus(`Nao foi possivel remover a foto: ${error.message}`)
+      return
+    }
+
+    await client.storage.from(serviceImageBucket).remove([service.imagePath])
+    setUploadingServiceImageId('')
+    setServiceActionStatus('Foto removida do servico.')
+    setServiceRefreshKey((key) => key + 1)
+  }
+
   async function handlePolicySave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const client = supabase
@@ -2172,26 +2280,40 @@ function App() {
                 <h3 id="booking-service-heading">Escolha o servico.</h3>
                 <p>Comece pelo atendimento desejado para conferir valor e tempo estimado.</p>
               </div>
-              <label>
-                Servico
-                <select
-                  value={selectedService.id}
-                  onChange={(event) => setBooking({ ...booking, serviceId: event.target.value })}
-                >
-                  {bookableServices.map((service) => (
-                    <option key={service.id} value={service.id}>
-                      {service.name} - {formatPrice(service.priceCents)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="selected-service-card">
-                <span>{selectedService.eyebrow}</span>
-                <strong>{selectedService.name}</strong>
-                <small>
-                  {formatPrice(selectedService.priceCents)} - {selectedService.durationMinutes} min
-                </small>
-                <p>{selectedService.description}</p>
+              <div className="service-choice-grid" role="radiogroup" aria-label="Servicos disponiveis">
+                {bookableServices.map((service) => {
+                  const isSelected = selectedService.id === service.id
+
+                  return (
+                    <button
+                      type="button"
+                      className={isSelected ? 'service-choice-card selected' : 'service-choice-card'}
+                      key={service.id}
+                      aria-checked={isSelected}
+                      role="radio"
+                      onClick={() => setBooking({ ...booking, serviceId: service.id })}
+                    >
+                      <span className="service-card-media">
+                        <img
+                          src={getServiceCoverUrl(service)}
+                          alt={`Exemplo visual de ${service.name}`}
+                          loading="lazy"
+                          onError={(event) => {
+                            event.currentTarget.hidden = true
+                          }}
+                        />
+                      </span>
+                      <span className="service-choice-copy">
+                        <small>{service.eyebrow}</small>
+                        <strong>{service.name}</strong>
+                        <em>
+                          {formatPrice(service.priceCents)} - {service.durationMinutes} min
+                        </em>
+                        <span>{service.description}</span>
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             </section>
             <section className="booking-step-section" aria-labelledby="booking-slot-heading">
@@ -3276,6 +3398,7 @@ function App() {
             <div className="service-editor-list">
               {services.map((service) => {
                 const draft = serviceDrafts[service.id] ?? createServiceDraft(service)
+                const isUploadingImage = uploadingServiceImageId === service.id
 
                 return (
                   <article
@@ -3292,6 +3415,48 @@ function App() {
                         />
                         Ativo
                       </label>
+                    </div>
+                    <div className="service-image-admin">
+                      <span className="service-image-preview">
+                        <img
+                          src={getServiceCoverUrl(service)}
+                          alt={`Foto atual de ${service.name}`}
+                          loading="lazy"
+                          onError={(event) => {
+                            event.currentTarget.hidden = true
+                          }}
+                        />
+                      </span>
+                      <div>
+                        <strong>Foto do servico</strong>
+                        <small>JPG, PNG, WebP ou AVIF ate 2 MB. Aparece nos cards da cliente.</small>
+                        <div className="service-image-actions">
+                          <label className="file-upload-button">
+                            {isUploadingImage ? 'Enviando...' : service.imagePath ? 'Trocar foto' : 'Enviar foto'}
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp,image/avif"
+                              disabled={isUploadingImage}
+                              onChange={(event) => {
+                                const input = event.currentTarget
+                                void handleServiceImageUpload(service, input.files).finally(() => {
+                                  input.value = ''
+                                })
+                              }}
+                            />
+                          </label>
+                          {service.imagePath ? (
+                            <button
+                              type="button"
+                              className="danger-action"
+                              disabled={isUploadingImage}
+                              onClick={() => void handleServiceImageRemove(service)}
+                            >
+                              Remover foto
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
                     </div>
                     <div className="service-editor-grid">
                       <label>
@@ -3587,6 +3752,16 @@ function App() {
         <div className="service-grid">
           {bookableServices.map((service) => (
             <article className="service-card" key={service.id}>
+              <span className="service-card-media">
+                <img
+                  src={getServiceCoverUrl(service)}
+                  alt={`Exemplo visual de ${service.name}`}
+                  loading="lazy"
+                  onError={(event) => {
+                    event.currentTarget.hidden = true
+                  }}
+                />
+              </span>
               <span>{service.eyebrow}</span>
               <h3>{service.name}</h3>
               <p>{service.description}</p>

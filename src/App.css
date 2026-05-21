@@ -617,7 +617,7 @@
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
   display: flex;
   flex-direction: column;
-  min-height: 245px;
+  min-height: 345px;
   padding: 22px;
   position: relative;
 }
@@ -629,10 +629,30 @@
   left: 20px;
   position: absolute;
   right: 20px;
-  top: 58px;
+  top: 164px;
 }
 
-.service-card span {
+.service-card-media {
+  background:
+    radial-gradient(circle at 68% 18%, rgba(255, 226, 160, 0.26), transparent 32%),
+    linear-gradient(135deg, rgba(244, 200, 115, 0.14), rgba(15, 11, 8, 0.9));
+  border: 1px solid rgba(244, 200, 115, 0.18);
+  border-radius: 18px;
+  display: block;
+  height: 120px;
+  margin-bottom: 18px;
+  overflow: hidden;
+  position: relative;
+}
+
+.service-card-media img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.service-card span:not(.service-card-media) {
   color: var(--gold-dark);
   font-size: 0.68rem;
   font-weight: 900;
@@ -646,7 +666,7 @@
   font-size: 1.55rem;
   letter-spacing: -0.05em;
   line-height: 1;
-  margin: 32px 0 10px;
+  margin: 16px 0 10px;
 }
 
 .service-card p {
@@ -797,6 +817,72 @@ label small {
   display: grid;
   gap: 7px;
   padding: 14px;
+}
+
+.service-choice-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.service-choice-card {
+  background: linear-gradient(160deg, rgba(24, 18, 12, 0.95), rgba(10, 8, 6, 0.92));
+  border: 1px solid rgba(244, 200, 115, 0.16);
+  border-radius: 22px;
+  color: var(--ink);
+  cursor: pointer;
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  text-align: left;
+  transition: border 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.service-choice-card:hover,
+.service-choice-card:focus-visible,
+.service-choice-card.selected {
+  border-color: rgba(255, 226, 160, 0.78);
+  box-shadow: 0 0 0 4px rgba(244, 200, 115, 0.14), 0 20px 42px rgba(0, 0, 0, 0.28);
+  transform: translateY(-1px);
+}
+
+.service-choice-card .service-card-media {
+  height: 132px;
+  margin-bottom: 0;
+}
+
+.service-choice-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.service-choice-copy small {
+  color: var(--gold);
+  font-size: 0.67rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.service-choice-copy strong {
+  color: var(--gold-light);
+  font-family: var(--display);
+  font-size: 1.35rem;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.service-choice-copy em,
+.service-choice-copy span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-style: normal;
+  line-height: 1.45;
+}
+
+.service-choice-copy em {
+  color: var(--gold-light);
+  font-weight: 900;
 }
 
 .booking-gate {
@@ -1782,6 +1868,74 @@ button:disabled {
   letter-spacing: -0.04em;
 }
 
+.service-image-admin {
+  align-items: center;
+  background: rgba(244, 200, 115, 0.06);
+  border: 1px solid rgba(244, 200, 115, 0.12);
+  border-radius: 20px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 160px minmax(0, 1fr);
+  padding: 12px;
+}
+
+.service-image-preview {
+  background:
+    radial-gradient(circle at 70% 22%, rgba(255, 226, 160, 0.24), transparent 34%),
+    linear-gradient(135deg, rgba(244, 200, 115, 0.12), rgba(10, 8, 6, 0.92));
+  border-radius: 16px;
+  display: block;
+  height: 112px;
+  overflow: hidden;
+}
+
+.service-image-preview img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.service-image-admin > div {
+  display: grid;
+  gap: 8px;
+}
+
+.service-image-admin > div > strong {
+  color: var(--gold-light);
+}
+
+.service-image-admin small {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.service-image-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.file-upload-button {
+  align-items: center;
+  background: rgba(244, 200, 115, 0.12);
+  border: 1px solid rgba(244, 200, 115, 0.18);
+  border-radius: 999px;
+  color: var(--gold-light);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.82rem;
+  font-weight: 900;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 14px;
+}
+
+.file-upload-button input {
+  display: none;
+}
+
 .toggle-label {
   align-items: center;
   display: inline-flex;
@@ -1971,6 +2125,7 @@ button:disabled {
   .notification-card,
   .policy-form,
   .new-service-form,
+  .service-image-admin,
   .service-editor-grid {
     grid-template-columns: 1fr;
   }
@@ -2157,12 +2312,12 @@ button:disabled {
   .service-card::before {
     left: 18px;
     right: 18px;
-    top: 52px;
+    top: 154px;
   }
 
   .service-card h3 {
     font-size: 1.45rem;
-    margin-top: 28px;
+    margin-top: 16px;
   }
 
   .booking-form,
@@ -2204,7 +2359,8 @@ button:disabled {
   .admin-stats,
   .admin-reports,
   .admin-priority-strip,
-  .booking-flow-card {
+  .booking-flow-card,
+  .service-choice-grid {
     grid-template-columns: 1fr;
   }
 
