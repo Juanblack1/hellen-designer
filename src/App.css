@@ -1,8 +1,8 @@
 .hero-section {
   background:
-    radial-gradient(circle at 86% 18%, rgba(159, 143, 89, 0.2), transparent 26%),
-    radial-gradient(circle at 14% 18%, rgba(31, 26, 23, 0.13), transparent 30%),
-    linear-gradient(115deg, rgba(31, 26, 23, 0.07), transparent 34%),
+    radial-gradient(circle at 86% 18%, rgba(255, 218, 134, 0.22), transparent 26%),
+    radial-gradient(circle at 14% 18%, rgba(201, 148, 63, 0.14), transparent 30%),
+    linear-gradient(115deg, rgba(244, 200, 115, 0.08), transparent 34%),
     var(--cream);
   min-height: auto;
   overflow: hidden;
@@ -17,8 +17,8 @@
 
 .page-header-section {
   background:
-    radial-gradient(circle at 86% 18%, rgba(159, 143, 89, 0.18), transparent 26%),
-    linear-gradient(115deg, rgba(31, 26, 23, 0.07), transparent 34%),
+    radial-gradient(circle at 86% 18%, rgba(255, 218, 134, 0.2), transparent 26%),
+    linear-gradient(115deg, rgba(201, 148, 63, 0.12), transparent 34%),
     var(--cream);
   min-height: 360px;
   overflow: hidden;
@@ -28,8 +28,8 @@
 
 .admin-header-section {
   background:
-    radial-gradient(circle at 86% 18%, rgba(229, 217, 162, 0.16), transparent 26%),
-    linear-gradient(135deg, rgba(31, 26, 23, 0.96), rgba(58, 49, 41, 0.96));
+    radial-gradient(circle at 86% 18%, rgba(255, 218, 134, 0.2), transparent 26%),
+    linear-gradient(135deg, rgba(8, 6, 4, 0.98), rgba(26, 18, 10, 0.98));
 }
 
 .page-heading {
@@ -50,24 +50,30 @@
 }
 
 .page-heading p:not(.eyebrow) {
-  color: var(--muted);
+  color: rgba(248, 234, 208, 0.78);
   font-size: clamp(1rem, 1.4vw, 1.14rem);
   line-height: 1.65;
   margin: 22px 0 0;
   max-width: 620px;
 }
 
-.admin-header-section .page-heading h1,
-.admin-header-section .page-heading p:not(.eyebrow),
+.admin-header-section .page-heading h1 {
+  color: var(--gold-light);
+}
+
+.admin-header-section .page-heading p:not(.eyebrow) {
+  color: rgba(248, 234, 208, 0.78);
+}
+
 .admin-header-section .page-heading .eyebrow {
-  color: var(--cream);
+  color: var(--gold);
 }
 
 .hero-section::before {
   background:
-    linear-gradient(rgba(31, 26, 23, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(31, 26, 23, 0.03) 1px, transparent 1px),
-    radial-gradient(circle at 50% 28%, rgba(229, 217, 162, 0.18), transparent 35%);
+    linear-gradient(rgba(244, 200, 115, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(244, 200, 115, 0.035) 1px, transparent 1px),
+    radial-gradient(circle at 50% 28%, rgba(255, 226, 160, 0.18), transparent 35%);
   background-size: 34px 34px, 34px 34px, auto;
   content: '';
   inset: 0;
@@ -78,8 +84,8 @@
 
 .hero-noise {
   background-image:
-    radial-gradient(circle at 1px 1px, rgba(31, 26, 23, 0.08) 1px, transparent 0),
-    radial-gradient(circle at 8px 14px, rgba(159, 143, 89, 0.08) 1px, transparent 0);
+    radial-gradient(circle at 1px 1px, rgba(255, 226, 160, 0.08) 1px, transparent 0),
+    radial-gradient(circle at 8px 14px, rgba(201, 148, 63, 0.12) 1px, transparent 0);
   background-size: 20px 20px, 28px 28px;
   inset: 0;
   mask-image: linear-gradient(to bottom, #000, transparent 75%);
@@ -106,10 +112,10 @@
 .topbar {
   align-items: center;
   backdrop-filter: blur(18px);
-  background: rgba(244, 238, 229, 0.9);
-  border: 1px solid rgba(31, 26, 23, 0.14);
+  background: rgba(10, 8, 6, 0.84);
+  border: 1px solid rgba(244, 200, 115, 0.28);
   border-radius: 999px;
-  box-shadow: 0 16px 46px rgba(31, 26, 23, 0.12);
+  box-shadow: 0 18px 56px rgba(0, 0, 0, 0.34);
   display: flex;
   gap: 16px;
   justify-content: space-between;
@@ -127,7 +133,7 @@
 
 .brand {
   align-items: center;
-  color: var(--espresso);
+  color: var(--gold-light);
   display: inline-flex;
   gap: 10px;
   min-width: max-content;
@@ -145,6 +151,7 @@
 
 .brand-logo {
   border-radius: 999px;
+  box-shadow: 0 0 0 1px rgba(244, 200, 115, 0.38), 0 0 22px rgba(201, 148, 63, 0.2);
   display: block;
   height: 42px;
   object-fit: contain;
@@ -170,7 +177,7 @@
   background: transparent;
   border: 1px solid transparent;
   border-radius: 999px;
-  color: var(--muted);
+  color: rgba(248, 234, 208, 0.72);
   cursor: pointer;
   font: inherit;
   font-size: 0.82rem;
@@ -184,9 +191,9 @@
 .nav-links a:focus-visible,
 .nav-links button:hover,
 .nav-links button:focus-visible {
-  background: rgba(31, 26, 23, 0.06);
-  border-color: rgba(31, 26, 23, 0.12);
-  color: var(--espresso);
+  background: rgba(244, 200, 115, 0.12);
+  border-color: rgba(244, 200, 115, 0.28);
+  color: var(--gold-light);
 }
 
 .header-auth {
@@ -215,18 +222,18 @@
 }
 
 .header-signin {
-  background: rgba(31, 26, 23, 0.08);
-  color: var(--espresso);
+  background: rgba(244, 200, 115, 0.12);
+  color: var(--gold-light);
 }
 
 .header-signup {
-  background: linear-gradient(135deg, var(--espresso), #3a3129);
-  color: var(--cream);
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  color: #090806;
 }
 
 .header-logout {
-  background: rgba(155, 92, 56, 0.14);
-  color: var(--terracotta);
+  background: rgba(201, 148, 63, 0.14);
+  color: var(--gold-light);
 }
 
 .hero-grid {
@@ -239,10 +246,10 @@
 }
 
 .hero-copy {
-  background: rgba(31, 26, 23, 0.96);
+  background: rgba(15, 11, 8, 0.96);
   border: 1px solid rgba(229, 217, 162, 0.28);
   border-radius: 30px;
-  box-shadow: 0 30px 90px rgba(31, 26, 23, 0.2);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.42);
   overflow: hidden;
   padding: clamp(28px, 5vw, 54px);
   position: relative;
@@ -265,7 +272,7 @@
 
 .hero-signature {
   align-items: center;
-  color: var(--cream);
+  color: var(--ink);
   display: inline-flex;
   gap: 12px;
   margin-bottom: 24px;
@@ -299,7 +306,7 @@
 }
 
 .hero-copy h1 {
-  color: var(--cream);
+  color: var(--ink);
   font-size: clamp(2.85rem, 6vw, 5.15rem);
   max-width: 720px;
 }
@@ -314,7 +321,7 @@
 }
 
 .hero-lede {
-  color: rgba(244, 238, 229, 0.78);
+  color: rgba(248, 234, 208, 0.78);
   font-size: clamp(0.98rem, 1.5vw, 1.12rem);
   line-height: 1.6;
   margin: 20px 0 0;
@@ -367,15 +374,15 @@
 .save-service-button,
 .booking-gate button:not(.secondary-button),
 .auth-connected button:not(.text-button) {
-  background: linear-gradient(135deg, var(--espresso), #3d332b);
-  box-shadow: 0 16px 40px rgba(31, 26, 23, 0.22);
-  color: var(--cream);
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28), 0 0 24px rgba(201, 148, 63, 0.14);
+  color: #090806;
 }
 
 .hero-copy .primary-action {
   background: linear-gradient(135deg, var(--gold-light), var(--gold));
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
-  color: var(--espresso);
+  color: #090806;
 }
 
 .primary-action:hover,
@@ -391,21 +398,21 @@
 }
 
 .form-actions a {
-  background: rgba(244, 238, 229, 0.68);
-  border: 1px solid rgba(31, 26, 23, 0.12);
-  color: var(--espresso);
+  background: rgba(244, 200, 115, 0.12);
+  border: 1px solid rgba(244, 200, 115, 0.24);
+  color: var(--gold-light);
 }
 
 .secondary-button {
-  background: rgba(31, 26, 23, 0.08) !important;
+  background: rgba(244, 200, 115, 0.12) !important;
   box-shadow: none !important;
-  color: var(--espresso) !important;
+  color: var(--gold-light) !important;
 }
 
 .text-button {
   background: transparent;
   border: 0;
-  color: var(--gold-dark);
+  color: var(--gold-light);
   cursor: pointer;
   font: inherit;
   font-weight: 900;
@@ -415,11 +422,11 @@
 }
 
 .text-button.light {
-  color: var(--cream);
+  color: var(--ink);
 }
 
 .trust-row {
-  color: rgba(244, 238, 229, 0.74);
+  color: rgba(248, 234, 208, 0.74);
   margin-top: 20px;
 }
 
@@ -436,10 +443,10 @@
 }
 
 .portrait-frame {
-  background: linear-gradient(160deg, rgba(247, 241, 232, 0.9), rgba(159, 143, 89, 0.2));
-  border: 1px solid rgba(31, 26, 23, 0.16);
+  background: linear-gradient(160deg, rgba(255, 226, 160, 0.18), rgba(10, 8, 6, 0.82));
+  border: 1px solid rgba(244, 200, 115, 0.26);
   border-radius: 220px 220px 24px 24px;
-  box-shadow: 0 34px 100px rgba(31, 26, 23, 0.2);
+  box-shadow: 0 34px 100px rgba(0, 0, 0, 0.42);
   min-height: 580px;
   overflow: hidden;
   position: relative;
@@ -459,7 +466,7 @@
 
 .portrait-frame img {
   display: block;
-  filter: saturate(0.95) contrast(1.02) drop-shadow(0 28px 38px rgba(31, 26, 23, 0.18));
+  filter: saturate(0.95) contrast(1.02) drop-shadow(0 28px 38px rgba(0, 0, 0, 0.34));
   left: 50%;
   max-width: 92%;
   position: absolute;
@@ -483,9 +490,9 @@
 
 .glass-card {
   backdrop-filter: blur(18px);
-  background: rgba(244, 238, 229, 0.86);
+  background: rgba(15, 11, 8, 0.78);
   border: 1px solid rgba(229, 217, 162, 0.42);
-  box-shadow: 0 18px 58px rgba(31, 26, 23, 0.16);
+  box-shadow: 0 18px 58px rgba(0, 0, 0, 0.32);
 }
 
 .appointment-card {
@@ -536,8 +543,8 @@
 }
 
 .proof-strip {
-  background: var(--espresso);
-  color: var(--cream);
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  color: #090806;
   display: grid;
   gap: 1px;
   grid-template-columns: repeat(3, 1fr);
@@ -559,7 +566,7 @@
 }
 
 .proof-strip span {
-  color: rgba(244, 238, 229, 0.74);
+  color: rgba(9, 8, 6, 0.68);
   line-height: 1.55;
 }
 
@@ -605,9 +612,9 @@
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.34), transparent 36%),
     var(--card);
-  border: 1px solid rgba(31, 26, 23, 0.14);
+  border: 1px solid rgba(244, 200, 115, 0.18);
   border-radius: 8px 8px 24px 24px;
-  box-shadow: 0 18px 50px rgba(31, 26, 23, 0.07);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
   display: flex;
   flex-direction: column;
   min-height: 245px;
@@ -666,7 +673,7 @@
 .service-card strong {
   background: var(--espresso);
   border-radius: 999px;
-  color: var(--gold-light);
+  color: #090806;
   padding: 6px 10px;
 }
 
@@ -704,10 +711,10 @@
 .admin-panel,
 .service-editor-card,
 .booking-gate {
-  background: rgba(247, 241, 232, 0.88);
-  border: 1px solid rgba(31, 26, 23, 0.12);
+  background: linear-gradient(160deg, rgba(22, 17, 12, 0.96), rgba(10, 8, 6, 0.94));
+  border: 1px solid rgba(244, 200, 115, 0.18);
   border-radius: 26px;
-  box-shadow: 0 18px 54px rgba(31, 26, 23, 0.08);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
 }
 
 .booking-form,
@@ -715,6 +722,81 @@
   display: grid;
   gap: 14px;
   padding: clamp(18px, 3vw, 26px);
+}
+
+.booking-flow-card {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.booking-flow-card div,
+.booking-step-section,
+.selected-service-card {
+  background: var(--panel-soft);
+  border: 1px solid rgba(244, 200, 115, 0.14);
+  border-radius: 20px;
+}
+
+.booking-flow-card div {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+}
+
+.booking-flow-card span,
+.booking-step-heading span,
+.selected-service-card span {
+  color: var(--gold-dark);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.booking-flow-card strong,
+.selected-service-card strong {
+  color: var(--espresso);
+}
+
+.booking-flow-card small,
+.booking-step-heading p,
+.selected-service-card small,
+.selected-service-card p,
+label small {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.booking-step-section {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.booking-step-heading {
+  display: grid;
+  gap: 6px;
+}
+
+.booking-step-heading h3 {
+  color: var(--espresso);
+  font-family: var(--display);
+  font-size: clamp(1.55rem, 3vw, 2.1rem);
+  letter-spacing: -0.045em;
+  line-height: 1;
+  margin: 0;
+}
+
+.booking-step-heading p,
+.selected-service-card p {
+  margin: 0;
+}
+
+.selected-service-card {
+  display: grid;
+  gap: 7px;
+  padding: 14px;
 }
 
 .booking-gate {
@@ -744,8 +826,8 @@
 }
 
 .digital-calendar {
-  background: rgba(251, 247, 239, 0.72);
-  border: 1px solid rgba(31, 26, 23, 0.1);
+  background: rgba(15, 11, 8, 0.74);
+  border: 1px solid rgba(244, 200, 115, 0.14);
   border-radius: 22px;
   display: grid;
   gap: 12px;
@@ -802,8 +884,8 @@
 }
 
 .calendar-day {
-  background: #fbf7ef;
-  border: 1px solid rgba(31, 26, 23, 0.1);
+  background: var(--panel);
+  border: 1px solid rgba(244, 200, 115, 0.16);
   border-radius: 14px;
   color: var(--espresso);
   cursor: pointer;
@@ -826,17 +908,17 @@
 }
 
 .calendar-day.selected {
-  background: var(--espresso);
-  color: var(--cream);
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  color: #090806;
 }
 
 .calendar-day.selected span {
-  color: rgba(244, 238, 229, 0.78);
+  color: rgba(9, 8, 6, 0.7);
 }
 
 .calendar-day:disabled {
-  background: rgba(109, 98, 89, 0.08);
-  color: rgba(31, 26, 23, 0.38);
+  background: rgba(255, 226, 160, 0.05);
+  color: rgba(248, 234, 208, 0.34);
   cursor: not-allowed;
 }
 
@@ -853,8 +935,8 @@
 }
 
 .slot-button {
-  background: #fbf7ef;
-  border: 1px solid rgba(31, 26, 23, 0.12);
+  background: var(--panel);
+  border: 1px solid rgba(244, 200, 115, 0.16);
   border-radius: 16px;
   color: var(--espresso);
   cursor: pointer;
@@ -868,8 +950,8 @@
 .slot-button:hover:not(:disabled),
 .slot-button:focus-visible:not(:disabled),
 .slot-button.selected {
-  border-color: rgba(159, 143, 89, 0.78);
-  box-shadow: 0 0 0 4px rgba(159, 143, 89, 0.16);
+  border-color: rgba(255, 226, 160, 0.8);
+  box-shadow: 0 0 0 4px rgba(244, 200, 115, 0.18), 0 0 28px rgba(201, 148, 63, 0.16);
   transform: translateY(-1px);
 }
 
@@ -880,8 +962,8 @@
 }
 
 .slot-button:disabled {
-  background: rgba(109, 98, 89, 0.08);
-  color: rgba(31, 26, 23, 0.45);
+  background: rgba(255, 226, 160, 0.05);
+  color: rgba(248, 234, 208, 0.38);
   cursor: not-allowed;
 }
 
@@ -902,10 +984,10 @@ label {
 input,
 select,
 textarea {
-  background: #fbf7ef;
-  border: 1px solid rgba(31, 26, 23, 0.14);
+  background: var(--panel);
+  border: 1px solid rgba(244, 200, 115, 0.18);
   border-radius: 14px;
-  color: var(--espresso);
+  color: var(--ink);
   font: inherit;
   outline: none;
   padding: 12px 14px;
@@ -919,12 +1001,12 @@ textarea {
 input:focus,
 select:focus,
 textarea:focus {
-  border-color: rgba(159, 143, 89, 0.78);
-  box-shadow: 0 0 0 4px rgba(159, 143, 89, 0.16);
+  border-color: rgba(255, 226, 160, 0.78);
+  box-shadow: 0 0 0 4px rgba(244, 200, 115, 0.18);
 }
 
 button:disabled {
-  cursor: wait;
+  cursor: not-allowed;
   opacity: 0.7;
 }
 
@@ -950,9 +1032,10 @@ button:disabled {
 .client-card {
   background:
     radial-gradient(circle at 90% 18%, rgba(229, 217, 162, 0.18), transparent 30%),
-    linear-gradient(140deg, var(--espresso), #3a3129);
+    linear-gradient(140deg, rgba(31, 24, 17, 0.98), rgba(8, 6, 4, 0.98));
+  border: 1px solid rgba(244, 200, 115, 0.2);
   border-radius: 28px;
-  color: var(--cream);
+  color: var(--ink);
   display: grid;
   gap: 24px;
   grid-template-columns: minmax(0, 1fr) minmax(300px, 0.4fr);
@@ -961,11 +1044,11 @@ button:disabled {
 
 .client-card h2,
 .client-card .eyebrow {
-  color: var(--cream);
+  color: var(--gold-light);
 }
 
 .client-card p {
-  color: rgba(244, 238, 229, 0.74);
+  color: rgba(248, 234, 208, 0.74);
 }
 
 .first-steps {
@@ -977,10 +1060,10 @@ button:disabled {
 
 .first-steps span {
   align-items: center;
-  background: rgba(244, 238, 229, 0.1);
-  border: 1px solid rgba(244, 238, 229, 0.14);
+  background: rgba(244, 200, 115, 0.1);
+  border: 1px solid rgba(244, 200, 115, 0.16);
   border-radius: 999px;
-  color: rgba(244, 238, 229, 0.82);
+  color: rgba(248, 234, 208, 0.82);
   display: inline-flex;
   font-size: 0.82rem;
   font-weight: 800;
@@ -991,17 +1074,17 @@ button:disabled {
 .auth-form,
 .session-box {
   align-self: start;
-  background: rgba(244, 238, 229, 0.1);
-  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(244, 200, 115, 0.08);
+  border-color: rgba(244, 200, 115, 0.16);
   box-shadow: none;
 }
 
 .auth-form label {
-  color: var(--cream);
+  color: var(--ink);
 }
 
 .auth-tabs {
-  background: rgba(244, 238, 229, 0.08);
+  background: rgba(244, 200, 115, 0.08);
   border-radius: 999px;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1012,7 +1095,7 @@ button:disabled {
   background: transparent;
   border: 0;
   border-radius: 999px;
-  color: rgba(244, 238, 229, 0.68);
+  color: rgba(248, 234, 208, 0.68);
   cursor: pointer;
   font: inherit;
   font-weight: 900;
@@ -1020,23 +1103,23 @@ button:disabled {
 }
 
 .auth-tabs button.active {
-  background: var(--cream);
-  color: var(--espresso);
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  color: #090806;
 }
 
 .session-box {
-  color: var(--cream);
+  color: var(--ink);
   display: grid;
   gap: 10px;
   padding: 24px;
 }
 
 .session-box span {
-  color: rgba(244, 238, 229, 0.7);
+  color: rgba(248, 234, 208, 0.7);
 }
 
 .session-box small {
-  color: rgba(244, 238, 229, 0.68);
+  color: rgba(248, 234, 208, 0.68);
 }
 
 .session-box strong {
@@ -1044,8 +1127,8 @@ button:disabled {
 }
 
 .session-box button {
-  background: var(--cream);
-  color: var(--espresso);
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  color: #090806;
   justify-self: start;
   margin-top: 10px;
 }
@@ -1061,8 +1144,8 @@ button:disabled {
 
 .booking-items article {
   align-items: center;
-  background: #fbf7ef;
-  border: 1px solid rgba(31, 26, 23, 0.08);
+  background: var(--panel);
+  border: 1px solid rgba(244, 200, 115, 0.14);
   border-radius: 22px;
   display: grid;
   gap: 14px;
@@ -1134,12 +1217,39 @@ button:disabled {
 }
 
 .admin-badge {
-  background: rgba(31, 26, 23, 0.08);
-  color: var(--espresso);
+  background: rgba(244, 200, 115, 0.12);
+  color: var(--gold-light);
+}
+
+.admin-quick-nav {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.admin-quick-nav a {
+  background: rgba(244, 200, 115, 0.1);
+  border: 1px solid rgba(244, 200, 115, 0.18);
+  border-radius: 999px;
+  color: var(--gold-light);
+  font-size: 0.82rem;
+  font-weight: 900;
+  padding: 9px 13px;
+  text-decoration: none;
+  transition: border 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.admin-quick-nav a:hover,
+.admin-quick-nav a:focus-visible {
+  background: rgba(244, 200, 115, 0.18);
+  border-color: rgba(255, 226, 160, 0.48);
+  transform: translateY(-1px);
 }
 
 .admin-stats,
 .admin-reports,
+.admin-priority-strip,
 .admin-controls,
 .new-service-form,
 .policy-form {
@@ -1155,6 +1265,10 @@ button:disabled {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.admin-priority-strip {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .admin-ops-grid {
   display: grid;
   gap: 16px;
@@ -1167,8 +1281,8 @@ button:disabled {
 .client-directory,
 .policy-manager,
 .notification-queue {
-  background: rgba(251, 247, 239, 0.74);
-  border: 1px solid rgba(31, 26, 23, 0.09);
+  background: var(--panel-soft);
+  border: 1px solid rgba(244, 200, 115, 0.14);
   border-radius: 24px;
   display: grid;
   gap: 14px;
@@ -1216,8 +1330,8 @@ button:disabled {
 .unavailable-list article,
 .availability-list article,
 .client-directory-grid article {
-  background: #fbf7ef;
-  border: 1px solid rgba(31, 26, 23, 0.08);
+  background: var(--panel);
+  border: 1px solid rgba(244, 200, 115, 0.12);
   border-radius: 18px;
   display: grid;
   gap: 6px;
@@ -1265,9 +1379,10 @@ button:disabled {
 }
 
 .admin-stats article,
-.admin-reports article {
-  background: #fbf7ef;
-  border: 1px solid rgba(31, 26, 23, 0.08);
+.admin-reports article,
+.admin-priority-strip article {
+  background: linear-gradient(160deg, rgba(24, 18, 12, 0.94), rgba(10, 8, 6, 0.9));
+  border: 1px solid rgba(244, 200, 115, 0.16);
   border-radius: 20px;
   display: grid;
   gap: 8px;
@@ -1275,19 +1390,40 @@ button:disabled {
 }
 
 .admin-stats span,
-.admin-reports span {
+.admin-reports span,
+.admin-priority-strip span,
+.admin-priority-strip small {
   color: var(--muted);
   font-size: 0.78rem;
   font-weight: 800;
 }
 
 .admin-stats strong,
-.admin-reports strong {
+.admin-reports strong,
+.admin-priority-strip strong {
   color: var(--espresso);
   font-family: var(--display);
   font-size: 2.2rem;
   letter-spacing: -0.05em;
   line-height: 1;
+}
+
+.admin-priority-strip button,
+.admin-priority-strip a {
+  align-items: center;
+  background: rgba(244, 200, 115, 0.12);
+  border: 1px solid rgba(244, 200, 115, 0.18);
+  border-radius: 999px;
+  color: var(--gold-light);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 900;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 12px;
+  text-decoration: none;
 }
 
 .admin-controls {
@@ -1307,8 +1443,8 @@ button:disabled {
 }
 
 .admin-booking-card {
-  background: #fbf7ef;
-  border: 1px solid rgba(31, 26, 23, 0.08);
+  background: var(--panel);
+  border: 1px solid rgba(244, 200, 115, 0.14);
   border-radius: 24px;
   display: grid;
   gap: 14px;
@@ -1361,6 +1497,32 @@ button:disabled {
   grid-template-columns: minmax(150px, 1fr) auto;
 }
 
+.quick-status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  grid-column: 1 / -1;
+}
+
+.quick-status-actions button {
+  background: rgba(244, 200, 115, 0.12);
+  border: 1px solid rgba(244, 200, 115, 0.18);
+  border-radius: 999px;
+  color: var(--gold-light);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 900;
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.quick-status-actions .danger-action {
+  background: rgba(255, 126, 97, 0.14);
+  border-color: rgba(255, 126, 97, 0.22);
+  color: #ffb09f;
+}
+
 .reschedule-controls {
   display: grid;
   gap: 8px;
@@ -1373,43 +1535,43 @@ button:disabled {
 }
 
 .icon-button {
-  background: rgba(31, 26, 23, 0.08);
+  background: rgba(244, 200, 115, 0.12);
   box-shadow: none;
-  color: var(--espresso);
+  color: var(--gold-light);
   min-width: 44px;
   padding: 0;
 }
 
 .icon-button.danger {
-  background: rgba(153, 45, 29, 0.1);
-  color: #992d1d;
+  background: rgba(255, 126, 97, 0.13);
+  color: #ffb09f;
 }
 
 .status-pending {
-  background: rgba(184, 119, 46, 0.14);
-  color: #875510;
+  background: rgba(244, 200, 115, 0.15);
+  color: var(--gold-light);
 }
 
 .status-confirmed {
-  background: rgba(43, 116, 74, 0.14);
-  color: #2b744a;
+  background: rgba(87, 207, 132, 0.14);
+  color: #91e6b0;
 }
 
 .status-completed {
-  background: rgba(31, 26, 23, 0.11);
-  color: var(--espresso);
+  background: rgba(244, 200, 115, 0.12);
+  color: var(--gold-light);
 }
 
 .status-canceled_by_client,
 .status-canceled_by_admin,
 .status-no_show {
-  background: rgba(153, 45, 29, 0.12);
-  color: #992d1d;
+  background: rgba(255, 126, 97, 0.14);
+  color: #ffb09f;
 }
 
 .booking-confirmation-card {
   background: var(--sand);
-  border: 1px solid rgba(31, 26, 23, 0.08);
+  border: 1px solid rgba(244, 200, 115, 0.14);
   border-radius: 22px;
   display: grid;
   gap: 16px;
@@ -1423,9 +1585,17 @@ button:disabled {
 
 .booking-confirmation-card span,
 .booking-confirmation-card small,
+.booking-confirmation-card em,
 .customer-booking-main span,
 .customer-booking-main small {
   color: var(--muted);
+}
+
+.booking-confirmation-card em {
+  display: block;
+  font-style: normal;
+  font-weight: 800;
+  margin-top: 6px;
 }
 
 .policy-check {
@@ -1478,13 +1648,13 @@ button:disabled {
 .internal-note-form button,
 .notification-actions button,
 .notification-actions a {
-  background: var(--espresso);
-  color: var(--cream);
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  color: #090806;
 }
 
 .danger-action {
-  background: rgba(153, 45, 29, 0.12);
-  color: #992d1d;
+  background: rgba(255, 126, 97, 0.14);
+  color: #ffb09f;
 }
 
 .customer-booking-card {
@@ -1520,7 +1690,7 @@ button:disabled {
 
 .booking-timeline,
 .booking-notes-list {
-  background: rgba(31, 26, 23, 0.04);
+  background: rgba(244, 200, 115, 0.06);
   border-radius: 16px;
   padding: 12px;
 }
@@ -1538,8 +1708,8 @@ button:disabled {
 }
 
 .notification-card {
-  background: #fbf7ef;
-  border: 1px solid rgba(31, 26, 23, 0.08);
+  background: var(--panel);
+  border: 1px solid rgba(244, 200, 115, 0.14);
   border-radius: 20px;
   display: grid;
   gap: 14px;
@@ -1569,7 +1739,7 @@ button:disabled {
 }
 
 .service-manager {
-  border-top: 1px solid rgba(31, 26, 23, 0.1);
+  border-top: 1px solid rgba(244, 200, 115, 0.14);
   display: grid;
   gap: 16px;
   margin-top: 10px;
@@ -1578,7 +1748,7 @@ button:disabled {
 
 .new-service-form {
   background: var(--sand);
-  border: 1px solid rgba(31, 26, 23, 0.08);
+  border: 1px solid rgba(244, 200, 115, 0.14);
   border-radius: 22px;
   grid-template-columns: minmax(190px, 1.2fr) 120px 110px minmax(240px, 1.5fr) auto;
   padding: 16px;
@@ -1640,8 +1810,8 @@ button:disabled {
   align-items: center;
   background:
     radial-gradient(circle at 20% 20%, rgba(159, 143, 89, 0.22), transparent 28%),
-    radial-gradient(circle at 78% 28%, rgba(31, 26, 23, 0.12), transparent 30%),
-    linear-gradient(115deg, rgba(31, 26, 23, 0.08), transparent 38%),
+    radial-gradient(circle at 78% 28%, rgba(244, 200, 115, 0.12), transparent 30%),
+    linear-gradient(115deg, rgba(244, 200, 115, 0.08), transparent 38%),
     var(--cream);
   display: grid;
   gap: clamp(24px, 5vw, 56px);
@@ -1687,10 +1857,10 @@ button:disabled {
 
 .auth-benefits span {
   align-items: center;
-  background: rgba(247, 241, 232, 0.76);
-  border: 1px solid rgba(31, 26, 23, 0.1);
+  background: rgba(244, 200, 115, 0.1);
+  border: 1px solid rgba(244, 200, 115, 0.18);
   border-radius: 999px;
-  color: var(--espresso);
+  color: var(--gold-light);
   display: inline-flex;
   font-size: 0.84rem;
   font-weight: 900;
@@ -1699,10 +1869,10 @@ button:disabled {
 }
 
 .auth-panel {
-  background: rgba(247, 241, 232, 0.9);
-  border: 1px solid rgba(31, 26, 23, 0.12);
+  background: linear-gradient(160deg, rgba(22, 17, 12, 0.96), rgba(10, 8, 6, 0.94));
+  border: 1px solid rgba(244, 200, 115, 0.18);
   border-radius: 30px;
-  box-shadow: 0 24px 70px rgba(31, 26, 23, 0.13);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
   display: grid;
   gap: 18px;
   padding: clamp(20px, 3vw, 30px);
@@ -1717,8 +1887,8 @@ button:disabled {
 }
 
 .auth-panel .auth-tabs button.active {
-  background: var(--espresso);
-  color: var(--cream);
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  color: #090806;
 }
 
 .auth-panel .auth-form {
@@ -1729,7 +1899,7 @@ button:disabled {
 }
 
 .auth-panel .auth-form label {
-  color: var(--espresso);
+  color: var(--gold-light);
 }
 
 .auth-secondary-actions {
@@ -1786,6 +1956,8 @@ button:disabled {
   .section-heading,
   .admin-controls,
   .admin-reports,
+  .admin-priority-strip,
+  .booking-flow-card,
   .admin-booking-card,
   .admin-ops-grid,
   .client-directory-grid,
@@ -1833,7 +2005,8 @@ button:disabled {
   }
 
   .admin-stats,
-  .admin-reports {
+  .admin-reports,
+  .admin-priority-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -2029,7 +2202,9 @@ button:disabled {
   }
 
   .admin-stats,
-  .admin-reports {
+  .admin-reports,
+  .admin-priority-strip,
+  .booking-flow-card {
     grid-template-columns: 1fr;
   }
 

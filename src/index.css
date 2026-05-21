@@ -1,22 +1,24 @@
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Playfair+Display:wght@700;800;900&display=swap');
 
 :root {
-  --blush: #d8a47d;
-  --card: #f7f1e8;
-  --cream: #f4eee5;
-  --espresso: #1f1a17;
-  --gold: #9f8f59;
-  --gold-dark: #70633b;
-  --gold-light: #e5d9a2;
-  --ink: #181512;
-  --muted: #6d6259;
-  --rose: #b87554;
-  --sand: #e8ded1;
-  --terracotta: #9b5c38;
+  --blush: #c58b56;
+  --card: #15110d;
+  --cream: #090806;
+  --espresso: #f4c873;
+  --gold: #c8943f;
+  --gold-dark: #9b681d;
+  --gold-light: #ffe2a0;
+  --ink: #f8ead0;
+  --muted: #c6b696;
+  --panel: rgba(18, 14, 10, 0.92);
+  --panel-soft: rgba(31, 24, 17, 0.78);
+  --rose: #c98b62;
+  --sand: #1f1710;
+  --terracotta: #b66e36;
   --display: 'Playfair Display', Georgia, serif;
   --body: 'Montserrat', 'Aptos', sans-serif;
   color: var(--ink);
-  background: #f2eee8;
+  background: #080604;
   font-family: var(--body);
   font-synthesis: none;
   line-height: 1.5;
@@ -35,9 +37,10 @@ html {
 
 body {
   background:
-    radial-gradient(circle at 20% 0%, rgba(159, 143, 89, 0.1), transparent 30%),
-    linear-gradient(rgba(31, 26, 23, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(31, 26, 23, 0.02) 1px, transparent 1px),
+    radial-gradient(circle at 12% 0%, rgba(248, 194, 90, 0.18), transparent 26%),
+    radial-gradient(circle at 92% 12%, rgba(201, 148, 63, 0.2), transparent 24%),
+    linear-gradient(rgba(244, 200, 115, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(244, 200, 115, 0.03) 1px, transparent 1px),
     var(--cream);
   background-size: auto, 38px 38px, 38px 38px, auto;
   margin: 0;
@@ -52,8 +55,8 @@ textarea {
 }
 
 ::selection {
-  background: var(--espresso);
-  color: var(--cream);
+  background: var(--gold-light);
+  color: #090806;
 }
 
 #root {

@@ -333,6 +333,10 @@ begin
       raise exception 'booking_date_in_past';
     end if;
 
+    if (new.preferred_date + new.preferred_time) <= (now() at time zone 'America/Sao_Paulo') then
+      raise exception 'booking_slot_in_past';
+    end if;
+
     if exists (
       select 1
       from public.admin_unavailable_days unavailable_day

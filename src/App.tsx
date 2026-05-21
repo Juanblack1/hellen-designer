@@ -267,6 +267,36 @@ const weekdayOptions = [
   { value: 4, label: 'Quinta' },
   { value: 5, label: 'Sexta' },
 ]
+const businessTimeZone = 'America/Sao_Paulo'
+const businessDateTimeFormatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: businessTimeZone,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+})
+
+type BusinessDateTime = {
+  date: string
+  time: string
+}
+
+function getBusinessDateTime(): BusinessDateTime {
+  const values: Record<string, string> = {}
+
+  for (const part of businessDateTimeFormatter.formatToParts(new Date())) {
+    if (part.type !== 'literal') {
+      values[part.type] = part.value
+    }
+  }
+
+  return {
+    date: `${values.year}-${values.month}-${values.day}`,
+    time: `${values.hour}:${values.minute}`,
+  }
+}
 
 function toDateOnly(date: Date) {
   const year = date.getFullYear()
@@ -277,7 +307,7 @@ function toDateOnly(date: Date) {
 }
 
 function getTodayDate() {
-  return toDateOnly(new Date())
+  return getBusinessDateTime().date
 }
 
 function parseDateOnly(date: string) {
@@ -309,7 +339,7 @@ function getNextBusinessDate(date: Date) {
 }
 
 function getInitialDate() {
-  const date = new Date()
+  const date = parseDateOnly(getTodayDate())
   date.setDate(date.getDate() + 1)
   return toDateOnly(getNextBusinessDate(date))
 }
@@ -368,6 +398,13 @@ function getSlotKey(startTime: string, endTime: string) {
 
 function formatTimeRange(startTime: string, endTime: string) {
   return `${timeLabel(startTime)} ate ${timeLabel(endTime)}`
+}
+
+function isSlotInPast(date: string, startTime: string, currentDateTime: BusinessDateTime) {
+  return (
+    date < currentDateTime.date ||
+    (date === currentDateTime.date && timeLabel(startTime) <= currentDateTime.time)
+  )
 }
 
 function getInitialAuthMode(): AuthMode {
@@ -457,6 +494,10 @@ function getBookingErrorMessage(message: string, conflictMessage: string) {
 
   if (normalized.includes('booking_date_in_past')) {
     return 'Nao e possivel marcar ou remarcar para uma data anterior ao dia atual.'
+  }
+
+  if (normalized.includes('booking_slot_in_past')) {
+    return 'Esse horario ja passou. Escolha outro periodo disponivel.'
   }
 
   if (normalized.includes('booking_date_unavailable')) {
@@ -657,6 +698,7 @@ function getStatusTone(status: BookingStatus) {
 
 function App() {
   const [route, setRoute] = useState(() => window.location.pathname)
+  const [currentBusinessDateTime, setCurrentBusinessDateTime] = useState(() => getBusinessDateTime())
   const [services, setServices] = useState<ServiceOption[]>(serviceSeeds)
   const [booking, setBooking] = useState<BookingForm>({
     name: '',
@@ -714,6 +756,16 @@ function App() {
   const [savingAvailabilityId, setSavingAvailabilityId] = useState('')
   const [updatingBookingId, setUpdatingBookingId] = useState('')
   const [updatingQueueId, setUpdatingQueueId] = useState('')
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setCurrentBusinessDateTime(getBusinessDateTime())
+    }, 60_000)
+
+    return () => {
+      window.clearInterval(timer)
+    }
+  }, [])
 
   useEffect(() => {
     function handlePopState() {
@@ -1067,23 +1119,55 @@ function App() {
   const getAvailabilitySlotsForDate = (date: string) =>
     activeAvailabilitySlots.filter((slot) => slot.weekday === getIsoWeekday(date))
   const selectedDateAvailabilitySlots = getAvailabilitySlotsForDate(booking.preferredDate)
+  const selectedDateUpcomingSlots = selectedDateAvailabilitySlots.filter(
+    (slot) => !isSlotInPast(booking.preferredDate, slot.start_time, currentBusinessDateTime),
+  )
   const bookedSlotSet = new Set(bookedSlots.map((slot) => getSlotKey(slot.startTime, slot.endTime)))
   const selectedSlotKey = booking.preferredTime && booking.preferredEndTime
     ? getSlotKey(booking.preferredTime, booking.preferredEndTime)
     : ''
   const selectedDateIsUnavailable =
-    booking.preferredDate < getTodayDate() ||
+    booking.preferredDate < currentBusinessDateTime.date ||
     unavailableDateSet.has(booking.preferredDate) ||
-    !selectedDateAvailabilitySlots.length
+    !selectedDateUpcomingSlots.length
   const selectedSlotIsBooked = Boolean(selectedSlotKey && bookedSlotSet.has(selectedSlotKey))
   const availableSlots = selectedDateIsUnavailable
     ? []
-    : selectedDateAvailabilitySlots.filter((slot) => !bookedSlotSet.has(getSlotKey(slot.start_time, slot.end_time)))
+    : selectedDateUpcomingSlots.filter((slot) => !bookedSlotSet.has(getSlotKey(slot.start_time, slot.end_time)))
   const selectedSlotIsAvailable = Boolean(
     selectedSlotKey && availableSlots.some((slot) => getSlotKey(slot.start_time, slot.end_time) === selectedSlotKey),
   )
+  const hasBookingContact = booking.name.trim().length >= 2 && booking.phone.replace(/\D/g, '').length >= 8
+  const hasSelectedBookableSlot = Boolean(selectedSlotKey && selectedSlotIsAvailable)
+  const bookingSubmitLabel = isSubmittingBooking
+    ? 'Solicitando...'
+    : !bookableServices.length
+      ? 'Agenda pausada'
+      : !hasSelectedBookableSlot
+        ? 'Escolha um horario'
+        : !hasBookingContact
+          ? 'Preencha seus dados'
+          : !policyAccepted
+            ? 'Aceite a politica'
+            : 'Solicitar horario'
+  const bookingGuidance = bookingStatus ||
+    (!bookableServices.length
+      ? 'A agenda esta pausada no momento. Volte mais tarde ou fale com a Hellen pelo Instagram.'
+      : selectedDateIsUnavailable
+        ? 'Esta data nao tem horarios disponiveis. Escolha outro dia aberto no calendario.'
+        : !hasSelectedBookableSlot
+          ? 'Escolha um horario marcado como Disponivel para continuar.'
+          : !hasBookingContact
+            ? 'Preencha seu nome e WhatsApp para a Hellen identificar seu pedido.'
+            : !policyAccepted
+              ? 'Leia e aceite a politica para confirmar que entendeu as regras de cancelamento e remarcacao.'
+              : 'Tudo certo. Confira o resumo e solicite seu horario.')
   const calendarDays = getCalendarDays(calendarMonth)
   const adminSelectedBookings = bookings.filter((item) => item.preferred_date === adminSelectedDate)
+  const todayActiveBookings = bookings.filter(
+    (item) => item.preferred_date === currentBusinessDateTime.date && isActiveBookingStatus(item.status),
+  )
+  const pendingBookingCount = bookings.filter((item) => item.status === 'pending').length
   const clientSummaries = Array.from(
     bookings
       .reduce((clients, item) => {
@@ -1148,7 +1232,7 @@ function App() {
   const pendingNotificationCount = notificationQueue.filter((item) => item.status === 'pending').length
   const activeBookingCount = bookings.filter((item) => isActiveBookingStatus(item.status)).length
   const upcomingConfirmedCount = bookings.filter(
-    (item) => item.status === 'confirmed' && item.preferred_date >= getTodayDate(),
+    (item) => item.status === 'confirmed' && item.preferred_date >= currentBusinessDateTime.date,
   ).length
   const completedRevenueCents = bookings
     .filter((item) => item.status === 'completed')
@@ -1485,8 +1569,12 @@ function App() {
       return
     }
 
-    if (draft.preferredDate < getTodayDate() || unavailableDateSet.has(draft.preferredDate)) {
-      setBookingActionStatus('Nao e possivel remarcar para data passada ou dia bloqueado.')
+    if (
+      draft.preferredDate < currentBusinessDateTime.date ||
+      unavailableDateSet.has(draft.preferredDate) ||
+      isSlotInPast(draft.preferredDate, draft.preferredTime, currentBusinessDateTime)
+    ) {
+      setBookingActionStatus('Nao e possivel remarcar para data, horario passado ou dia bloqueado.')
       return
     }
 
@@ -1585,6 +1673,11 @@ function App() {
 
     if (!draft.preferredDate || !draft.preferredTime || !draft.preferredEndTime) {
       setCustomerActionStatus('Escolha uma nova data e horario para remarcar.')
+      return
+    }
+
+    if (isSlotInPast(draft.preferredDate, draft.preferredTime, currentBusinessDateTime)) {
+      setCustomerActionStatus('Esse horario ja passou. Escolha outro periodo disponivel.')
       return
     }
 
@@ -2056,46 +2149,58 @@ function App() {
 
         {session ? (
           <form className="booking-form" onSubmit={handleBookingSubmit}>
-            <label>
-              Nome completo
-              <input
-                required
-                minLength={2}
-                value={booking.name}
-                onChange={(event) => setBooking({ ...booking, name: event.target.value })}
-                placeholder="Como devemos te chamar?"
-              />
-            </label>
-            <div className="form-row">
-              <label>
-                Email da conta
-                <input readOnly value={bookingEmail} />
-              </label>
-              <label>
-                WhatsApp
-                <input
-                  required
-                  inputMode="tel"
-                  value={booking.phone}
-                  onChange={(event) => setBooking({ ...booking, phone: event.target.value })}
-                  placeholder="(00) 00000-0000"
-                />
-              </label>
+            <div className="booking-flow-card" aria-label="Como funciona o agendamento">
+              <div>
+                <span>1</span>
+                <strong>Escolha o servico</strong>
+                <small>Veja preco e duracao antes de marcar.</small>
+              </div>
+              <div>
+                <span>2</span>
+                <strong>Separe data e horario</strong>
+                <small>So os periodos livres ficam clicaveis.</small>
+              </div>
+              <div>
+                <span>3</span>
+                <strong>Confirme seus dados</strong>
+                <small>A Hellen usa WhatsApp ou email para confirmar.</small>
+              </div>
             </div>
-            <label>
-              Servico
-              <select
-                value={selectedService.id}
-                onChange={(event) => setBooking({ ...booking, serviceId: event.target.value })}
-              >
-                {bookableServices.map((service) => (
-                  <option key={service.id} value={service.id}>
-                    {service.name} - {formatPrice(service.priceCents)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="calendar-shell">
+            <section className="booking-step-section" aria-labelledby="booking-service-heading">
+              <div className="booking-step-heading">
+                <span>Passo 1</span>
+                <h3 id="booking-service-heading">Escolha o servico.</h3>
+                <p>Comece pelo atendimento desejado para conferir valor e tempo estimado.</p>
+              </div>
+              <label>
+                Servico
+                <select
+                  value={selectedService.id}
+                  onChange={(event) => setBooking({ ...booking, serviceId: event.target.value })}
+                >
+                  {bookableServices.map((service) => (
+                    <option key={service.id} value={service.id}>
+                      {service.name} - {formatPrice(service.priceCents)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="selected-service-card">
+                <span>{selectedService.eyebrow}</span>
+                <strong>{selectedService.name}</strong>
+                <small>
+                  {formatPrice(selectedService.priceCents)} - {selectedService.durationMinutes} min
+                </small>
+                <p>{selectedService.description}</p>
+              </div>
+            </section>
+            <section className="booking-step-section" aria-labelledby="booking-slot-heading">
+              <div className="booking-step-heading">
+                <span>Passo 2</span>
+                <h3 id="booking-slot-heading">Escolha data e horario.</h3>
+                <p>Datas encerradas ou horarios passados ficam bloqueados automaticamente.</p>
+              </div>
+              <div className="calendar-shell">
               <div className="digital-calendar" aria-label="Calendario de disponibilidade">
                 <div className="calendar-toolbar">
                   <button type="button" onClick={() => setCalendarMonth(addMonths(calendarMonth, -1))}>
@@ -2115,7 +2220,10 @@ function App() {
                   {calendarDays.map((day) => {
                     const isUnavailable = unavailableDateSet.has(day.date)
                     const isSelected = booking.preferredDate === day.date
-                    const dayHasSlots = getAvailabilitySlotsForDate(day.date).length > 0
+                    const dayHasSlots = getAvailabilitySlotsForDate(day.date).some(
+                      (slot) => !isSlotInPast(day.date, slot.start_time, currentBusinessDateTime),
+                    )
+                    const isClosedByTime = day.date <= currentBusinessDateTime.date && !dayHasSlots
                     const isDisabled = !day.isCurrentMonth || day.isPast || isUnavailable || !dayHasSlots
                     const dayBookings = isAdmin
                       ? bookings.filter(
@@ -2138,13 +2246,15 @@ function App() {
                         <span>
                           {day.isPast
                             ? 'Encerrado'
-                            : isUnavailable
-                              ? 'Bloqueado'
-                              : !dayHasSlots
-                                ? 'Sem horarios'
-                                : dayBookings
-                                  ? `${dayBookings} ocupado(s)`
-                                  : 'Aberto'}
+                            : isClosedByTime
+                              ? 'Encerrado'
+                              : isUnavailable
+                                ? 'Bloqueado'
+                                : !dayHasSlots
+                                  ? 'Sem horarios'
+                                  : dayBookings
+                                    ? `${dayBookings} ocupado(s)`
+                                    : 'Aberto'}
                         </span>
                       </button>
                     )
@@ -2160,13 +2270,14 @@ function App() {
                     const slotKey = getSlotKey(slot.start_time, slot.end_time)
                     const isBooked = bookedSlotSet.has(slotKey)
                     const isSelected = selectedSlotKey === slotKey
+                    const isClosed = isSlotInPast(booking.preferredDate, slot.start_time, currentBusinessDateTime)
 
                     return (
                       <button
                         type="button"
                         key={slot.id}
                         className={isSelected ? 'slot-button selected' : 'slot-button'}
-                        disabled={isBooked || selectedDateIsUnavailable}
+                        disabled={isClosed || isBooked || selectedDateIsUnavailable}
                         onClick={() =>
                           setBooking({
                             ...booking,
@@ -2176,7 +2287,15 @@ function App() {
                         }
                       >
                         <strong>{formatTimeRange(slot.start_time, slot.end_time)}</strong>
-                        <span>{selectedDateIsUnavailable ? 'Indisponivel' : isBooked ? 'Ocupado' : 'Disponivel'}</span>
+                        <span>
+                          {isClosed
+                            ? 'Encerrado'
+                            : selectedDateIsUnavailable
+                              ? 'Indisponivel'
+                              : isBooked
+                                ? 'Ocupado'
+                                : 'Disponivel'}
+                        </span>
                       </button>
                     )
                   })
@@ -2185,15 +2304,50 @@ function App() {
                 )}
               </div>
             </div>
-            <label>
-              Observacoes
-              <textarea
-                rows={4}
-                value={booking.notes}
-                onChange={(event) => setBooking({ ...booking, notes: event.target.value })}
-                placeholder="Conte se e sua primeira vez, se tem alergias ou objetivo especifico."
-              />
-            </label>
+            </section>
+            <section className="booking-step-section" aria-labelledby="booking-contact-heading">
+              <div className="booking-step-heading">
+                <span>Passo 3</span>
+                <h3 id="booking-contact-heading">Confirme seus dados.</h3>
+                <p>Essas informacoes ficam salvas para acompanhar historico e confirmacoes.</p>
+              </div>
+              <label>
+                Nome completo
+                <input
+                  required
+                  minLength={2}
+                  value={booking.name}
+                  onChange={(event) => setBooking({ ...booking, name: event.target.value })}
+                  placeholder="Como devemos te chamar?"
+                />
+              </label>
+              <div className="form-row">
+                <label>
+                  Email da conta
+                  <input readOnly value={bookingEmail} aria-describedby="booking-email-help" />
+                  <small id="booking-email-help">Usado para recuperar acesso e registrar seu historico.</small>
+                </label>
+                <label>
+                  WhatsApp
+                  <input
+                    required
+                    inputMode="tel"
+                    value={booking.phone}
+                    onChange={(event) => setBooking({ ...booking, phone: event.target.value })}
+                    placeholder="(00) 00000-0000"
+                  />
+                </label>
+              </div>
+              <label>
+                Observacoes
+                <textarea
+                  rows={4}
+                  value={booking.notes}
+                  onChange={(event) => setBooking({ ...booking, notes: event.target.value })}
+                  placeholder="Conte se e sua primeira vez, se tem alergias ou objetivo especifico."
+                />
+              </label>
+            </section>
             <div className="booking-confirmation-card" aria-label="Resumo do agendamento">
               <div>
                 <p className="eyebrow">Resumo</p>
@@ -2205,6 +2359,7 @@ function App() {
                     : ', escolha um horario'}
                 </span>
                 <small>{formatPrice(selectedService.priceCents)} - {selectedService.durationMinutes} min</small>
+                <em>{bookingPolicy?.auto_confirm_enabled ? 'Confirmacao automatica ativa.' : 'A Hellen confirma por WhatsApp ou email.'}</em>
               </div>
               <label className="policy-check">
                 <input
@@ -2229,17 +2384,15 @@ function App() {
                   selectedSlotIsBooked ||
                   !selectedSlotIsAvailable ||
                   !availableSlots.length ||
+                  !hasBookingContact ||
                   !policyAccepted
                 }
               >
-                {isSubmittingBooking ? 'Solicitando...' : 'Solicitar horario'}
+                {bookingSubmitLabel}
               </button>
             </div>
             <p className="form-status" role="status" aria-live="polite">
-              {bookingStatus ||
-                (availableSlots.length
-                  ? 'Escolha um periodo e receba a confirmacao pelo WhatsApp ou email.'
-                  : 'Nao ha horarios livres nesta data. Escolha outro dia.')}
+              {bookingGuidance}
             </p>
           </form>
         ) : (
@@ -2303,6 +2456,9 @@ function App() {
                     draft.preferredTime && draft.preferredEndTime
                       ? getSlotKey(draft.preferredTime, draft.preferredEndTime)
                       : ''
+                  const draftSlots = getAvailabilitySlotsForDate(draft.preferredDate).filter(
+                    (slot) => !isSlotInPast(draft.preferredDate, slot.start_time, currentBusinessDateTime),
+                  )
                   const isActionable = isActiveBookingStatus(item.status)
                   const bookingEvents = eventsByBooking[item.id] ?? []
 
@@ -2324,7 +2480,7 @@ function App() {
                               Nova data
                               <input
                                 type="date"
-                                min={getTodayDate()}
+                                min={currentBusinessDateTime.date}
                                 value={draft.preferredDate}
                                 onChange={(event) =>
                                   updateRescheduleDraft(item.id, {
@@ -2345,7 +2501,7 @@ function App() {
                                 }}
                               >
                                 <option value="">Selecione</option>
-                                {getAvailabilitySlotsForDate(draft.preferredDate).map((slot) => (
+                                {draftSlots.map((slot) => (
                                   <option key={slot.id} value={getSlotKey(slot.start_time, slot.end_time)}>
                                     {formatTimeRange(slot.start_time, slot.end_time)}
                                   </option>
@@ -2450,6 +2606,14 @@ function App() {
             </span>
           </div>
 
+          <nav className="admin-quick-nav" aria-label="Atalhos do painel">
+            <a href="#admin-agenda">Agenda</a>
+            <a href="#admin-whatsapp">WhatsApp</a>
+            <a href="#admin-clientes">Clientes</a>
+            <a href="#admin-servicos">Servicos</a>
+            <a href="#admin-politica">Politica</a>
+          </nav>
+
           <div className="admin-stats" aria-label="Resumo de status">
             {bookingStats.map((item) => (
               <article key={item.status}>
@@ -2478,7 +2642,32 @@ function App() {
             </article>
           </div>
 
-          <section className="policy-manager" aria-label="Politica de agendamento">
+          <div className="admin-priority-strip" aria-label="Atalhos operacionais">
+            <article>
+              <span>Hoje</span>
+              <strong>{todayActiveBookings.length}</strong>
+              <small>horario(s) ativo(s)</small>
+              <button type="button" onClick={() => setAdminSelectedDate(currentBusinessDateTime.date)}>
+                Ver agenda de hoje
+              </button>
+            </article>
+            <article>
+              <span>Pedidos para confirmar</span>
+              <strong>{pendingBookingCount}</strong>
+              <small>aguardando decisao</small>
+              <button type="button" onClick={() => setAdminStatusFilter('pending')}>
+                Filtrar pendentes
+              </button>
+            </article>
+            <article>
+              <span>WhatsApp manual</span>
+              <strong>{pendingNotificationCount}</strong>
+              <small>mensagem(ns) na fila</small>
+              <a href="#admin-whatsapp">Abrir fila</a>
+            </article>
+          </div>
+
+          <section className="policy-manager" id="admin-politica" aria-label="Politica de agendamento">
             <div className="admin-heading compact">
               <div>
                 <p className="eyebrow">Politica</p>
@@ -2537,7 +2726,7 @@ function App() {
           </section>
 
           <div className="admin-ops-grid">
-            <section className="admin-agenda-card" aria-label="Agenda do mes">
+            <section className="admin-agenda-card" id="admin-agenda" aria-label="Agenda do mes">
               <div className="admin-heading compact">
                 <div>
                   <p className="eyebrow">Agenda</p>
@@ -2620,7 +2809,7 @@ function App() {
                   <input
                     required
                     type="date"
-                    min={getTodayDate()}
+                    min={currentBusinessDateTime.date}
                     value={unavailableDraft.date}
                     onChange={(event) => setUnavailableDraft({ ...unavailableDraft, date: event.target.value })}
                   />
@@ -2736,7 +2925,7 @@ function App() {
             </section>
           </div>
 
-          <section className="client-directory" aria-label="Informacoes de clientes">
+          <section className="client-directory" id="admin-clientes" aria-label="Informacoes de clientes">
             <div className="admin-heading compact">
               <div>
                 <p className="eyebrow">Clientes</p>
@@ -2801,7 +2990,9 @@ function App() {
                   preferredTime: timeLabel(item.preferred_time),
                   preferredEndTime: timeLabel(item.preferred_end_time),
                 }
-                const draftSlots = getAvailabilitySlotsForDate(draft.preferredDate)
+                const draftSlots = getAvailabilitySlotsForDate(draft.preferredDate).filter(
+                  (slot) => !isSlotInPast(draft.preferredDate, slot.start_time, currentBusinessDateTime),
+                )
                 const draftSlotValue =
                   draft.preferredTime && draft.preferredEndTime ? getSlotKey(draft.preferredTime, draft.preferredEndTime) : ''
                 const statusChoices = getAdminStatusOptions(item.status)
@@ -2835,7 +3026,7 @@ function App() {
                         Nova data
                         <input
                           type="date"
-                          min={getTodayDate()}
+                          min={currentBusinessDateTime.date}
                           value={draft.preferredDate}
                           onChange={(event) =>
                             updateRescheduleDraft(item.id, {
@@ -2882,8 +3073,38 @@ function App() {
                         <option key={status} value={status}>
                           {statusLabels[status]}
                         </option>
-                      ))}
-                    </select>
+                        ))}
+                      </select>
+                    <div className="quick-status-actions">
+                      {item.status === 'pending' ? (
+                        <button
+                          type="button"
+                          disabled={updatingBookingId === item.id}
+                          onClick={() => void handleBookingStatusChange(item.id, 'confirmed')}
+                        >
+                          Confirmar
+                        </button>
+                      ) : null}
+                      {item.status === 'confirmed' ? (
+                        <button
+                          type="button"
+                          disabled={updatingBookingId === item.id}
+                          onClick={() => void handleBookingStatusChange(item.id, 'completed')}
+                        >
+                          Concluir
+                        </button>
+                      ) : null}
+                      {isActiveBookingStatus(item.status) ? (
+                        <button
+                          type="button"
+                          className="danger-action"
+                          disabled={updatingBookingId === item.id}
+                          onClick={() => void handleBookingStatusChange(item.id, 'canceled_by_admin')}
+                        >
+                          Cancelar
+                        </button>
+                      ) : null}
+                    </div>
                     <button
                       type="button"
                       className="icon-button danger"
@@ -2941,7 +3162,7 @@ function App() {
             <p className="empty-state">Nenhum pedido encontrado para os filtros atuais.</p>
           )}
 
-          <section className="notification-queue" aria-label="Fila manual de WhatsApp">
+          <section className="notification-queue" id="admin-whatsapp" aria-label="Fila manual de WhatsApp">
             <div className="admin-heading compact">
               <div>
                 <p className="eyebrow">WhatsApp manual</p>
@@ -3000,7 +3221,7 @@ function App() {
             </div>
           </section>
 
-          <div className="service-manager">
+          <div className="service-manager" id="admin-servicos">
             <div className="admin-heading compact">
               <div>
                 <p className="eyebrow">Catalogo</p>
@@ -3448,7 +3669,7 @@ function App() {
                 <input
                   required
                   type="date"
-                  min={getTodayDate()}
+                  min={currentBusinessDateTime.date}
                   value={booking.preferredDate}
                   onChange={(event) =>
                     setBooking({ ...booking, preferredDate: event.target.value, preferredTime: '', preferredEndTime: '' })
@@ -3461,13 +3682,14 @@ function App() {
                     const slotKey = getSlotKey(slot.start_time, slot.end_time)
                     const isBooked = bookedSlotSet.has(slotKey)
                     const isSelected = selectedSlotKey === slotKey
+                    const isClosed = isSlotInPast(booking.preferredDate, slot.start_time, currentBusinessDateTime)
 
                     return (
                       <button
                         type="button"
                         key={slot.id}
                         className={isSelected ? 'slot-button selected' : 'slot-button'}
-                        disabled={isBooked || selectedDateIsUnavailable}
+                        disabled={isClosed || isBooked || selectedDateIsUnavailable}
                         onClick={() =>
                           setBooking({
                             ...booking,
@@ -3477,7 +3699,15 @@ function App() {
                         }
                       >
                         <strong>{formatTimeRange(slot.start_time, slot.end_time)}</strong>
-                        <span>{selectedDateIsUnavailable ? 'Indisponivel' : isBooked ? 'Ocupado' : 'Disponivel'}</span>
+                        <span>
+                          {isClosed
+                            ? 'Encerrado'
+                            : selectedDateIsUnavailable
+                              ? 'Indisponivel'
+                              : isBooked
+                                ? 'Ocupado'
+                                : 'Disponivel'}
+                        </span>
                       </button>
                     )
                   })
