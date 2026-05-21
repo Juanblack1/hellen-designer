@@ -20,11 +20,22 @@ Crie `.env.local` a partir de `.env.example`.
 ```bash
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-public-anon-key
+VITE_PUBLIC_SITE_URL=https://hellen-brows.vercel.app
 VITE_BOOKING_WHATSAPP=5511999999999
 SUPABASE_DB_URL=<postgres-connection-string>
 ```
 
-`VITE_SUPABASE_ANON_KEY` e `VITE_SUPABASE_URL` sao usados no cliente. A seguranca dos dados depende das politicas RLS em `supabase/schema.sql`. Nunca exponha `SUPABASE_DB_URL`, access tokens ou senhas no repositorio.
+`VITE_SUPABASE_ANON_KEY`, `VITE_SUPABASE_URL` e `VITE_PUBLIC_SITE_URL` sao usados no cliente. A seguranca dos dados depende das politicas RLS em `supabase/schema.sql`. Nunca exponha `SUPABASE_DB_URL`, access tokens ou senhas no repositorio.
+
+## Auth
+
+No Supabase Dashboard, em Authentication > URL Configuration:
+
+- Site URL: `https://hellen-brows.vercel.app`
+- Redirect URL: `https://hellen-brows.vercel.app/auth?mode=sign-in`
+- Redirect URL: `https://hellen-brows.vercel.app/auth?mode=reset-password`
+
+Se os templates de email forem personalizados, use `{{ .RedirectTo }}` nos links de confirmacao e recuperacao, nao `{{ .SiteURL }}`. Isso evita links apontando para `localhost`.
 
 ## Desenvolvimento
 

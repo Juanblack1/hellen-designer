@@ -385,8 +385,25 @@ function getInitialAuthMode(): AuthMode {
   return 'sign-in'
 }
 
+function getSiteOrigin() {
+  const configuredUrl = import.meta.env.VITE_PUBLIC_SITE_URL?.trim()
+
+  if (!configuredUrl) {
+    return window.location.origin
+  }
+
+  try {
+    return new URL(configuredUrl).origin
+  } catch {
+    return window.location.origin
+  }
+}
+
 function getAuthRedirectUrl(mode: AuthMode = 'sign-in') {
-  return `${window.location.origin}/auth?mode=${mode}`
+  const redirectUrl = new URL('/auth', getSiteOrigin())
+  redirectUrl.searchParams.set('mode', mode)
+
+  return redirectUrl.toString()
 }
 
 function getAuthErrorMessage(message: string) {
