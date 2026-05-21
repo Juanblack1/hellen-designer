@@ -122,7 +122,7 @@ where status in ('done', 'cancelled');
 
 alter table public.bookings
 add constraint bookings_status_check
-check (status in ('pending', 'confirmed', 'completed', 'canceled_by_client', 'canceled_by_admin', 'no_show'));
+check (status in ('awaiting_deposit', 'pending', 'confirmed', 'completed', 'canceled_by_client', 'canceled_by_admin', 'deposit_expired', 'no_show'));
 
 alter table public.bookings
 add column if not exists preferred_end_time time;
@@ -199,12 +199,45 @@ create table if not exists public.booking_policies (
   reschedule_cutoff_hours integer not null default 12 check (reschedule_cutoff_hours between 0 and 168),
   no_show_grace_minutes integer not null default 15 check (no_show_grace_minutes between 0 and 180),
   auto_confirm_enabled boolean not null default false,
+  deposit_required boolean not null default false,
+  deposit_amount_cents integer not null default 0 check (deposit_amount_cents between 0 and 100000),
+  deposit_checkout_expiration_minutes integer not null default 30 check (deposit_checkout_expiration_minutes between 10 and 1440),
   policy_text text not null check (char_length(policy_text) between 20 and 2000),
   active boolean not null default true,
   updated_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.booking_policies
+add column if not exists deposit_required boolean not null default false;
+
+alter table public.booking_policies
+add column if not exists deposit_amount_cents integer not null default 0;
+
+alter table public.booking_policies
+add column if not exists deposit_checkout_expiration_minutes integer not null default 30;
+
+alter table public.booking_policies
+drop constraint if exists booking_policies_deposit_amount_cents_check;
+
+alter table public.booking_policies
+add constraint booking_policies_deposit_amount_cents_check
+check (deposit_amount_cents between 0 and 100000);
+
+alter table public.booking_policies
+drop constraint if exists booking_policies_deposit_checkout_expiration_minutes_check;
+
+alter table public.booking_policies
+add constraint booking_policies_deposit_checkout_expiration_minutes_check
+check (deposit_checkout_expiration_minutes between 10 and 1440);
+
+alter table public.booking_policies
+drop constraint if exists booking_policies_deposit_required_amount_check;
+
+alter table public.booking_policies
+add constraint booking_policies_deposit_required_amount_check
+check (not deposit_required or deposit_amount_cents > 0);
 
 insert into public.booking_policies (id, policy_text)
 values (
@@ -248,6 +281,32 @@ create table if not exists public.booking_notification_queue (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.booking_payments (
+  id uuid primary key default gen_random_uuid(),
+  booking_id uuid not null references public.bookings(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  provider text not null default 'asaas' check (provider in ('asaas')),
+  provider_checkout_id text unique,
+  provider_payment_id text,
+  status text not null default 'pending' check (status in ('pending', 'paid', 'expired', 'canceled', 'failed')),
+  amount_cents integer not null check (amount_cents > 0),
+  checkout_url text,
+  expires_at timestamptz not null,
+  paid_at timestamptz,
+  raw_event jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.asaas_webhook_events (
+  id uuid primary key default gen_random_uuid(),
+  asaas_event_id text not null unique,
+  event_type text not null,
+  payload jsonb not null,
+  processed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
 with weekdays as (
   select generate_series(1, 5) as weekday
 ), default_slots(start_time, end_time, sort_order) as (
@@ -275,9 +334,10 @@ create index if not exists bookings_user_id_idx on public.bookings (user_id);
 create index if not exists bookings_service_id_idx on public.bookings (service_id);
 create index if not exists bookings_date_status_idx on public.bookings (preferred_date, status);
 create index if not exists bookings_canceled_by_idx on public.bookings (canceled_by);
-create unique index if not exists bookings_unique_active_slot_idx
+drop index if exists public.bookings_unique_active_slot_idx;
+create unique index bookings_unique_active_slot_idx
 on public.bookings (preferred_date, preferred_time)
-where status in ('pending', 'confirmed');
+where status in ('awaiting_deposit', 'pending', 'confirmed');
 create index if not exists service_catalog_active_sort_idx on public.service_catalog (active, sort_order);
 create index if not exists admin_unavailable_days_date_idx on public.admin_unavailable_days (unavailable_date);
 create index if not exists admin_unavailable_days_created_by_idx on public.admin_unavailable_days (created_by);
@@ -300,6 +360,14 @@ create index if not exists booking_notification_queue_done_by_idx
 on public.booking_notification_queue (done_by);
 create index if not exists booking_policies_updated_by_idx
 on public.booking_policies (updated_by);
+create index if not exists booking_payments_booking_created_idx
+on public.booking_payments (booking_id, created_at desc);
+create index if not exists booking_payments_user_status_idx
+on public.booking_payments (user_id, status);
+create index if not exists booking_payments_provider_payment_id_idx
+on public.booking_payments (provider_payment_id);
+create index if not exists asaas_webhook_events_type_created_idx
+on public.asaas_webhook_events (event_type, created_at desc);
 
 create or replace function public.ensure_availability_slot_valid()
 returns trigger
@@ -344,9 +412,9 @@ security definer
 set search_path = public
 as $$
 begin
-  if new.status in ('pending', 'confirmed') then
+  if new.status in ('awaiting_deposit', 'pending', 'confirmed') then
     if tg_op = 'UPDATE'
-      and old.status in ('pending', 'confirmed')
+      and old.status in ('awaiting_deposit', 'pending', 'confirmed')
       and new.preferred_date is not distinct from old.preferred_date
       and new.preferred_time is not distinct from old.preferred_time
       and new.preferred_end_time is not distinct from old.preferred_end_time then
@@ -406,7 +474,7 @@ as $$
   select b.preferred_time, b.preferred_end_time
   from public.bookings b
   where b.preferred_date = slot_date
-    and b.status in ('pending', 'confirmed')
+    and b.status in ('awaiting_deposit', 'pending', 'confirmed')
   order by b.preferred_time;
 $$;
 
@@ -452,8 +520,12 @@ set search_path = public
 as $$
 begin
   if tg_op = 'UPDATE' and new.status is distinct from old.status then
-    if old.status in ('completed', 'canceled_by_client', 'canceled_by_admin', 'no_show') then
+    if old.status in ('completed', 'canceled_by_client', 'canceled_by_admin', 'deposit_expired', 'no_show') then
       raise exception 'booking_status_final';
+    end if;
+
+    if old.status = 'awaiting_deposit' and new.status not in ('pending', 'confirmed', 'canceled_by_client', 'canceled_by_admin', 'deposit_expired') then
+      raise exception 'booking_status_transition_invalid';
     end if;
 
     if old.status = 'pending' and new.status not in ('confirmed', 'canceled_by_client', 'canceled_by_admin') then
@@ -531,6 +603,17 @@ as $$
 declare
   appointment_at timestamptz;
 begin
+  if tg_op = 'INSERT' and new.status = 'awaiting_deposit' then
+    return new;
+  end if;
+
+  if tg_op = 'UPDATE' and not (
+    old.status = 'awaiting_deposit'
+    and new.status in ('pending', 'confirmed')
+  ) then
+    return new;
+  end if;
+
   appointment_at := ((new.preferred_date + new.preferred_time) at time zone 'America/Sao_Paulo');
 
   insert into public.booking_notification_queue (booking_id, type, scheduled_for, message_template)
@@ -562,7 +645,7 @@ revoke execute on function public.queue_initial_booking_notifications() from pub
 
 drop trigger if exists bookings_queue_initial_notifications on public.bookings;
 create trigger bookings_queue_initial_notifications
-after insert
+after insert or update of status
 on public.bookings
 for each row
 execute function public.queue_initial_booking_notifications();
@@ -597,7 +680,11 @@ begin
 
     new.client_email := account_email;
     select * into active_policy from public.get_active_booking_policy();
-    new.status := case when active_policy.auto_confirm_enabled then 'confirmed' else 'pending' end;
+    new.status := case
+      when active_policy.deposit_required and active_policy.deposit_amount_cents > 0 then 'awaiting_deposit'
+      when active_policy.auto_confirm_enabled then 'confirmed'
+      else 'pending'
+    end;
   else
     new.client_email := lower(trim(new.client_email));
   end if;
@@ -653,14 +740,15 @@ begin
     raise exception 'booking_not_found';
   end if;
 
-  if target_booking.status not in ('pending', 'confirmed') then
+  if target_booking.status not in ('awaiting_deposit', 'pending', 'confirmed') then
     raise exception 'booking_status_final';
   end if;
 
   select * into policy from public.get_active_booking_policy();
   appointment_at := target_booking.preferred_date + target_booking.preferred_time;
 
-  if appointment_at - (now() at time zone 'America/Sao_Paulo') < make_interval(hours => policy.cancellation_cutoff_hours) then
+  if target_booking.status <> 'awaiting_deposit'
+    and appointment_at - (now() at time zone 'America/Sao_Paulo') < make_interval(hours => policy.cancellation_cutoff_hours) then
     raise exception 'booking_policy_cutoff';
   end if;
 
@@ -816,6 +904,8 @@ alter table public.booking_policies enable row level security;
 alter table public.booking_status_events enable row level security;
 alter table public.booking_internal_notes enable row level security;
 alter table public.booking_notification_queue enable row level security;
+alter table public.booking_payments enable row level security;
+alter table public.asaas_webhook_events enable row level security;
 
 drop policy if exists "Admins and owners can read admin profiles" on public.admin_profiles;
 create policy "Admins and owners can read admin profiles"
@@ -925,7 +1015,7 @@ with check (
   (select app_private.is_booking_admin())
   or (
     user_id = (select auth.uid())
-    and status in ('pending', 'confirmed')
+    and status in ('awaiting_deposit', 'pending', 'confirmed')
   )
 );
 
@@ -935,6 +1025,20 @@ on public.bookings
 for select
 to authenticated
 using (user_id = (select auth.uid()) or (select app_private.is_booking_admin()));
+
+drop policy if exists "Users and admins can read booking payments" on public.booking_payments;
+create policy "Users and admins can read booking payments"
+on public.booking_payments
+for select
+to authenticated
+using (user_id = (select auth.uid()) or (select app_private.is_booking_admin()));
+
+drop policy if exists "Admins can read Asaas webhook events" on public.asaas_webhook_events;
+create policy "Admins can read Asaas webhook events"
+on public.asaas_webhook_events
+for select
+to authenticated
+using ((select app_private.is_booking_admin()));
 
 drop policy if exists "Admins can update bookings" on public.bookings;
 create policy "Admins can update bookings"

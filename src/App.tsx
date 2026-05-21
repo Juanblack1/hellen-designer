@@ -59,10 +59,21 @@ type BookingForm = {
   notes: string
 }
 
-type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'canceled_by_client' | 'canceled_by_admin' | 'no_show'
+type BookingStatus =
+  | 'awaiting_deposit'
+  | 'pending'
+  | 'confirmed'
+  | 'completed'
+  | 'canceled_by_client'
+  | 'canceled_by_admin'
+  | 'deposit_expired'
+  | 'no_show'
 type AdminStatusFilter = BookingStatus | 'all'
 type NotificationStatus = 'pending' | 'done' | 'skipped'
+type PaymentStatus = 'pending' | 'paid' | 'expired' | 'canceled' | 'failed'
 type AuthMode = 'sign-in' | 'sign-up' | 'forgot-password' | 'reset-password'
+type CustomerPanelTab = 'booking' | 'agenda'
+type AdminPanelTab = 'overview' | 'agenda' | 'bookings' | 'clients' | 'whatsapp' | 'services' | 'policy'
 
 type BookingRecord = {
   id: string
@@ -94,6 +105,9 @@ type BookingPolicy = {
   reschedule_cutoff_hours: number
   no_show_grace_minutes: number
   auto_confirm_enabled: boolean
+  deposit_required: boolean
+  deposit_amount_cents: number
+  deposit_checkout_expiration_minutes: number
   policy_text: string
   active: boolean
   updated_at: string
@@ -104,6 +118,9 @@ type PolicyDraft = {
   rescheduleCutoffHours: string
   noShowGraceMinutes: string
   autoConfirmEnabled: boolean
+  depositRequired: boolean
+  depositAmountCents: string
+  depositCheckoutExpirationMinutes: string
   policyText: string
 }
 
@@ -134,6 +151,18 @@ type BookingNotificationQueueItem = {
   scheduled_for: string
   message_template: string
   done_at: string | null
+  created_at: string
+}
+
+type BookingPayment = {
+  id: string
+  booking_id: string
+  provider: 'asaas'
+  status: PaymentStatus
+  amount_cents: number
+  checkout_url: string | null
+  expires_at: string
+  paid_at: string | null
   created_at: string
 }
 
@@ -245,24 +274,41 @@ const serviceSeeds: ServiceOption[] = [
 ]
 
 const statusLabels: Record<BookingStatus, string> = {
+  awaiting_deposit: 'Aguardando sinal',
   pending: 'Aguardando confirmacao',
   confirmed: 'Confirmado',
   completed: 'Concluido',
   canceled_by_client: 'Cancelado pela cliente',
   canceled_by_admin: 'Cancelado pela Hellen',
+  deposit_expired: 'Sinal expirado',
   no_show: 'Nao compareceu',
 }
 
 const statusOptions: BookingStatus[] = [
+  'awaiting_deposit',
   'pending',
   'confirmed',
   'completed',
   'canceled_by_client',
   'canceled_by_admin',
+  'deposit_expired',
   'no_show',
 ]
-const activeBookingStatuses: BookingStatus[] = ['pending', 'confirmed']
-const finalBookingStatuses: BookingStatus[] = ['completed', 'canceled_by_client', 'canceled_by_admin', 'no_show']
+const activeBookingStatuses: BookingStatus[] = ['awaiting_deposit', 'pending', 'confirmed']
+const finalBookingStatuses: BookingStatus[] = [
+  'completed',
+  'canceled_by_client',
+  'canceled_by_admin',
+  'deposit_expired',
+  'no_show',
+]
+const paymentStatusLabels: Record<PaymentStatus, string> = {
+  pending: 'Aguardando pagamento',
+  paid: 'Sinal pago',
+  expired: 'Sinal expirado',
+  canceled: 'Pagamento cancelado',
+  failed: 'Falha no pagamento',
+}
 const notificationStatusLabels: Record<NotificationStatus, string> = {
   pending: 'Pendente',
   done: 'Feita',
@@ -665,6 +711,9 @@ function createPolicyDraft(policy?: BookingPolicy | null): PolicyDraft {
     rescheduleCutoffHours: String(policy?.reschedule_cutoff_hours ?? 12),
     noShowGraceMinutes: String(policy?.no_show_grace_minutes ?? 15),
     autoConfirmEnabled: Boolean(policy?.auto_confirm_enabled),
+    depositRequired: Boolean(policy?.deposit_required),
+    depositAmountCents: formatPriceDraft(policy?.deposit_amount_cents ?? 0),
+    depositCheckoutExpirationMinutes: String(policy?.deposit_checkout_expiration_minutes ?? 30),
     policyText: policy?.policy_text ?? defaultPolicyText,
   }
 }
@@ -678,6 +727,10 @@ function isFinalBookingStatus(status: BookingStatus) {
 }
 
 function getAdminStatusOptions(currentStatus: BookingStatus) {
+  if (currentStatus === 'awaiting_deposit') {
+    return ['awaiting_deposit', 'pending', 'confirmed', 'deposit_expired', 'canceled_by_admin'] satisfies BookingStatus[]
+  }
+
   if (currentStatus === 'pending') {
     return ['pending', 'confirmed', 'canceled_by_admin'] satisfies BookingStatus[]
   }
@@ -759,11 +812,14 @@ function App() {
   const [statusEvents, setStatusEvents] = useState<BookingStatusEvent[]>([])
   const [internalNotes, setInternalNotes] = useState<BookingInternalNote[]>([])
   const [notificationQueue, setNotificationQueue] = useState<BookingNotificationQueueItem[]>([])
+  const [bookingPayments, setBookingPayments] = useState<BookingPayment[]>([])
   const [bookingRefreshKey, setBookingRefreshKey] = useState(0)
   const [serviceRefreshKey, setServiceRefreshKey] = useState(0)
   const [availabilityRefreshKey, setAvailabilityRefreshKey] = useState(0)
   const [operationalRefreshKey, setOperationalRefreshKey] = useState(0)
   const [adminStatusFilter, setAdminStatusFilter] = useState<AdminStatusFilter>('all')
+  const [customerPanelTab, setCustomerPanelTab] = useState<CustomerPanelTab>('booking')
+  const [adminPanelTab, setAdminPanelTab] = useState<AdminPanelTab>('overview')
   const [adminSelectedDate, setAdminSelectedDate] = useState(() => getTodayDate())
   const [bookingSearch, setBookingSearch] = useState('')
   const [calendarMonth, setCalendarMonth] = useState(() => getMonthStart(getInitialDate()))
@@ -783,6 +839,7 @@ function App() {
   const [savingAvailabilityId, setSavingAvailabilityId] = useState('')
   const [updatingBookingId, setUpdatingBookingId] = useState('')
   const [updatingQueueId, setUpdatingQueueId] = useState('')
+  const [payingBookingId, setPayingBookingId] = useState('')
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -828,6 +885,7 @@ function App() {
           setStatusEvents([])
           setInternalNotes([])
           setNotificationQueue([])
+          setBookingPayments([])
         }
       }
     })
@@ -842,6 +900,7 @@ function App() {
         setStatusEvents([])
         setInternalNotes([])
         setNotificationQueue([])
+        setBookingPayments([])
       }
 
       if (event === 'PASSWORD_RECOVERY') {
@@ -1017,6 +1076,19 @@ function App() {
         setStatusEvents((data ?? []) as BookingStatusEvent[])
       })
 
+    void client
+      .from('booking_payments')
+      .select('id,booking_id,provider,status,amount_cents,checkout_url,expires_at,paid_at,created_at')
+      .order('created_at', { ascending: false })
+      .limit(isAdmin ? 300 : 30)
+      .then(({ data, error }) => {
+        if (!isMounted || error) {
+          return
+        }
+
+        setBookingPayments((data ?? []) as BookingPayment[])
+      })
+
     if (isAdmin) {
       void client
         .from('booking_internal_notes')
@@ -1140,6 +1212,8 @@ function App() {
     bookableServices.find((service) => service.id === booking.serviceId) ??
     bookableServices[0] ??
     serviceSeeds[0]
+  const depositRequired = Boolean(bookingPolicy?.deposit_required && bookingPolicy.deposit_amount_cents > 0)
+  const depositAmountCents = bookingPolicy?.deposit_amount_cents ?? 0
   const bookingEmail = session?.user.email ?? ''
   const unavailableDateSet = new Set(unavailableDays.map((day) => day.unavailable_date))
   const activeAvailabilitySlots = availabilitySlots.filter((slot) => slot.active)
@@ -1167,7 +1241,9 @@ function App() {
   const hasBookingContact = booking.name.trim().length >= 2 && booking.phone.replace(/\D/g, '').length >= 8
   const hasSelectedBookableSlot = Boolean(selectedSlotKey && selectedSlotIsAvailable)
   const bookingSubmitLabel = isSubmittingBooking
-    ? 'Solicitando...'
+    ? depositRequired
+      ? 'Abrindo pagamento...'
+      : 'Solicitando...'
     : !bookableServices.length
       ? 'Agenda pausada'
       : !hasSelectedBookableSlot
@@ -1176,7 +1252,9 @@ function App() {
           ? 'Preencha seus dados'
           : !policyAccepted
             ? 'Aceite a politica'
-            : 'Solicitar horario'
+            : depositRequired
+              ? 'Pagar sinal e reservar horario'
+              : 'Solicitar horario'
   const bookingGuidance = bookingStatus ||
     (!bookableServices.length
       ? 'A agenda esta pausada no momento. Volte mais tarde ou fale com a Hellen pelo Instagram.'
@@ -1188,7 +1266,9 @@ function App() {
             ? 'Preencha seu nome e WhatsApp para a Hellen identificar seu pedido.'
             : !policyAccepted
               ? 'Leia e aceite a politica para confirmar que entendeu as regras de cancelamento e remarcacao.'
-              : 'Tudo certo. Confira o resumo e solicite seu horario.')
+              : depositRequired
+                ? 'Tudo certo. Confira o resumo e pague o sinal para reservar seu horario.'
+                : 'Tudo certo. Confira o resumo e solicite seu horario.')
   const calendarDays = getCalendarDays(calendarMonth)
   const adminSelectedBookings = bookings.filter((item) => item.preferred_date === adminSelectedDate)
   const todayActiveBookings = bookings.filter(
@@ -1257,6 +1337,10 @@ function App() {
     return events
   }, {})
   const pendingNotificationCount = notificationQueue.filter((item) => item.status === 'pending').length
+  const paymentsByBooking = bookingPayments.reduce<Record<string, BookingPayment>>((payments, payment) => {
+    payments[payment.booking_id] = payments[payment.booking_id] ?? payment
+    return payments
+  }, {})
   const activeBookingCount = bookings.filter((item) => isActiveBookingStatus(item.status)).length
   const upcomingConfirmedCount = bookings.filter(
     (item) => item.status === 'confirmed' && item.preferred_date >= currentBusinessDateTime.date,
@@ -1296,6 +1380,50 @@ function App() {
     setAuthMode(mode)
     setAuthStatus('')
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  async function openDepositCheckout(bookingId: string, setStatus: (message: string) => void = setBookingStatus) {
+    const client = supabase
+
+    if (!client || !session) {
+      setStatus('Entre novamente para abrir o pagamento do sinal.')
+      return false
+    }
+
+    try {
+      setPayingBookingId(bookingId)
+      const { data } = await client.auth.getSession()
+      const accessToken = data.session?.access_token
+
+      if (!accessToken) {
+        setPayingBookingId('')
+        setStatus('Entre novamente para abrir o pagamento do sinal.')
+        return false
+      }
+
+      const response = await fetch('/api/create-deposit-checkout', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ bookingId }),
+      })
+      const payload = (await response.json().catch(() => ({}))) as { checkoutUrl?: string }
+
+      if (!response.ok || !payload.checkoutUrl) {
+        setPayingBookingId('')
+        setStatus('Nao foi possivel abrir o pagamento do sinal. Tente novamente pela sua agenda.')
+        return false
+      }
+
+      window.location.assign(payload.checkoutUrl)
+      return true
+    } catch {
+      setPayingBookingId('')
+      setStatus('Nao foi possivel abrir o pagamento do sinal. Confira sua conexao e tente novamente.')
+      return false
+    }
   }
 
   async function handleBookingSubmit(event: FormEvent<HTMLFormElement>) {
@@ -1349,11 +1477,10 @@ function App() {
       preferred_end_time: booking.preferredEndTime,
       notes: booking.notes.trim() || null,
       source: 'site',
-    }).select('status').single()
-
-    setIsSubmittingBooking(false)
+    }).select('id,status').single()
 
     if (error) {
+      setIsSubmittingBooking(false)
       setBookingStatus(
         `Nao foi possivel solicitar o horario: ${getBookingErrorMessage(
           error.message,
@@ -1364,6 +1491,20 @@ function App() {
     }
 
     const createdStatus = (data?.status ?? 'pending') as BookingStatus
+
+    if (createdStatus === 'awaiting_deposit' && data?.id) {
+      setBookingStatus('Horario separado. Vamos abrir o pagamento do sinal para concluir a reserva.')
+      const openedCheckout = await openDepositCheckout(data.id)
+      setIsSubmittingBooking(false)
+
+      if (!openedCheckout) {
+        setBookingRefreshKey((key) => key + 1)
+      }
+
+      return
+    }
+
+    setIsSubmittingBooking(false)
 
     setBookingStatus(
       createdStatus === 'confirmed'
@@ -1470,6 +1611,7 @@ function App() {
     setStatusEvents([])
     setInternalNotes([])
     setNotificationQueue([])
+    setBookingPayments([])
     setIsAdmin(false)
     setAuthStatus('Sessao encerrada.')
   }
@@ -1501,6 +1643,11 @@ function App() {
     if (status === 'canceled_by_admin') {
       statusPayload.canceled_at = now
       statusPayload.canceled_by = session.user.id
+    }
+
+    if (status === 'deposit_expired') {
+      statusPayload.canceled_at = now
+      statusPayload.cancellation_reason = 'Sinal nao pago no prazo.'
     }
 
     if (status === 'no_show') {
@@ -2077,14 +2224,21 @@ function App() {
     const cancellationCutoffHours = Number.parseInt(policyDraft.cancellationCutoffHours, 10)
     const rescheduleCutoffHours = Number.parseInt(policyDraft.rescheduleCutoffHours, 10)
     const noShowGraceMinutes = Number.parseInt(policyDraft.noShowGraceMinutes, 10)
+    const depositAmountCents = parsePriceDraft(policyDraft.depositAmountCents)
+    const depositCheckoutExpirationMinutes = Number.parseInt(policyDraft.depositCheckoutExpirationMinutes, 10)
 
     if (
       !Number.isFinite(cancellationCutoffHours) ||
       !Number.isFinite(rescheduleCutoffHours) ||
       !Number.isFinite(noShowGraceMinutes) ||
+      !Number.isFinite(depositCheckoutExpirationMinutes) ||
+      depositCheckoutExpirationMinutes < 10 ||
+      depositCheckoutExpirationMinutes > 1440 ||
+      depositAmountCents === undefined ||
+      (policyDraft.depositRequired && (!depositAmountCents || depositAmountCents <= 0)) ||
       policyDraft.policyText.trim().length < 20
     ) {
-      setPolicyActionStatus('Revise os prazos e escreva uma politica com pelo menos 20 caracteres.')
+      setPolicyActionStatus('Revise prazos, sinal e politica. O sinal ativo precisa ter valor maior que zero.')
       return
     }
 
@@ -2096,6 +2250,9 @@ function App() {
         reschedule_cutoff_hours: rescheduleCutoffHours,
         no_show_grace_minutes: noShowGraceMinutes,
         auto_confirm_enabled: policyDraft.autoConfirmEnabled,
+        deposit_required: policyDraft.depositRequired,
+        deposit_amount_cents: depositAmountCents ?? 0,
+        deposit_checkout_expiration_minutes: depositCheckoutExpirationMinutes,
         policy_text: policyDraft.policyText.trim(),
         active: true,
         updated_by: session.user.id,
@@ -2481,7 +2638,18 @@ function App() {
                     : ', escolha um horario'}
                 </span>
                 <small>{formatPrice(selectedService.priceCents)} - {selectedService.durationMinutes} min</small>
-                <em>{bookingPolicy?.auto_confirm_enabled ? 'Confirmacao automatica ativa.' : 'A Hellen confirma por WhatsApp ou email.'}</em>
+                {depositRequired ? (
+                  <small className="deposit-summary">
+                    Sinal para reservar: <strong>{formatPrice(depositAmountCents)}</strong>. Restante combinado no atendimento.
+                  </small>
+                ) : null}
+                <em>
+                  {depositRequired
+                    ? 'O horario so fica reservado depois do pagamento do sinal.'
+                    : bookingPolicy?.auto_confirm_enabled
+                      ? 'Confirmacao automatica ativa.'
+                      : 'A Hellen confirma por WhatsApp ou email.'}
+                </em>
               </div>
               <label className="policy-check">
                 <input
@@ -2581,8 +2749,10 @@ function App() {
                   const draftSlots = getAvailabilitySlotsForDate(draft.preferredDate).filter(
                     (slot) => !isSlotInPast(draft.preferredDate, slot.start_time, currentBusinessDateTime),
                   )
-                  const isActionable = isActiveBookingStatus(item.status)
+                  const canCancelBooking = isActiveBookingStatus(item.status)
+                  const canRescheduleBooking = item.status === 'pending' || item.status === 'confirmed'
                   const bookingEvents = eventsByBooking[item.id] ?? []
+                  const payment = paymentsByBooking[item.id]
 
                   return (
                     <article key={item.id} className="customer-booking-card">
@@ -2595,57 +2765,74 @@ function App() {
                         {item.cancellation_reason ? <small>Motivo: {item.cancellation_reason}</small> : null}
                       </div>
                       <small className={getStatusTone(item.status)}>{statusLabels[item.status]}</small>
-                      {isActionable ? (
+                      {payment ? (
+                        <small className={`payment-pill payment-${payment.status}`}>
+                          {paymentStatusLabels[payment.status]} - {formatPrice(payment.amount_cents)}
+                        </small>
+                      ) : null}
+                      {item.status === 'awaiting_deposit' ? (
+                        <button
+                          type="button"
+                          className="pay-deposit-button"
+                          disabled={payingBookingId === item.id}
+                          onClick={() => void openDepositCheckout(item.id, setCustomerActionStatus)}
+                        >
+                          {payingBookingId === item.id ? 'Abrindo pagamento...' : 'Pagar sinal'}
+                        </button>
+                      ) : null}
+                      {canCancelBooking ? (
                         <div className="customer-actions">
-                          <div className="reschedule-controls customer-reschedule-controls">
-                            <label>
-                              Nova data
-                              <input
-                                type="date"
-                                min={currentBusinessDateTime.date}
-                                value={draft.preferredDate}
-                                onChange={(event) =>
-                                  updateRescheduleDraft(item.id, {
-                                    preferredDate: event.target.value,
-                                    preferredTime: '',
-                                    preferredEndTime: '',
-                                  })
-                                }
-                              />
-                            </label>
-                            <label>
-                              Horario
-                              <select
-                                value={draftSlotValue}
-                                onChange={(event) => {
-                                  const [preferredTime, preferredEndTime] = event.target.value.split('-')
-                                  updateRescheduleDraft(item.id, { preferredTime, preferredEndTime })
-                                }}
+                          {canRescheduleBooking ? (
+                            <div className="reschedule-controls customer-reschedule-controls">
+                              <label>
+                                Nova data
+                                <input
+                                  type="date"
+                                  min={currentBusinessDateTime.date}
+                                  value={draft.preferredDate}
+                                  onChange={(event) =>
+                                    updateRescheduleDraft(item.id, {
+                                      preferredDate: event.target.value,
+                                      preferredTime: '',
+                                      preferredEndTime: '',
+                                    })
+                                  }
+                                />
+                              </label>
+                              <label>
+                                Horario
+                                <select
+                                  value={draftSlotValue}
+                                  onChange={(event) => {
+                                    const [preferredTime, preferredEndTime] = event.target.value.split('-')
+                                    updateRescheduleDraft(item.id, { preferredTime, preferredEndTime })
+                                  }}
+                                >
+                                  <option value="">Selecione</option>
+                                  {draftSlots.map((slot) => (
+                                    <option key={slot.id} value={getSlotKey(slot.start_time, slot.end_time)}>
+                                      {formatTimeRange(slot.start_time, slot.end_time)}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <label>
+                                Motivo
+                                <input
+                                  value={draft.reason}
+                                  onChange={(event) => updateRescheduleDraft(item.id, { reason: event.target.value })}
+                                  placeholder="Opcional"
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                disabled={updatingBookingId === item.id}
+                                onClick={() => void handleCustomerReschedule(item)}
                               >
-                                <option value="">Selecione</option>
-                                {draftSlots.map((slot) => (
-                                  <option key={slot.id} value={getSlotKey(slot.start_time, slot.end_time)}>
-                                    {formatTimeRange(slot.start_time, slot.end_time)}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                            <label>
-                              Motivo
-                              <input
-                                value={draft.reason}
-                                onChange={(event) => updateRescheduleDraft(item.id, { reason: event.target.value })}
-                                placeholder="Opcional"
-                              />
-                            </label>
-                            <button
-                              type="button"
-                              disabled={updatingBookingId === item.id}
-                              onClick={() => void handleCustomerReschedule(item)}
-                            >
-                              Remarcar
-                            </button>
-                          </div>
+                                Remarcar
+                              </button>
+                            </div>
+                          ) : null}
                           <div className="cancel-controls">
                             <input
                               value={cancelReasonDrafts[item.id] ?? ''}
@@ -2728,14 +2915,63 @@ function App() {
             </span>
           </div>
 
-          <nav className="admin-quick-nav" aria-label="Atalhos do painel">
-            <a href="#admin-agenda">Agenda</a>
-            <a href="#admin-whatsapp">WhatsApp</a>
-            <a href="#admin-clientes">Clientes</a>
-            <a href="#admin-servicos">Servicos</a>
-            <a href="#admin-politica">Politica</a>
-          </nav>
+          <div className="workspace-shell admin-workspace" aria-label="Navegacao do painel admin">
+            <aside className="workspace-sidebar">
+              <span>Funcionalidades</span>
+              <button
+                type="button"
+                className={adminPanelTab === 'overview' ? 'active' : ''}
+                onClick={() => setAdminPanelTab('overview')}
+              >
+                Resumo
+              </button>
+              <button
+                type="button"
+                className={adminPanelTab === 'agenda' ? 'active' : ''}
+                onClick={() => setAdminPanelTab('agenda')}
+              >
+                Agenda
+              </button>
+              <button
+                type="button"
+                className={adminPanelTab === 'bookings' ? 'active' : ''}
+                onClick={() => setAdminPanelTab('bookings')}
+              >
+                Agendamentos
+              </button>
+              <button
+                type="button"
+                className={adminPanelTab === 'clients' ? 'active' : ''}
+                onClick={() => setAdminPanelTab('clients')}
+              >
+                Clientes
+              </button>
+              <button
+                type="button"
+                className={adminPanelTab === 'whatsapp' ? 'active' : ''}
+                onClick={() => setAdminPanelTab('whatsapp')}
+              >
+                WhatsApp
+              </button>
+              <button
+                type="button"
+                className={adminPanelTab === 'services' ? 'active' : ''}
+                onClick={() => setAdminPanelTab('services')}
+              >
+                Servicos
+              </button>
+              <button
+                type="button"
+                className={adminPanelTab === 'policy' ? 'active' : ''}
+                onClick={() => setAdminPanelTab('policy')}
+              >
+                Politica e sinal
+              </button>
+            </aside>
+            <div className="workspace-content">
 
+          {adminPanelTab === 'overview' ? (
+            <>
           <div className="admin-stats" aria-label="Resumo de status">
             {bookingStats.map((item) => (
               <article key={item.status}>
@@ -2769,7 +3005,13 @@ function App() {
               <span>Hoje</span>
               <strong>{todayActiveBookings.length}</strong>
               <small>horario(s) ativo(s)</small>
-              <button type="button" onClick={() => setAdminSelectedDate(currentBusinessDateTime.date)}>
+              <button
+                type="button"
+                onClick={() => {
+                  setAdminSelectedDate(currentBusinessDateTime.date)
+                  setAdminPanelTab('agenda')
+                }}
+              >
                 Ver agenda de hoje
               </button>
             </article>
@@ -2777,7 +3019,13 @@ function App() {
               <span>Pedidos para confirmar</span>
               <strong>{pendingBookingCount}</strong>
               <small>aguardando decisao</small>
-              <button type="button" onClick={() => setAdminStatusFilter('pending')}>
+              <button
+                type="button"
+                onClick={() => {
+                  setAdminStatusFilter('pending')
+                  setAdminPanelTab('bookings')
+                }}
+              >
                 Filtrar pendentes
               </button>
             </article>
@@ -2785,10 +3033,15 @@ function App() {
               <span>WhatsApp manual</span>
               <strong>{pendingNotificationCount}</strong>
               <small>mensagem(ns) na fila</small>
-              <a href="#admin-whatsapp">Abrir fila</a>
+              <button type="button" onClick={() => setAdminPanelTab('whatsapp')}>
+                Abrir fila
+              </button>
             </article>
           </div>
+            </>
+          ) : null}
 
+          {adminPanelTab === 'policy' ? (
           <section className="policy-manager" id="admin-politica" aria-label="Politica de agendamento">
             <div className="admin-heading compact">
               <div>
@@ -2832,6 +3085,35 @@ function App() {
                 />
                 Confirmar novos horarios automaticamente
               </label>
+              <label className="toggle-label policy-toggle">
+                <input
+                  type="checkbox"
+                  checked={policyDraft.depositRequired}
+                  onChange={(event) => setPolicyDraft({ ...policyDraft, depositRequired: event.target.checked })}
+                />
+                Cobrar sinal para reservar
+              </label>
+              <label>
+                Valor do sinal
+                <input
+                  inputMode="decimal"
+                  value={policyDraft.depositAmountCents}
+                  onChange={(event) => setPolicyDraft({ ...policyDraft, depositAmountCents: event.target.value })}
+                  placeholder="20,00"
+                />
+                <small>valor cobrado no checkout</small>
+              </label>
+              <label>
+                Expira em
+                <input
+                  inputMode="numeric"
+                  value={policyDraft.depositCheckoutExpirationMinutes}
+                  onChange={(event) =>
+                    setPolicyDraft({ ...policyDraft, depositCheckoutExpirationMinutes: event.target.value })
+                  }
+                />
+                <small>minutos para pagar</small>
+              </label>
               <label className="wide-field">
                 Texto exibido para cliente
                 <textarea
@@ -2846,7 +3128,9 @@ function App() {
               {policyActionStatus}
             </p>
           </section>
+          ) : null}
 
+          {adminPanelTab === 'agenda' ? (
           <div className="admin-ops-grid">
             <section className="admin-agenda-card" id="admin-agenda" aria-label="Agenda do mes">
               <div className="admin-heading compact">
@@ -3046,7 +3330,9 @@ function App() {
               </div>
             </section>
           </div>
+          ) : null}
 
+          {adminPanelTab === 'clients' ? (
           <section className="client-directory" id="admin-clientes" aria-label="Informacoes de clientes">
             <div className="admin-heading compact">
               <div>
@@ -3072,7 +3358,10 @@ function App() {
               )}
             </div>
           </section>
+          ) : null}
 
+          {adminPanelTab === 'bookings' ? (
+            <>
           <div className="admin-controls">
             <label>
               <span>
@@ -3120,6 +3409,7 @@ function App() {
                 const statusChoices = getAdminStatusOptions(item.status)
                 const bookingNotes = notesByBooking[item.id] ?? []
                 const bookingEvents = eventsByBooking[item.id] ?? []
+                const payment = paymentsByBooking[item.id]
 
                 return (
                   <article className="admin-booking-card" key={item.id}>
@@ -3132,6 +3422,11 @@ function App() {
                       </span>
                     </div>
                     <small className={getStatusTone(item.status)}>{statusLabels[item.status]}</small>
+                    {payment ? (
+                      <small className={`payment-pill payment-${payment.status}`}>
+                        Sinal: {paymentStatusLabels[payment.status]} - {formatPrice(payment.amount_cents)}
+                      </small>
+                    ) : null}
                   </div>
                   <div className="admin-contact-grid">
                     <span>
@@ -3283,7 +3578,10 @@ function App() {
           ) : (
             <p className="empty-state">Nenhum pedido encontrado para os filtros atuais.</p>
           )}
+            </>
+          ) : null}
 
+          {adminPanelTab === 'whatsapp' ? (
           <section className="notification-queue" id="admin-whatsapp" aria-label="Fila manual de WhatsApp">
             <div className="admin-heading compact">
               <div>
@@ -3342,7 +3640,9 @@ function App() {
               )}
             </div>
           </section>
+          ) : null}
 
+          {adminPanelTab === 'services' ? (
           <div className="service-manager" id="admin-servicos">
             <div className="admin-heading compact">
               <div>
@@ -3512,6 +3812,9 @@ function App() {
               })}
             </div>
           </div>
+          ) : null}
+            </div>
+          </div>
         </div>
       </section>
     )
@@ -3655,8 +3958,32 @@ function App() {
             <p>Entre na sua conta para escolher horarios livres e acompanhar suas confirmacoes.</p>
           </div>
         </section>
-        {renderBookingSection()}
-        {session ? renderCustomerSection() : null}
+        {session ? (
+          <section className="workspace-shell customer-workspace" aria-label="Navegacao da area da cliente">
+            <aside className="workspace-sidebar">
+              <span>Area da cliente</span>
+              <button
+                type="button"
+                className={customerPanelTab === 'booking' ? 'active' : ''}
+                onClick={() => setCustomerPanelTab('booking')}
+              >
+                Agendamento
+              </button>
+              <button
+                type="button"
+                className={customerPanelTab === 'agenda' ? 'active' : ''}
+                onClick={() => setCustomerPanelTab('agenda')}
+              >
+                Minha agenda
+              </button>
+            </aside>
+            <div className="workspace-content">
+              {customerPanelTab === 'booking' ? renderBookingSection() : renderCustomerSection()}
+            </div>
+          </section>
+        ) : (
+          renderBookingSection()
+        )}
       </main>
     )
   }

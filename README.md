@@ -23,9 +23,33 @@ VITE_SUPABASE_ANON_KEY=your-public-anon-key
 VITE_PUBLIC_SITE_URL=https://hellen-brows.vercel.app
 VITE_BOOKING_WHATSAPP=5511999999999
 SUPABASE_DB_URL=<postgres-connection-string>
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<server-only-service-role-key>
+PUBLIC_SITE_URL=https://hellen-brows.vercel.app
+ASAAS_API_BASE_URL=https://api-sandbox.asaas.com
+ASAAS_API_KEY=<server-only-asaas-api-key>
+ASAAS_WEBHOOK_TOKEN=<server-only-asaas-webhook-token>
 ```
 
-`VITE_SUPABASE_ANON_KEY`, `VITE_SUPABASE_URL` e `VITE_PUBLIC_SITE_URL` sao usados no cliente. A seguranca dos dados depende das politicas RLS em `supabase/schema.sql`. Nunca exponha `SUPABASE_DB_URL`, access tokens ou senhas no repositorio.
+`VITE_SUPABASE_ANON_KEY`, `VITE_SUPABASE_URL` e `VITE_PUBLIC_SITE_URL` sao usados no cliente. A seguranca dos dados depende das politicas RLS em `supabase/schema.sql`. Nunca exponha `SUPABASE_DB_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ASAAS_API_KEY`, `ASAAS_WEBHOOK_TOKEN`, access tokens ou senhas no repositorio.
+
+## Pagamentos
+
+O sinal de reserva usa Asaas Checkout hospedado. O site nao coleta dados de cartao; o cliente e redirecionado para o Asaas, e o status volta pelo webhook.
+
+No painel admin, configure:
+
+- se o sinal esta ativo;
+- valor do sinal;
+- tempo de expiracao do checkout.
+
+Configure no Asaas um webhook de Checkout apontando para:
+
+```text
+https://hellen-brows.vercel.app/api/asaas-webhook
+```
+
+Eventos: `CHECKOUT_CREATED`, `CHECKOUT_CANCELED`, `CHECKOUT_EXPIRED`, `CHECKOUT_PAID`. O token configurado no webhook deve ser o mesmo valor de `ASAAS_WEBHOOK_TOKEN`.
 
 ## Auth
 
