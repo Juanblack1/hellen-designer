@@ -425,6 +425,69 @@
   color: var(--ink);
 }
 
+.confirm-backdrop {
+  align-items: center;
+  background: rgba(3, 2, 1, 0.72);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 22px;
+  position: fixed;
+  z-index: 40;
+}
+
+.confirm-dialog {
+  background:
+    radial-gradient(circle at 88% 12%, rgba(255, 226, 160, 0.18), transparent 30%),
+    linear-gradient(145deg, rgba(31, 24, 17, 0.98), rgba(8, 6, 4, 0.98));
+  border: 1px solid rgba(244, 200, 115, 0.26);
+  border-radius: 28px;
+  box-shadow: 0 32px 90px rgba(0, 0, 0, 0.46);
+  max-width: 460px;
+  padding: clamp(24px, 5vw, 36px);
+  width: min(100%, 460px);
+}
+
+.confirm-dialog h2 {
+  color: var(--gold-light);
+  font-family: var(--display);
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  letter-spacing: -0.05em;
+  line-height: 1;
+  margin: 6px 0 12px;
+}
+
+.confirm-dialog p:not(.eyebrow) {
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.confirm-dialog-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.confirm-dialog-actions .text-button {
+  min-height: 40px;
+  padding: 0 12px;
+}
+
+.confirm-dialog-actions button:not(.text-button):not(.danger-action) {
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  border: 0;
+  border-radius: 999px;
+  color: #090806;
+  cursor: pointer;
+  font-weight: 900;
+  min-height: 42px;
+  padding: 0 18px;
+}
+
 .trust-row {
   color: rgba(248, 234, 208, 0.74);
   margin-top: 20px;
@@ -644,6 +707,11 @@
   min-width: 0;
 }
 
+.workspace-content:focus-visible {
+  outline: 3px solid rgba(244, 200, 115, 0.5);
+  outline-offset: 8px;
+}
+
 .workspace-content > .booking-section,
 .workspace-content > .client-section {
   max-width: none;
@@ -721,7 +789,24 @@
   display: block;
   height: 100%;
   object-fit: cover;
+  position: relative;
+  z-index: 1;
   width: 100%;
+}
+
+.service-card .service-card-media .service-card-fallback,
+.service-choice-card .service-card-media .service-card-fallback,
+.service-image-preview .service-card-fallback {
+  align-items: center;
+  color: rgba(255, 226, 160, 0.72);
+  display: flex;
+  font-family: var(--display);
+  font-size: 2.1rem;
+  font-weight: 900;
+  inset: 0;
+  justify-content: center;
+  letter-spacing: -0.08em;
+  position: absolute;
 }
 
 .service-card span:not(.service-card-media) {
@@ -1072,6 +1157,12 @@ label small {
 
 .calendar-day.selected span {
   color: rgba(9, 8, 6, 0.7);
+}
+
+.calendar-day:focus-visible {
+  border-color: rgba(255, 226, 160, 0.86);
+  box-shadow: 0 0 0 4px rgba(244, 200, 115, 0.18);
+  outline: none;
 }
 
 .calendar-day:disabled {
@@ -2015,12 +2106,15 @@ button:disabled {
   display: block;
   height: 112px;
   overflow: hidden;
+  position: relative;
 }
 
 .service-image-preview img {
   display: block;
   height: 100%;
   object-fit: cover;
+  position: relative;
+  z-index: 1;
   width: 100%;
 }
 
@@ -2036,6 +2130,10 @@ button:disabled {
 .service-image-admin small {
   color: var(--muted);
   line-height: 1.45;
+}
+
+.service-image-admin .upload-status {
+  color: rgba(255, 226, 160, 0.78);
 }
 
 .service-image-actions {
@@ -2058,10 +2156,23 @@ button:disabled {
   justify-content: center;
   min-height: 40px;
   padding: 0 14px;
+  position: relative;
+}
+
+.file-upload-button:focus-within {
+  border-color: rgba(255, 226, 160, 0.86);
+  box-shadow: 0 0 0 4px rgba(244, 200, 115, 0.18);
 }
 
 .file-upload-button input {
-  display: none;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
 }
 
 .toggle-label {

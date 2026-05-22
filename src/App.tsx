@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { FormEvent } from 'react'
+import type { FormEvent, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import {
   ArrowRight,
@@ -74,6 +74,17 @@ type PaymentStatus = 'pending' | 'paid' | 'expired' | 'canceled' | 'failed'
 type AuthMode = 'sign-in' | 'sign-up' | 'forgot-password' | 'reset-password'
 type CustomerPanelTab = 'booking' | 'agenda'
 type AdminPanelTab = 'overview' | 'agenda' | 'bookings' | 'clients' | 'whatsapp' | 'services' | 'policy'
+type ConfirmDialogState = {
+  title: string
+  message: string
+  confirmLabel: string
+  cancelLabel?: string
+  tone?: 'default' | 'danger'
+  onConfirm: () => void
+} | null
+
+const customerPanelTabs = ['booking', 'agenda'] as const satisfies readonly CustomerPanelTab[]
+const adminPanelTabs = ['overview', 'agenda', 'bookings', 'clients', 'whatsapp', 'services', 'policy'] as const satisfies readonly AdminPanelTab[]
 
 type BookingRecord = {
   id: string
@@ -457,6 +468,40 @@ function formatTimeRange(startTime: string, endTime: string) {
   return `${timeLabel(startTime)} ate ${timeLabel(endTime)}`
 }
 
+function getCalendarDayLabel(date: string, status: string, selected: boolean) {
+  const selectedText = selected ? 'Selecionado. ' : ''
+
+  return `${selectedText}${formatFullDate(date)}. ${status}.`
+}
+
+function handleTabListKeyDown<T extends string>(
+  event: ReactKeyboardEvent<HTMLButtonElement>,
+  tabs: readonly T[],
+  currentTab: T,
+  setTab: (tab: T) => void,
+  getTabId: (tab: T) => string,
+) {
+  const currentIndex = Math.max(tabs.indexOf(currentTab), 0)
+  let nextIndex: number
+
+  if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+    nextIndex = (currentIndex + 1) % tabs.length
+  } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+    nextIndex = (currentIndex - 1 + tabs.length) % tabs.length
+  } else if (event.key === 'Home') {
+    nextIndex = 0
+  } else if (event.key === 'End') {
+    nextIndex = tabs.length - 1
+  } else {
+    return
+  }
+
+  event.preventDefault()
+  const nextTab = tabs[nextIndex]
+  setTab(nextTab)
+  window.requestAnimationFrame(() => document.getElementById(getTabId(nextTab))?.focus())
+}
+
 function isSlotInPast(date: string, startTime: string, currentDateTime: BusinessDateTime) {
   return (
     date < currentDateTime.date ||
@@ -477,6 +522,25 @@ function getInitialAuthMode(): AuthMode {
   }
 
   return 'sign-in'
+}
+
+function getPaymentReturnMessage() {
+  const paymentResult = new URLSearchParams(window.location.search).get('payment')
+
+  switch (paymentResult) {
+    case 'success':
+      return 'Pagamento recebido. Assim que a confirmacao chegar, sua agenda sera atualizada.'
+    case 'cancel':
+      return 'Pagamento cancelado. O horario continua aguardando sinal enquanto estiver dentro do prazo.'
+    case 'expired':
+      return 'O prazo do pagamento terminou. Escolha um novo horario se ainda quiser reservar.'
+    default:
+      return paymentResult ? 'Voltamos do pagamento. Confira o status atualizado da sua agenda.' : ''
+  }
+}
+
+function getInitialCustomerPanelTab(): CustomerPanelTab {
+  return getPaymentReturnMessage() ? 'agenda' : 'booking'
 }
 
 function getSiteOrigin() {
@@ -588,6 +652,32 @@ function getAvailabilityErrorMessage(message: string) {
   }
 
   return message
+}
+
+function getDepositCheckoutErrorMessage(errorCode?: string) {
+  switch (errorCode) {
+    case 'auth_required':
+    case 'auth_invalid':
+      return 'Entre novamente para abrir o pagamento do sinal.'
+    case 'booking_not_found':
+      return 'Nao encontramos esse agendamento na sua conta.'
+    case 'booking_not_waiting_payment':
+      return 'Este agendamento nao esta aguardando pagamento de sinal.'
+    case 'deposit_not_enabled':
+      return 'O sinal nao esta ativo para este horario. Atualize a pagina e confira o status.'
+    case 'checkout_creation_in_progress':
+      return 'O pagamento ainda esta sendo preparado. Aguarde alguns segundos e tente novamente.'
+    case 'payment_create_failed':
+    case 'checkout_create_failed':
+    case 'checkout_save_failed':
+      return 'Nao foi possivel abrir o pagamento do sinal agora. Tente novamente pela sua agenda.'
+    case 'request_body_too_large':
+    case 'invalid_json':
+    case 'booking_required':
+      return 'Nao foi possivel identificar o agendamento para pagamento. Atualize a pagina e tente novamente.'
+    default:
+      return 'Nao foi possivel abrir o pagamento do sinal. Confira sua conexao e tente novamente.'
+  }
 }
 
 function formatPrice(priceCents?: number) {
@@ -793,7 +883,7 @@ function App() {
   const [authForm, setAuthForm] = useState({ email: '', password: '' })
   const [authStatus, setAuthStatus] = useState('')
   const [bookingStatus, setBookingStatus] = useState('')
-  const [customerActionStatus, setCustomerActionStatus] = useState('')
+  const [customerActionStatus, setCustomerActionStatus] = useState(() => getPaymentReturnMessage())
   const [bookingActionStatus, setBookingActionStatus] = useState('')
   const [serviceActionStatus, setServiceActionStatus] = useState('')
   const [availabilityActionStatus, setAvailabilityActionStatus] = useState('')
@@ -818,7 +908,7 @@ function App() {
   const [availabilityRefreshKey, setAvailabilityRefreshKey] = useState(0)
   const [operationalRefreshKey, setOperationalRefreshKey] = useState(0)
   const [adminStatusFilter, setAdminStatusFilter] = useState<AdminStatusFilter>('all')
-  const [customerPanelTab, setCustomerPanelTab] = useState<CustomerPanelTab>('booking')
+  const [customerPanelTab, setCustomerPanelTab] = useState<CustomerPanelTab>(() => getInitialCustomerPanelTab())
   const [adminPanelTab, setAdminPanelTab] = useState<AdminPanelTab>('overview')
   const [adminSelectedDate, setAdminSelectedDate] = useState(() => getTodayDate())
   const [bookingSearch, setBookingSearch] = useState('')
@@ -840,6 +930,7 @@ function App() {
   const [updatingBookingId, setUpdatingBookingId] = useState('')
   const [updatingQueueId, setUpdatingQueueId] = useState('')
   const [payingBookingId, setPayingBookingId] = useState('')
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState>(null)
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -1269,6 +1360,40 @@ function App() {
               : depositRequired
                 ? 'Tudo certo. Confira o resumo e pague o sinal para reservar seu horario.'
                 : 'Tudo certo. Confira o resumo e solicite seu horario.')
+
+  useEffect(() => {
+    if (!isCustomerRoute) {
+      return
+    }
+
+    if (!new URLSearchParams(window.location.search).get('payment')) {
+      return
+    }
+
+    const cleanUrl = new URL(window.location.href)
+    cleanUrl.searchParams.delete('payment')
+    cleanUrl.searchParams.delete('booking')
+    window.history.replaceState(null, '', `${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`)
+  }, [isCustomerRoute])
+
+  useEffect(() => {
+    if (!confirmDialog) {
+      return
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setConfirmDialog(null)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [confirmDialog])
+
   const calendarDays = getCalendarDays(calendarMonth)
   const adminSelectedBookings = bookings.filter((item) => item.preferred_date === adminSelectedDate)
   const todayActiveBookings = bookings.filter(
@@ -1409,11 +1534,11 @@ function App() {
         },
         body: JSON.stringify({ bookingId }),
       })
-      const payload = (await response.json().catch(() => ({}))) as { checkoutUrl?: string }
+      const payload = (await response.json().catch(() => ({}))) as { checkoutUrl?: string; error?: string }
 
       if (!response.ok || !payload.checkoutUrl) {
         setPayingBookingId('')
-        setStatus('Nao foi possivel abrir o pagamento do sinal. Tente novamente pela sua agenda.')
+        setStatus(getDepositCheckoutErrorMessage(payload.error))
         return false
       }
 
@@ -1701,7 +1826,7 @@ function App() {
   async function handleBookingDelete(bookingId: string) {
     const client = supabase
 
-    if (!client || !isAdmin || !window.confirm('Excluir este pedido da agenda?')) {
+    if (!client || !isAdmin) {
       return
     }
 
@@ -1718,6 +1843,20 @@ function App() {
     setBookingActionStatus('Pedido removido.')
     setBookings((current) => current.filter((item) => item.id !== bookingId))
     setBookingRefreshKey((key) => key + 1)
+  }
+
+  function requestBookingDelete(item: BookingRecord) {
+    if (!isAdmin) {
+      return
+    }
+
+    setConfirmDialog({
+      title: 'Excluir pedido da agenda?',
+      message: `Esta acao remove o pedido de ${item.client_name} em ${formatFullDate(item.preferred_date)}. Use apenas para registros criados por engano.`,
+      confirmLabel: 'Excluir pedido',
+      tone: 'danger',
+      onConfirm: () => void handleBookingDelete(item.id),
+    })
   }
 
   function updateRescheduleDraft(bookingId: string, patch: Partial<RescheduleDraft>) {
@@ -1807,10 +1946,6 @@ function App() {
       return
     }
 
-    if (!window.confirm('Cancelar este horario?')) {
-      return
-    }
-
     setUpdatingBookingId(item.id)
     setCustomerActionStatus('')
     const { error } = await client.rpc('client_cancel_booking', {
@@ -1830,6 +1965,23 @@ function App() {
     setCancelReasonDrafts((current) => ({ ...current, [item.id]: '' }))
     setBookingRefreshKey((key) => key + 1)
     setOperationalRefreshKey((key) => key + 1)
+  }
+
+  function requestCustomerCancel(item: BookingRecord) {
+    if (!session || !isActiveBookingStatus(item.status)) {
+      return
+    }
+
+    setConfirmDialog({
+      title: 'Cancelar este horario?',
+      message: `Voce esta cancelando ${item.service_name} em ${formatFullDate(item.preferred_date)} as ${formatTimeRange(
+        item.preferred_time,
+        item.preferred_end_time,
+      )}.`,
+      confirmLabel: 'Cancelar horario',
+      tone: 'danger',
+      onConfirm: () => void handleCustomerCancel(item),
+    })
   }
 
   async function handleCustomerReschedule(item: BookingRecord) {
@@ -1995,7 +2147,7 @@ function App() {
   async function handleDeleteAvailabilitySlot(slotId: string) {
     const client = supabase
 
-    if (!client || !isAdmin || !window.confirm('Remover este horario de atendimento?')) {
+    if (!client || !isAdmin) {
       return
     }
 
@@ -2012,6 +2164,23 @@ function App() {
     setAvailabilitySlots((current) => current.filter((slot) => slot.id !== slotId))
     setAvailabilityActionStatus('Horario removido da agenda.')
     setAvailabilityRefreshKey((key) => key + 1)
+  }
+
+  function requestAvailabilitySlotDelete(slot: AvailabilitySlot) {
+    if (!isAdmin) {
+      return
+    }
+
+    setConfirmDialog({
+      title: 'Remover horario de atendimento?',
+      message: `O periodo de ${getWeekdayName(slot.weekday)} das ${formatTimeRange(
+        slot.start_time,
+        slot.end_time,
+      )} deixara de aparecer para novas reservas.`,
+      confirmLabel: 'Remover horario',
+      tone: 'danger',
+      onConfirm: () => void handleDeleteAvailabilitySlot(slot.id),
+    })
   }
 
   function updateServiceDraft(serviceId: string, patch: Partial<ServiceDraft>) {
@@ -2344,6 +2513,26 @@ function App() {
     window.prompt('Copie a mensagem:', message)
   }
 
+  function handleCustomerTabKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
+    handleTabListKeyDown(
+      event,
+      customerPanelTabs,
+      customerPanelTab,
+      setCustomerPanelTab,
+      (tab) => `customer-tab-${tab}`,
+    )
+  }
+
+  function handleAdminTabKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
+    handleTabListKeyDown(
+      event,
+      adminPanelTabs,
+      adminPanelTab,
+      setAdminPanelTab,
+      (tab) => `admin-tab-${tab}`,
+    )
+  }
+
   function renderTopbar() {
     return (
       <nav className="topbar" aria-label="Navegacao principal">
@@ -2396,8 +2585,8 @@ function App() {
           <p className="eyebrow">Agendamento</p>
           <h2>Escolha uma data e veja os horarios disponiveis.</h2>
           <p>
-            Esta area fica separada da tela inicial para manter seus dados, historico e pedidos de
-            horario em um espaco reservado.
+            Seus dados, historico e pedidos de horario ficam em um espaco reservado, separado da
+            vitrine publica.
           </p>
           <div className="contact-stack">
             <span>
@@ -2422,8 +2611,8 @@ function App() {
               </div>
               <div>
                 <span>2</span>
-                <strong>Separe data e horario</strong>
-                <small>So os periodos livres ficam clicaveis.</small>
+                <strong>Escolha data e horario</strong>
+                <small>Os dias sem agenda e horarios ocupados ficam bloqueados.</small>
               </div>
               <div>
                 <span>3</span>
@@ -2451,6 +2640,7 @@ function App() {
                       onClick={() => setBooking({ ...booking, serviceId: service.id })}
                     >
                       <span className="service-card-media">
+                        <span className="service-card-fallback" aria-hidden="true">HB</span>
                         <img
                           src={getServiceCoverUrl(service)}
                           alt={`Exemplo visual de ${service.name}`}
@@ -2477,16 +2667,24 @@ function App() {
               <div className="booking-step-heading">
                 <span>Passo 2</span>
                 <h3 id="booking-slot-heading">Escolha data e horario.</h3>
-                <p>Datas encerradas ou horarios passados ficam bloqueados automaticamente.</p>
+                <p id="booking-calendar-help">Use o calendario para escolher um dia aberto. Depois selecione um horario disponivel.</p>
               </div>
               <div className="calendar-shell">
-              <div className="digital-calendar" aria-label="Calendario de disponibilidade">
+              <div className="digital-calendar" aria-describedby="booking-calendar-help" aria-label="Calendario de disponibilidade">
                 <div className="calendar-toolbar">
-                  <button type="button" onClick={() => setCalendarMonth(addMonths(calendarMonth, -1))}>
+                  <button
+                    type="button"
+                    aria-label={`Mostrar ${getMonthLabel(addMonths(calendarMonth, -1))}`}
+                    onClick={() => setCalendarMonth(addMonths(calendarMonth, -1))}
+                  >
                     Mes anterior
                   </button>
-                  <strong>{getMonthLabel(calendarMonth)}</strong>
-                  <button type="button" onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}>
+                  <strong aria-live="polite">{getMonthLabel(calendarMonth)}</strong>
+                  <button
+                    type="button"
+                    aria-label={`Mostrar ${getMonthLabel(addMonths(calendarMonth, 1))}`}
+                    onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}
+                  >
                     Proximo mes
                   </button>
                 </div>
@@ -2495,7 +2693,7 @@ function App() {
                     <span key={day}>{day}</span>
                   ))}
                 </div>
-                <div className="calendar-grid" role="grid">
+                <div className="calendar-grid" role="group" aria-label="Dias do mes">
                   {calendarDays.map((day) => {
                     const isUnavailable = unavailableDateSet.has(day.date)
                     const isSelected = booking.preferredDate === day.date
@@ -2511,11 +2709,26 @@ function App() {
                         ).length
                       : 0
 
+                    const dayStatus = day.isPast
+                      ? 'Encerrado'
+                      : isClosedByTime
+                        ? 'Encerrado'
+                        : isUnavailable
+                          ? 'Bloqueado'
+                          : !dayHasSlots
+                            ? 'Sem horarios'
+                            : dayBookings
+                              ? `${dayBookings} horario(s) ocupado(s)`
+                              : 'Aberto'
+
                     return (
                       <button
                         type="button"
                         key={day.date}
                         className={isSelected ? 'calendar-day selected' : 'calendar-day'}
+                        aria-current={day.date === currentBusinessDateTime.date ? 'date' : undefined}
+                        aria-label={getCalendarDayLabel(day.date, dayStatus, isSelected)}
+                        aria-pressed={isSelected}
                         disabled={isDisabled}
                         onClick={() =>
                           setBooking({ ...booking, preferredDate: day.date, preferredTime: '', preferredEndTime: '' })
@@ -2523,27 +2736,17 @@ function App() {
                       >
                         <strong>{day.dayNumber}</strong>
                         <span>
-                          {day.isPast
-                            ? 'Encerrado'
-                            : isClosedByTime
-                              ? 'Encerrado'
-                              : isUnavailable
-                                ? 'Bloqueado'
-                                : !dayHasSlots
-                                  ? 'Sem horarios'
-                                  : dayBookings
-                                    ? `${dayBookings} ocupado(s)`
-                                    : 'Aberto'}
+                          {dayStatus}
                         </span>
                       </button>
                     )
                   })}
                 </div>
-                <p>
+                <p aria-live="polite">
                   Data selecionada: <strong>{formatFullDate(booking.preferredDate)}</strong>
                 </p>
               </div>
-              <div className="slot-picker" aria-label="Horarios disponiveis">
+              <div className="slot-picker" role="radiogroup" aria-label={`Horarios disponiveis em ${formatFullDate(booking.preferredDate)}`}>
                 {selectedDateAvailabilitySlots.length ? (
                   selectedDateAvailabilitySlots.map((slot) => {
                     const slotKey = getSlotKey(slot.start_time, slot.end_time)
@@ -2551,12 +2754,23 @@ function App() {
                     const isSelected = selectedSlotKey === slotKey
                     const isClosed = isSlotInPast(booking.preferredDate, slot.start_time, currentBusinessDateTime)
 
+                    const slotStatus = isClosed
+                      ? 'Encerrado'
+                      : selectedDateIsUnavailable
+                        ? 'Indisponivel'
+                        : isBooked
+                          ? 'Ocupado'
+                          : 'Disponivel'
+
                     return (
                       <button
                         type="button"
                         key={slot.id}
                         className={isSelected ? 'slot-button selected' : 'slot-button'}
+                        aria-checked={isSelected}
+                        aria-label={`${formatTimeRange(slot.start_time, slot.end_time)}. ${slotStatus}.`}
                         disabled={isClosed || isBooked || selectedDateIsUnavailable}
+                        role="radio"
                         onClick={() =>
                           setBooking({
                             ...booking,
@@ -2567,13 +2781,7 @@ function App() {
                       >
                         <strong>{formatTimeRange(slot.start_time, slot.end_time)}</strong>
                         <span>
-                          {isClosed
-                            ? 'Encerrado'
-                            : selectedDateIsUnavailable
-                              ? 'Indisponivel'
-                              : isBooked
-                                ? 'Ocupado'
-                                : 'Disponivel'}
+                          {slotStatus}
                         </span>
                       </button>
                     )
@@ -2845,7 +3053,7 @@ function App() {
                               type="button"
                               className="danger-action"
                               disabled={updatingBookingId === item.id}
-                              onClick={() => void handleCustomerCancel(item)}
+                              onClick={() => requestCustomerCancel(item)}
                             >
                               Cancelar horario
                             </button>
@@ -2916,59 +3124,105 @@ function App() {
           </div>
 
           <div className="workspace-shell admin-workspace" aria-label="Navegacao do painel admin">
-            <aside className="workspace-sidebar">
-              <span>Funcionalidades</span>
+            <aside
+              className="workspace-sidebar"
+              role="tablist"
+              aria-label="Secoes do painel admin"
+              aria-orientation="vertical"
+            >
+              <span role="presentation">Funcionalidades</span>
               <button
                 type="button"
+                id="admin-tab-overview"
+                role="tab"
                 className={adminPanelTab === 'overview' ? 'active' : ''}
+                aria-controls="admin-workspace-panel"
+                aria-selected={adminPanelTab === 'overview'}
+                onKeyDown={handleAdminTabKeyDown}
                 onClick={() => setAdminPanelTab('overview')}
               >
                 Resumo
               </button>
               <button
                 type="button"
+                id="admin-tab-agenda"
+                role="tab"
                 className={adminPanelTab === 'agenda' ? 'active' : ''}
+                aria-controls="admin-workspace-panel"
+                aria-selected={adminPanelTab === 'agenda'}
+                onKeyDown={handleAdminTabKeyDown}
                 onClick={() => setAdminPanelTab('agenda')}
               >
                 Agenda
               </button>
               <button
                 type="button"
+                id="admin-tab-bookings"
+                role="tab"
                 className={adminPanelTab === 'bookings' ? 'active' : ''}
+                aria-controls="admin-workspace-panel"
+                aria-selected={adminPanelTab === 'bookings'}
+                onKeyDown={handleAdminTabKeyDown}
                 onClick={() => setAdminPanelTab('bookings')}
               >
                 Agendamentos
               </button>
               <button
                 type="button"
+                id="admin-tab-clients"
+                role="tab"
                 className={adminPanelTab === 'clients' ? 'active' : ''}
+                aria-controls="admin-workspace-panel"
+                aria-selected={adminPanelTab === 'clients'}
+                onKeyDown={handleAdminTabKeyDown}
                 onClick={() => setAdminPanelTab('clients')}
               >
                 Clientes
               </button>
               <button
                 type="button"
+                id="admin-tab-whatsapp"
+                role="tab"
                 className={adminPanelTab === 'whatsapp' ? 'active' : ''}
+                aria-controls="admin-workspace-panel"
+                aria-selected={adminPanelTab === 'whatsapp'}
+                onKeyDown={handleAdminTabKeyDown}
                 onClick={() => setAdminPanelTab('whatsapp')}
               >
                 WhatsApp
               </button>
               <button
                 type="button"
+                id="admin-tab-services"
+                role="tab"
                 className={adminPanelTab === 'services' ? 'active' : ''}
+                aria-controls="admin-workspace-panel"
+                aria-selected={adminPanelTab === 'services'}
+                onKeyDown={handleAdminTabKeyDown}
                 onClick={() => setAdminPanelTab('services')}
               >
                 Servicos
               </button>
               <button
                 type="button"
+                id="admin-tab-policy"
+                role="tab"
                 className={adminPanelTab === 'policy' ? 'active' : ''}
+                aria-controls="admin-workspace-panel"
+                aria-selected={adminPanelTab === 'policy'}
+                onKeyDown={handleAdminTabKeyDown}
                 onClick={() => setAdminPanelTab('policy')}
               >
                 Politica e sinal
               </button>
             </aside>
-            <div className="workspace-content">
+            <div
+              className="workspace-content"
+              id="admin-workspace-panel"
+              role="tabpanel"
+              aria-labelledby={`admin-tab-${adminPanelTab}`}
+              tabIndex={0}
+            >
 
           {adminPanelTab === 'overview' ? (
             <>
@@ -3137,15 +3391,24 @@ function App() {
                 <div>
                   <p className="eyebrow">Agenda</p>
                   <h2>Calendario operacional.</h2>
+                  <p id="admin-calendar-help">Escolha um dia para ver os horarios ativos, bloqueios e clientes marcados.</p>
                 </div>
               </div>
-              <div className="digital-calendar compact-calendar">
+              <div className="digital-calendar compact-calendar" aria-describedby="admin-calendar-help" aria-label="Calendario operacional">
                 <div className="calendar-toolbar">
-                  <button type="button" onClick={() => setCalendarMonth(addMonths(calendarMonth, -1))}>
+                  <button
+                    type="button"
+                    aria-label={`Mostrar ${getMonthLabel(addMonths(calendarMonth, -1))}`}
+                    onClick={() => setCalendarMonth(addMonths(calendarMonth, -1))}
+                  >
                     Mes anterior
                   </button>
-                  <strong>{getMonthLabel(calendarMonth)}</strong>
-                  <button type="button" onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}>
+                  <strong aria-live="polite">{getMonthLabel(calendarMonth)}</strong>
+                  <button
+                    type="button"
+                    aria-label={`Mostrar ${getMonthLabel(addMonths(calendarMonth, 1))}`}
+                    onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}
+                  >
                     Proximo mes
                   </button>
                 </div>
@@ -3154,40 +3417,45 @@ function App() {
                     <span key={day}>{day}</span>
                   ))}
                 </div>
-                <div className="calendar-grid" role="grid">
+                <div className="calendar-grid" role="group" aria-label="Dias do mes no painel admin">
                   {calendarDays.map((day) => {
                     const isUnavailable = unavailableDateSet.has(day.date)
+                    const isSelected = adminSelectedDate === day.date
                     const dayHasSlots = getAvailabilitySlotsForDate(day.date).length > 0
                     const dayBookings = bookings.filter(
                       (item) => item.preferred_date === day.date && isActiveBookingStatus(item.status),
                     ).length
+                    const dayStatus = day.isPast
+                      ? 'Encerrado'
+                      : isUnavailable
+                        ? 'Bloqueado'
+                        : !dayHasSlots
+                          ? 'Sem horarios'
+                          : dayBookings
+                            ? `${dayBookings} horario(s) ativo(s)`
+                            : 'Livre'
 
                     return (
                       <button
                         type="button"
                         key={day.date}
-                        className={adminSelectedDate === day.date ? 'calendar-day selected' : 'calendar-day'}
+                        className={isSelected ? 'calendar-day selected' : 'calendar-day'}
+                        aria-current={day.date === currentBusinessDateTime.date ? 'date' : undefined}
+                        aria-label={getCalendarDayLabel(day.date, dayStatus, isSelected)}
+                        aria-pressed={isSelected}
                         disabled={!day.isCurrentMonth || day.isPast}
                         onClick={() => setAdminSelectedDate(day.date)}
                       >
                         <strong>{day.dayNumber}</strong>
                         <span>
-                          {day.isPast
-                            ? 'Encerrado'
-                            : isUnavailable
-                              ? 'Bloqueado'
-                              : !dayHasSlots
-                                ? 'Sem horarios'
-                                : dayBookings
-                                  ? `${dayBookings} agenda(s)`
-                                  : 'Livre'}
+                          {dayStatus}
                         </span>
                       </button>
                     )
                   })}
                 </div>
               </div>
-              <div className="selected-day-agenda">
+              <div className="selected-day-agenda" aria-live="polite">
                 <strong>{formatFullDate(adminSelectedDate)}</strong>
                 {adminSelectedBookings.length ? (
                   adminSelectedBookings.map((item) => (
@@ -3318,7 +3586,7 @@ function App() {
                       <button
                         type="button"
                         disabled={savingAvailabilityId === slot.id}
-                        onClick={() => void handleDeleteAvailabilitySlot(slot.id)}
+                        onClick={() => requestAvailabilitySlotDelete(slot)}
                       >
                         Remover
                       </button>
@@ -3526,7 +3794,7 @@ function App() {
                       type="button"
                       className="icon-button danger"
                       disabled={updatingBookingId === item.id}
-                      onClick={() => void handleBookingDelete(item.id)}
+                      onClick={() => requestBookingDelete(item)}
                       aria-label={`Excluir pedido de ${item.client_name}`}
                     >
                       <Trash2 size={16} aria-hidden="true" />
@@ -3699,6 +3967,9 @@ function App() {
               {services.map((service) => {
                 const draft = serviceDrafts[service.id] ?? createServiceDraft(service)
                 const isUploadingImage = uploadingServiceImageId === service.id
+                const imageInputId = `service-image-input-${service.id}`
+                const imageHelpId = `service-image-help-${service.id}`
+                const imageStatusId = `service-image-status-${service.id}`
 
                 return (
                   <article
@@ -3718,6 +3989,7 @@ function App() {
                     </div>
                     <div className="service-image-admin">
                       <span className="service-image-preview">
+                        <span className="service-card-fallback" aria-hidden="true">HB</span>
                         <img
                           src={getServiceCoverUrl(service)}
                           alt={`Foto atual de ${service.name}`}
@@ -3729,13 +4001,23 @@ function App() {
                       </span>
                       <div>
                         <strong>Foto do servico</strong>
-                        <small>JPG, PNG, WebP ou AVIF ate 2 MB. Aparece nos cards da cliente.</small>
+                        <small id={imageHelpId}>JPG, PNG, WebP ou AVIF ate 2 MB. Prefira foto horizontal, bem iluminada e centralizada.</small>
+                        <small id={imageStatusId} className="upload-status" role="status" aria-live="polite">
+                          {isUploadingImage
+                            ? 'Enviando foto. Aguarde a confirmacao.'
+                            : service.imagePath
+                              ? 'Foto ativa nos cards da cliente.'
+                              : 'Sem foto enviada; o card usa o fallback da marca.'}
+                        </small>
                         <div className="service-image-actions">
-                          <label className="file-upload-button">
+                          <label className="file-upload-button" htmlFor={imageInputId}>
                             {isUploadingImage ? 'Enviando...' : service.imagePath ? 'Trocar foto' : 'Enviar foto'}
                             <input
+                              id={imageInputId}
                               type="file"
                               accept="image/jpeg,image/png,image/webp,image/avif"
+                              aria-describedby={`${imageHelpId} ${imageStatusId}`}
+                              aria-label={`${service.imagePath ? 'Trocar' : 'Enviar'} foto de ${service.name}`}
                               disabled={isUploadingImage}
                               onChange={(event) => {
                                 const input = event.currentTarget
@@ -3749,6 +4031,7 @@ function App() {
                             <button
                               type="button"
                               className="danger-action"
+                              aria-label={`Remover foto de ${service.name}`}
                               disabled={isUploadingImage}
                               onClick={() => void handleServiceImageRemove(service)}
                             >
@@ -3817,6 +4100,44 @@ function App() {
           </div>
         </div>
       </section>
+    )
+  }
+
+  function renderConfirmDialog() {
+    if (!confirmDialog) {
+      return null
+    }
+
+    return (
+      <div className="confirm-backdrop" role="presentation">
+        <section
+          className={`confirm-dialog ${confirmDialog.tone === 'danger' ? 'danger' : ''}`}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-dialog-title"
+          aria-describedby="confirm-dialog-description"
+        >
+          <p className="eyebrow">Confirmacao</p>
+          <h2 id="confirm-dialog-title">{confirmDialog.title}</h2>
+          <p id="confirm-dialog-description">{confirmDialog.message}</p>
+          <div className="confirm-dialog-actions">
+            <button type="button" className="text-button" autoFocus onClick={() => setConfirmDialog(null)}>
+              {confirmDialog.cancelLabel ?? 'Voltar'}
+            </button>
+            <button
+              type="button"
+              className={confirmDialog.tone === 'danger' ? 'danger-action' : ''}
+              onClick={() => {
+                const action = confirmDialog.onConfirm
+                setConfirmDialog(null)
+                action()
+              }}
+            >
+              {confirmDialog.confirmLabel}
+            </button>
+          </div>
+        </section>
+      </div>
     )
   }
 
@@ -3911,7 +4232,7 @@ function App() {
                     type="password"
                     value={authForm.password}
                     onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })}
-                    placeholder="Minimo 6 caracteres"
+                    placeholder="No minimo 6 caracteres"
                   />
                 </label>
               ) : null}
@@ -3942,6 +4263,7 @@ function App() {
             </form>
           )}
         </section>
+        {renderConfirmDialog()}
       </main>
     )
   }
@@ -3960,30 +4282,52 @@ function App() {
         </section>
         {session ? (
           <section className="workspace-shell customer-workspace" aria-label="Navegacao da area da cliente">
-            <aside className="workspace-sidebar">
-              <span>Area da cliente</span>
+            <aside
+              className="workspace-sidebar"
+              role="tablist"
+              aria-label="Secoes da area da cliente"
+              aria-orientation="vertical"
+            >
+              <span role="presentation">Area da cliente</span>
               <button
                 type="button"
+                id="customer-tab-booking"
+                role="tab"
                 className={customerPanelTab === 'booking' ? 'active' : ''}
+                aria-controls="customer-workspace-panel"
+                aria-selected={customerPanelTab === 'booking'}
+                onKeyDown={handleCustomerTabKeyDown}
                 onClick={() => setCustomerPanelTab('booking')}
               >
                 Agendamento
               </button>
               <button
                 type="button"
+                id="customer-tab-agenda"
+                role="tab"
                 className={customerPanelTab === 'agenda' ? 'active' : ''}
+                aria-controls="customer-workspace-panel"
+                aria-selected={customerPanelTab === 'agenda'}
+                onKeyDown={handleCustomerTabKeyDown}
                 onClick={() => setCustomerPanelTab('agenda')}
               >
                 Minha agenda
               </button>
             </aside>
-            <div className="workspace-content">
+            <div
+              className="workspace-content"
+              id="customer-workspace-panel"
+              role="tabpanel"
+              aria-labelledby={`customer-tab-${customerPanelTab === 'booking' ? 'booking' : 'agenda'}`}
+              tabIndex={0}
+            >
               {customerPanelTab === 'booking' ? renderBookingSection() : renderCustomerSection()}
             </div>
           </section>
         ) : (
           renderBookingSection()
         )}
+        {renderConfirmDialog()}
       </main>
     )
   }
@@ -4001,6 +4345,7 @@ function App() {
           </div>
         </section>
         {renderAdminSection()}
+        {renderConfirmDialog()}
       </main>
     )
   }
@@ -4080,6 +4425,7 @@ function App() {
           {bookableServices.map((service) => (
             <article className="service-card" key={service.id}>
               <span className="service-card-media">
+                <span className="service-card-fallback" aria-hidden="true">HB</span>
                 <img
                   src={getServiceCoverUrl(service)}
                   alt={`Exemplo visual de ${service.name}`}
@@ -4409,7 +4755,7 @@ function App() {
                         type="button"
                         className="icon-button danger"
                         disabled={updatingBookingId === item.id}
-                        onClick={() => void handleBookingDelete(item.id)}
+                        onClick={() => requestBookingDelete(item)}
                         aria-label={`Excluir pedido de ${item.client_name}`}
                       >
                         <Trash2 size={16} aria-hidden="true" />
@@ -4583,6 +4929,7 @@ function App() {
             )}
           </div>
         )}
+        {renderConfirmDialog()}
       </section>
     </main>
   )

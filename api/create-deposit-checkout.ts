@@ -3,13 +3,16 @@
 import type { IncomingMessage, ServerResponse } from 'http'
 import {
   compactPhone,
+  fetchJsonWithTimeout,
   getAsaasApiBaseUrl,
   getAsaasCheckoutHost,
   getBearerToken,
   getRequiredEnv,
   getSiteUrl,
   getSupabaseAdmin,
+  isHttpRequestError,
   readJsonBody,
+  redactSensitivePayload,
   sendJson,
   truncateText,
 } from '../server/payments.js'
@@ -144,13 +147,24 @@ async function handler(request: IncomingMessage, response: ServerResponse) {
 
     const existingPayment = (existingPayments as PaymentRow[] | null)?.[0]
 
-    if (
-      existingPayment?.checkout_url &&
-      existingPayment.status === 'pending' &&
-      new Date(existingPayment.expires_at).getTime() > Date.now()
-    ) {
-      sendJson(response, 200, { checkoutUrl: existingPayment.checkout_url })
-      return
+    if (existingPayment?.status === 'pending') {
+      const existingExpiresAt = new Date(existingPayment.expires_at).getTime()
+
+      if (existingPayment.checkout_url && existingExpiresAt > Date.now()) {
+        sendJson(response, 200, { checkoutUrl: existingPayment.checkout_url })
+        return
+      }
+
+      if (existingExpiresAt > Date.now()) {
+        sendJson(response, 409, { error: 'checkout_creation_in_progress' })
+        return
+      }
+
+      await supabase
+        .from('booking_payments')
+        .update({ status: 'expired', updated_at: new Date().toISOString() })
+        .eq('id', existingPayment.id)
+        .eq('status', 'pending')
     }
 
     const minutesToExpire = policy.deposit_checkout_expiration_minutes
@@ -169,6 +183,26 @@ async function handler(request: IncomingMessage, response: ServerResponse) {
       .single()
 
     const payment = paymentData as { id: string } | null
+
+    if (paymentError?.code === '23505') {
+      const { data: racedPayments } = await supabase
+        .from('booking_payments')
+        .select('id,checkout_url,expires_at,status')
+        .eq('booking_id', booking.id)
+        .eq('provider', 'asaas')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(1)
+      const racedPayment = (racedPayments as PaymentRow[] | null)?.[0]
+
+      if (racedPayment?.checkout_url && new Date(racedPayment.expires_at).getTime() > Date.now()) {
+        sendJson(response, 200, { checkoutUrl: racedPayment.checkout_url })
+        return
+      }
+
+      sendJson(response, 409, { error: 'checkout_creation_in_progress' })
+      return
+    }
 
     if (paymentError || !payment) {
       sendJson(response, 500, { error: 'payment_create_failed' })
@@ -206,21 +240,40 @@ async function handler(request: IncomingMessage, response: ServerResponse) {
       },
     }
 
-    const asaasResponse = await fetch(`${getAsaasApiBaseUrl()}/v3/checkouts`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'HellenBrows/1.0.0',
-        access_token: getRequiredEnv('ASAAS_API_KEY'),
-      },
-      body: JSON.stringify(asaasRequest),
-    })
-    const asaasPayload = (await asaasResponse.json().catch(() => ({}))) as AsaasCheckoutResponse
+    let asaasResponse: Response
+    let asaasPayload: AsaasCheckoutResponse
+
+    try {
+      const result = await fetchJsonWithTimeout<AsaasCheckoutResponse>(`${getAsaasApiBaseUrl()}/v3/checkouts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'HellenBrows/1.0.0',
+          access_token: getRequiredEnv('ASAAS_API_KEY'),
+        },
+        body: JSON.stringify(asaasRequest),
+      })
+      asaasResponse = result.response
+      asaasPayload = result.payload
+    } catch (error) {
+      await supabase
+        .from('booking_payments')
+        .update({ status: 'failed', raw_event: { error: error instanceof Error ? error.message : 'external_request_failed' }, updated_at: new Date().toISOString() })
+        .eq('id', payment.id)
+
+      if (isHttpRequestError(error)) {
+        sendJson(response, error.statusCode, { error: error.code })
+        return
+      }
+
+      sendJson(response, 502, { error: 'checkout_create_failed' })
+      return
+    }
 
     if (!asaasResponse.ok || !asaasPayload.id) {
       await supabase
         .from('booking_payments')
-        .update({ status: 'failed', raw_event: asaasPayload, updated_at: new Date().toISOString() })
+        .update({ status: 'failed', raw_event: redactSensitivePayload(asaasPayload), updated_at: new Date().toISOString() })
         .eq('id', payment.id)
 
       sendJson(response, 502, { error: 'checkout_create_failed' })
@@ -233,7 +286,7 @@ async function handler(request: IncomingMessage, response: ServerResponse) {
       .update({
         provider_checkout_id: asaasPayload.id,
         checkout_url: checkoutUrl,
-        raw_event: asaasPayload,
+        raw_event: redactSensitivePayload(asaasPayload),
         updated_at: new Date().toISOString(),
       })
       .eq('id', payment.id)
@@ -244,7 +297,12 @@ async function handler(request: IncomingMessage, response: ServerResponse) {
     }
 
     sendJson(response, 200, { checkoutUrl })
-  } catch {
+  } catch (error) {
+    if (isHttpRequestError(error)) {
+      sendJson(response, error.statusCode, { error: error.code })
+      return
+    }
+
     sendJson(response, 500, { error: 'unexpected_error' })
   }
 }

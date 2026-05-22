@@ -9,7 +9,26 @@ grant usage on schema app_private to authenticated;
 
 create table if not exists public.admin_profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
+  role text not null default 'admin' check (role in ('owner', 'admin')),
   created_at timestamptz not null default now()
+);
+
+alter table public.admin_profiles
+add column if not exists role text not null default 'admin';
+
+alter table public.admin_profiles
+drop constraint if exists admin_profiles_role_check;
+
+alter table public.admin_profiles
+add constraint admin_profiles_role_check
+check (role in ('owner', 'admin'));
+
+update public.admin_profiles
+set role = 'owner'
+where not exists (
+  select 1
+  from public.admin_profiles owner_profile
+  where owner_profile.role = 'owner'
 );
 
 create or replace function app_private.is_booking_admin()
@@ -17,7 +36,7 @@ returns boolean
 language sql
 stable
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
   select exists (
     select 1
@@ -28,6 +47,24 @@ $$;
 
 revoke execute on function app_private.is_booking_admin() from public, anon;
 grant execute on function app_private.is_booking_admin() to authenticated;
+
+create or replace function app_private.is_booking_owner()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select exists (
+    select 1
+    from public.admin_profiles
+    where user_id = auth.uid()
+      and role = 'owner'
+  );
+$$;
+
+revoke execute on function app_private.is_booking_owner() from public, anon;
+grant execute on function app_private.is_booking_owner() to authenticated;
 
 create table if not exists public.service_catalog (
   id text primary key,
@@ -303,9 +340,13 @@ create table if not exists public.asaas_webhook_events (
   asaas_event_id text not null unique,
   event_type text not null,
   payload jsonb not null,
+  processing_error text,
   processed_at timestamptz,
   created_at timestamptz not null default now()
 );
+
+alter table public.asaas_webhook_events
+add column if not exists processing_error text;
 
 with weekdays as (
   select generate_series(1, 5) as weekday
@@ -366,6 +407,33 @@ create index if not exists booking_payments_user_status_idx
 on public.booking_payments (user_id, status);
 create index if not exists booking_payments_provider_payment_id_idx
 on public.booking_payments (provider_payment_id);
+
+update public.booking_payments
+set status = 'expired',
+    updated_at = now()
+where status = 'pending'
+  and expires_at <= now();
+
+with ranked_pending_payments as (
+  select
+    id,
+    row_number() over (
+      partition by booking_id, provider
+      order by created_at desc, id desc
+    ) as payment_rank
+  from public.booking_payments
+  where status = 'pending'
+)
+update public.booking_payments payment
+set status = 'failed',
+    updated_at = now()
+from ranked_pending_payments ranked
+where payment.id = ranked.id
+  and ranked.payment_rank > 1;
+
+create unique index if not exists booking_payments_one_pending_per_booking_provider_idx
+on public.booking_payments (booking_id, provider)
+where status = 'pending';
 create index if not exists asaas_webhook_events_type_created_idx
 on public.asaas_webhook_events (event_type, created_at desc);
 
@@ -373,7 +441,7 @@ create or replace function public.ensure_availability_slot_valid()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 begin
   if new.end_time <= new.start_time then
@@ -409,7 +477,7 @@ create or replace function public.ensure_booking_date_available()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 begin
   if new.status in ('awaiting_deposit', 'pending', 'confirmed') then
@@ -469,7 +537,7 @@ returns table (preferred_time time, preferred_end_time time)
 language sql
 stable
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
   select b.preferred_time, b.preferred_end_time
   from public.bookings b
@@ -486,7 +554,7 @@ returns table (preferred_time time, preferred_end_time time)
 language sql
 stable
 security invoker
-set search_path = public
+set search_path = public, pg_temp
 as $$
   select *
   from app_private.get_booked_slots(slot_date);
@@ -500,7 +568,7 @@ returns public.booking_policies
 language sql
 stable
 security invoker
-set search_path = public
+set search_path = public, pg_temp
 as $$
   select *
   from public.booking_policies
@@ -516,7 +584,7 @@ create or replace function public.ensure_booking_status_transition()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 begin
   if tg_op = 'UPDATE' and new.status is distinct from old.status then
@@ -554,7 +622,7 @@ create or replace function public.record_booking_status_event()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   actor_role_value text := 'system';
@@ -598,7 +666,7 @@ create or replace function public.queue_initial_booking_notifications()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   appointment_at timestamptz;
@@ -650,11 +718,135 @@ on public.bookings
 for each row
 execute function public.queue_initial_booking_notifications();
 
+create or replace function app_private.ensure_admin_owner_guard()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if tg_op = 'DELETE' and old.role = 'owner' then
+    if (select count(*) from public.admin_profiles where role = 'owner') <= 1 then
+      raise exception 'admin_owner_required';
+    end if;
+  end if;
+
+  if tg_op = 'UPDATE' and old.role = 'owner' and new.role <> 'owner' then
+    if (select count(*) from public.admin_profiles where role = 'owner') <= 1 then
+      raise exception 'admin_owner_required';
+    end if;
+  end if;
+
+  if tg_op = 'DELETE' then
+    return old;
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke execute on function app_private.ensure_admin_owner_guard() from public, anon, authenticated;
+
+drop trigger if exists admin_profiles_owner_guard on public.admin_profiles;
+create trigger admin_profiles_owner_guard
+before update of role or delete
+on public.admin_profiles
+for each row
+execute function app_private.ensure_admin_owner_guard();
+
+create or replace function app_private.ensure_booking_payment_owner()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  booking_owner uuid;
+begin
+  select user_id into booking_owner
+  from public.bookings
+  where id = new.booking_id;
+
+  if booking_owner is null then
+    raise exception 'booking_payment_booking_not_found';
+  end if;
+
+  if new.user_id is distinct from booking_owner then
+    raise exception 'booking_payment_owner_mismatch';
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke execute on function app_private.ensure_booking_payment_owner() from public, anon, authenticated;
+
+drop trigger if exists booking_payments_ensure_owner on public.booking_payments;
+create trigger booking_payments_ensure_owner
+before insert or update of booking_id, user_id
+on public.booking_payments
+for each row
+execute function app_private.ensure_booking_payment_owner();
+
+create or replace function app_private.expire_overdue_deposits()
+returns integer
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  expired_count integer;
+begin
+  with expired_payments as (
+    update public.booking_payments payment
+    set status = 'expired',
+        updated_at = now()
+    where payment.status = 'pending'
+      and payment.expires_at <= now()
+    returning payment.booking_id
+  ), expired_bookings as (
+    update public.bookings booking
+    set status = 'deposit_expired',
+        canceled_at = now(),
+        cancellation_reason = 'Sinal nao pago no prazo.',
+        updated_at = now()
+    where booking.status = 'awaiting_deposit'
+      and booking.id in (select booking_id from expired_payments)
+    returning booking.id
+  )
+  select count(*) into expired_count
+  from expired_bookings;
+
+  return expired_count;
+end;
+$$;
+
+revoke execute on function app_private.expire_overdue_deposits() from public, anon;
+grant execute on function app_private.expire_overdue_deposits() to authenticated;
+
+create or replace function public.expire_overdue_deposits()
+returns integer
+language plpgsql
+security invoker
+set search_path = public, pg_temp
+as $$
+begin
+  if not app_private.is_booking_admin() then
+    raise exception 'booking_admin_required';
+  end if;
+
+  return app_private.expire_overdue_deposits();
+end;
+$$;
+
+revoke execute on function public.expire_overdue_deposits() from public, anon;
+grant execute on function public.expire_overdue_deposits() to authenticated;
+
 create or replace function app_private.prepare_booking_insert()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   selected_service_name text;
@@ -668,6 +860,8 @@ begin
   if auth.uid() is null then
     raise exception 'booking_auth_required';
   end if;
+
+  perform app_private.expire_overdue_deposits();
 
   if not is_admin then
     if new.user_id is distinct from auth.uid() then
@@ -720,7 +914,7 @@ create or replace function app_private.client_cancel_booking(booking_id uuid, re
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   target_booking public.bookings;
@@ -777,7 +971,7 @@ create or replace function public.client_cancel_booking(booking_id uuid, reason 
 returns void
 language sql
 security invoker
-set search_path = public
+set search_path = public, pg_temp
 as $$
   select app_private.client_cancel_booking(booking_id, reason);
 $$;
@@ -795,7 +989,7 @@ create or replace function app_private.client_reschedule_booking(
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   target_booking public.bookings;
@@ -887,7 +1081,7 @@ create or replace function public.client_reschedule_booking(
 returns void
 language sql
 security invoker
-set search_path = public
+set search_path = public, pg_temp
 as $$
   select app_private.client_reschedule_booking(booking_id, new_date, new_start_time, new_end_time, reason);
 $$;
@@ -920,22 +1114,22 @@ create policy "Admins can insert admin profiles"
 on public.admin_profiles
 for insert
 to authenticated
-with check ((select app_private.is_booking_admin()));
+with check ((select app_private.is_booking_owner()));
 
 drop policy if exists "Admins can update admin profiles" on public.admin_profiles;
 create policy "Admins can update admin profiles"
 on public.admin_profiles
 for update
 to authenticated
-using ((select app_private.is_booking_admin()))
-with check ((select app_private.is_booking_admin()));
+using ((select app_private.is_booking_owner()))
+with check ((select app_private.is_booking_owner()));
 
 drop policy if exists "Admins can delete admin profiles" on public.admin_profiles;
 create policy "Admins can delete admin profiles"
 on public.admin_profiles
 for delete
 to authenticated
-using ((select app_private.is_booking_admin()));
+using ((select app_private.is_booking_owner()));
 
 drop policy if exists "Anyone can read active services" on public.service_catalog;
 drop policy if exists "Visitors can read active services" on public.service_catalog;
@@ -1031,7 +1225,15 @@ create policy "Users and admins can read booking payments"
 on public.booking_payments
 for select
 to authenticated
-using (user_id = (select auth.uid()) or (select app_private.is_booking_admin()));
+using (
+  (select app_private.is_booking_admin())
+  or exists (
+    select 1
+    from public.bookings b
+    where b.id = booking_payments.booking_id
+      and b.user_id = (select auth.uid())
+  )
+);
 
 drop policy if exists "Admins can read Asaas webhook events" on public.asaas_webhook_events;
 create policy "Admins can read Asaas webhook events"

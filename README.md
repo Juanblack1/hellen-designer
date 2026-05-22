@@ -10,6 +10,9 @@ GitHub: https://github.com/Juanblack1/hellen-brows
 
 - React 19 + TypeScript + Vite
 - Supabase Auth e Postgres com RLS
+- Vercel Functions para checkout e webhook
+- Asaas Checkout hospedado para sinal de reserva
+- Vitest + GitHub Actions para verificacao continua
 - CSS autoral com direcao beauty editorial
 - Vercel para hospedagem
 
@@ -35,7 +38,7 @@ ASAAS_WEBHOOK_TOKEN=<server-only-asaas-webhook-token>
 
 ## Pagamentos
 
-O sinal de reserva usa Asaas Checkout hospedado. O site nao coleta dados de cartao; o cliente e redirecionado para o Asaas, e o status volta pelo webhook.
+O sinal de reserva usa Asaas Checkout hospedado. O site nao coleta dados de cartao; a cliente e redirecionada para o Asaas, e o status volta pelo webhook.
 
 No painel admin, configure:
 
@@ -50,6 +53,14 @@ https://hellen-brows.vercel.app/api/asaas-webhook
 ```
 
 Eventos: `CHECKOUT_CREATED`, `CHECKOUT_CANCELED`, `CHECKOUT_EXPIRED`, `CHECKOUT_PAID`. O token configurado no webhook deve ser o mesmo valor de `ASAAS_WEBHOOK_TOKEN`.
+
+Notas operacionais:
+
+- `/api/create-deposit-checkout` reaproveita checkout pendente ativo e bloqueia multiplos pagamentos pendentes para o mesmo agendamento.
+- `/api/asaas-webhook` e idempotente, reprocessa evento duplicado ainda nao finalizado e valida pagamento pago com consulta server-to-server ao Asaas.
+- Eventos e respostas do provedor sao salvos com payload redigido; falhas de processamento ficam em `processing_error`.
+- Se um pagamento expirar, use a funcao `expire_overdue_deposits()` ou altere o status pelo painel admin para liberar o horario.
+- Em rollback, desative `deposit_required` no painel admin antes de remover variaveis do Asaas.
 
 ## Auth
 
@@ -68,6 +79,13 @@ npm install
 npm run dev
 ```
 
+## Rotas
+
+- `/`: vitrine publica.
+- `/auth`: entrada, cadastro e recuperacao de senha.
+- `/cliente`: agenda e historico da cliente autenticada.
+- `/admin`: painel privado para contas em `admin_profiles`.
+
 ## Banco de dados
 
 Com `SUPABASE_DB_URL` definido em um ambiente seguro, aplique o schema:
@@ -76,11 +94,11 @@ Com `SUPABASE_DB_URL` definido em um ambiente seguro, aplique o schema:
 npm run db:push
 ```
 
-Depois que a primeira conta admin existir no Supabase Auth, promova-a pelo SQL editor do Supabase:
+Depois que a primeira conta admin existir no Supabase Auth, promova-a pelo SQL editor do Supabase. Use `owner` para a conta que pode gerenciar outros admins e `admin` para operacao diaria:
 
 ```sql
-insert into public.admin_profiles (user_id)
-values ('AUTH_USER_ID_AQUI')
+insert into public.admin_profiles (user_id, role)
+values ('AUTH_USER_ID_AQUI', 'owner')
 on conflict (user_id) do nothing;
 ```
 
@@ -88,8 +106,11 @@ on conflict (user_id) do nothing;
 
 ```bash
 npm run lint
+npm test
 npm run build
 ```
+
+O workflow `.github/workflows/ci.yml` executa install, lint, testes e build em pushes e pull requests.
 
 ## Documentos
 
