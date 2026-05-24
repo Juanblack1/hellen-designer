@@ -348,6 +348,102 @@ create table if not exists public.asaas_webhook_events (
 alter table public.asaas_webhook_events
 add column if not exists processing_error text;
 
+create table if not exists public.clients (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete set null,
+  full_name text not null check (char_length(full_name) between 2 and 140),
+  email text not null,
+  phone text not null check (char_length(phone) between 8 and 30),
+  birth_date date,
+  preferences text check (preferences is null or char_length(preferences) <= 1200),
+  professional_notes text check (professional_notes is null or char_length(professional_notes) <= 2000),
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.clients
+add column if not exists user_id uuid references auth.users(id) on delete set null;
+
+alter table public.clients
+add column if not exists birth_date date;
+
+alter table public.clients
+add column if not exists preferences text check (preferences is null or char_length(preferences) <= 1200);
+
+alter table public.clients
+add column if not exists professional_notes text check (professional_notes is null or char_length(professional_notes) <= 2000);
+
+alter table public.clients
+add column if not exists created_by uuid references auth.users(id) on delete set null;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'clients_email_key'
+      and conrelid = 'public.clients'::regclass
+  ) then
+    alter table public.clients
+    add constraint clients_email_key unique (email);
+  end if;
+end;
+$$;
+
+create table if not exists public.payments (
+  id uuid primary key default gen_random_uuid(),
+  booking_id uuid references public.bookings(id) on delete set null,
+  client_id uuid references public.clients(id) on delete set null,
+  service_id text references public.service_catalog(id) on update cascade on delete set null,
+  client_name text not null check (char_length(client_name) between 2 and 140),
+  service_name text not null check (char_length(service_name) between 2 and 140),
+  payment_method text not null check (payment_method in ('cash', 'pix', 'debit_card', 'credit_card')),
+  status text not null default 'paid' check (status in ('paid', 'pending', 'partial', 'canceled')),
+  total_amount_cents integer not null check (total_amount_cents >= 0),
+  paid_amount_cents integer not null default 0 check (paid_amount_cents >= 0),
+  paid_at date,
+  notes text check (notes is null or char_length(notes) <= 1200),
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint payments_paid_not_above_total_check check (paid_amount_cents <= total_amount_cents)
+);
+
+create table if not exists public.products (
+  id uuid primary key default gen_random_uuid(),
+  name text not null check (char_length(name) between 2 and 140),
+  category text not null check (char_length(category) between 2 and 80),
+  stock_quantity numeric(12, 2) not null default 0,
+  unit text not null default 'un' check (char_length(unit) between 1 and 20),
+  cost_cents integer check (cost_cents is null or cost_cents >= 0),
+  sale_price_cents integer check (sale_price_cents is null or sale_price_cents >= 0),
+  minimum_stock numeric(12, 2) not null default 0,
+  notes text check (notes is null or char_length(notes) <= 1200),
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.stock_movements (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.products(id) on delete cascade,
+  movement_type text not null check (movement_type in ('input', 'output', 'service_use', 'sale', 'manual_adjustment')),
+  quantity_delta numeric(12, 2) not null check (quantity_delta <> 0),
+  unit_cost_cents integer check (unit_cost_cents is null or unit_cost_cents >= 0),
+  sale_price_cents integer check (sale_price_cents is null or sale_price_cents >= 0),
+  booking_id uuid references public.bookings(id) on delete set null,
+  client_id uuid references public.clients(id) on delete set null,
+  notes text check (notes is null or char_length(notes) <= 1200),
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+grant select, insert, update, delete on public.clients to authenticated, service_role;
+grant select, insert, update, delete on public.payments to authenticated, service_role;
+grant select, insert, update, delete on public.products to authenticated, service_role;
+grant select, insert, update, delete on public.stock_movements to authenticated, service_role;
+
 with weekdays as (
   select generate_series(1, 5) as weekday
 ), default_slots(start_time, end_time, sort_order) as (
@@ -369,6 +465,14 @@ insert into public.admin_availability_slots (weekday, start_time, end_time, sort
 select weekdays.weekday, default_slots.start_time, default_slots.end_time, default_slots.sort_order
 from weekdays
 cross join default_slots
+where not exists (
+  select 1
+  from public.admin_availability_slots existing_slot
+  where existing_slot.weekday = weekdays.weekday
+    and existing_slot.active
+    and existing_slot.start_time < default_slots.end_time
+    and existing_slot.end_time > default_slots.start_time
+)
 on conflict (weekday, start_time, end_time) do nothing;
 
 create index if not exists bookings_user_id_idx on public.bookings (user_id);
@@ -407,6 +511,15 @@ create index if not exists booking_payments_user_status_idx
 on public.booking_payments (user_id, status);
 create index if not exists booking_payments_provider_payment_id_idx
 on public.booking_payments (provider_payment_id);
+create index if not exists clients_user_id_idx on public.clients (user_id);
+create index if not exists clients_email_idx on public.clients (email);
+create index if not exists payments_booking_idx on public.payments (booking_id);
+create index if not exists payments_client_status_idx on public.payments (client_id, status);
+create index if not exists payments_paid_at_idx on public.payments (paid_at desc);
+create index if not exists products_category_idx on public.products (category);
+create index if not exists products_low_stock_idx on public.products (stock_quantity, minimum_stock);
+create index if not exists stock_movements_product_created_idx
+on public.stock_movements (product_id, created_at desc);
 
 update public.booking_payments
 set status = 'expired',
@@ -1089,6 +1202,97 @@ $$;
 revoke execute on function public.client_reschedule_booking(uuid, date, time, time, text) from public, anon;
 grant execute on function public.client_reschedule_booking(uuid, date, time, time, text) to authenticated;
 
+create or replace function public.sync_client_from_booking()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  insert into public.clients (
+    user_id,
+    full_name,
+    email,
+    phone,
+    created_by,
+    updated_at
+  ) values (
+    new.user_id,
+    trim(new.client_name),
+    lower(trim(new.client_email)),
+    trim(new.client_phone),
+    new.user_id,
+    now()
+  )
+  on conflict (email) do update set
+    user_id = coalesce(public.clients.user_id, excluded.user_id),
+    full_name = excluded.full_name,
+    phone = excluded.phone,
+    updated_at = now();
+
+  return new;
+end;
+$$;
+
+revoke execute on function public.sync_client_from_booking() from public, anon, authenticated;
+
+drop trigger if exists bookings_sync_client on public.bookings;
+create trigger bookings_sync_client
+after insert or update of user_id, client_name, client_email, client_phone
+on public.bookings
+for each row
+execute function public.sync_client_from_booking();
+
+insert into public.clients (user_id, full_name, email, phone, created_by, updated_at)
+select distinct on (lower(trim(client_email)))
+  user_id,
+  trim(client_name),
+  lower(trim(client_email)),
+  trim(client_phone),
+  user_id,
+  now()
+from public.bookings
+where nullif(trim(client_email), '') is not null
+order by lower(trim(client_email)), updated_at desc nulls last, created_at desc
+on conflict (email) do update set
+  user_id = coalesce(public.clients.user_id, excluded.user_id),
+  full_name = excluded.full_name,
+  phone = excluded.phone,
+  updated_at = now();
+
+create or replace function public.apply_stock_movement()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  movement_delta numeric(12, 2);
+begin
+  movement_delta := case
+    when new.movement_type = 'input' then abs(new.quantity_delta)
+    when new.movement_type in ('output', 'service_use', 'sale') then -abs(new.quantity_delta)
+    else new.quantity_delta
+  end;
+
+  update public.products
+  set stock_quantity = stock_quantity + movement_delta,
+      updated_at = now()
+  where id = new.product_id;
+
+  return new;
+end;
+$$;
+
+revoke execute on function public.apply_stock_movement() from public, anon, authenticated;
+
+drop trigger if exists stock_movements_apply on public.stock_movements;
+create trigger stock_movements_apply
+after insert
+on public.stock_movements
+for each row
+execute function public.apply_stock_movement();
+
 alter table public.admin_profiles enable row level security;
 alter table public.service_catalog enable row level security;
 alter table public.bookings enable row level security;
@@ -1100,6 +1304,10 @@ alter table public.booking_internal_notes enable row level security;
 alter table public.booking_notification_queue enable row level security;
 alter table public.booking_payments enable row level security;
 alter table public.asaas_webhook_events enable row level security;
+alter table public.clients enable row level security;
+alter table public.payments enable row level security;
+alter table public.products enable row level security;
+alter table public.stock_movements enable row level security;
 
 drop policy if exists "Admins and owners can read admin profiles" on public.admin_profiles;
 create policy "Admins and owners can read admin profiles"
@@ -1413,6 +1621,136 @@ with check ((select app_private.is_booking_admin()));
 drop policy if exists "Admins can delete notification queue" on public.booking_notification_queue;
 create policy "Admins can delete notification queue"
 on public.booking_notification_queue
+for delete
+to authenticated
+using ((select app_private.is_booking_admin()));
+
+drop policy if exists "Users and admins can read clients" on public.clients;
+create policy "Users and admins can read clients"
+on public.clients
+for select
+to authenticated
+using (user_id = (select auth.uid()) or (select app_private.is_booking_admin()));
+
+drop policy if exists "Users and admins can insert clients" on public.clients;
+create policy "Users and admins can insert clients"
+on public.clients
+for insert
+to authenticated
+with check (user_id = (select auth.uid()) or (select app_private.is_booking_admin()));
+
+drop policy if exists "Users and admins can update clients" on public.clients;
+create policy "Users and admins can update clients"
+on public.clients
+for update
+to authenticated
+using (user_id = (select auth.uid()) or (select app_private.is_booking_admin()))
+with check (user_id = (select auth.uid()) or (select app_private.is_booking_admin()));
+
+drop policy if exists "Admins can delete clients" on public.clients;
+create policy "Admins can delete clients"
+on public.clients
+for delete
+to authenticated
+using ((select app_private.is_booking_admin()));
+
+drop policy if exists "Users and admins can read payments" on public.payments;
+create policy "Users and admins can read payments"
+on public.payments
+for select
+to authenticated
+using (
+  (select app_private.is_booking_admin())
+  or exists (
+    select 1
+    from public.bookings b
+    where b.id = payments.booking_id
+      and b.user_id = (select auth.uid())
+  )
+  or exists (
+    select 1
+    from public.clients c
+    where c.id = payments.client_id
+      and c.user_id = (select auth.uid())
+  )
+);
+
+drop policy if exists "Admins can insert payments" on public.payments;
+create policy "Admins can insert payments"
+on public.payments
+for insert
+to authenticated
+with check ((select app_private.is_booking_admin()));
+
+drop policy if exists "Admins can update payments" on public.payments;
+create policy "Admins can update payments"
+on public.payments
+for update
+to authenticated
+using ((select app_private.is_booking_admin()))
+with check ((select app_private.is_booking_admin()));
+
+drop policy if exists "Admins can delete payments" on public.payments;
+create policy "Admins can delete payments"
+on public.payments
+for delete
+to authenticated
+using ((select app_private.is_booking_admin()));
+
+drop policy if exists "Admins can read products" on public.products;
+create policy "Admins can read products"
+on public.products
+for select
+to authenticated
+using ((select app_private.is_booking_admin()));
+
+drop policy if exists "Admins can insert products" on public.products;
+create policy "Admins can insert products"
+on public.products
+for insert
+to authenticated
+with check ((select app_private.is_booking_admin()));
+
+drop policy if exists "Admins can update products" on public.products;
+create policy "Admins can update products"
+on public.products
+for update
+to authenticated
+using ((select app_private.is_booking_admin()))
+with check ((select app_private.is_booking_admin()));
+
+drop policy if exists "Admins can delete products" on public.products;
+create policy "Admins can delete products"
+on public.products
+for delete
+to authenticated
+using ((select app_private.is_booking_admin()));
+
+drop policy if exists "Admins can read stock movements" on public.stock_movements;
+create policy "Admins can read stock movements"
+on public.stock_movements
+for select
+to authenticated
+using ((select app_private.is_booking_admin()));
+
+drop policy if exists "Admins can insert stock movements" on public.stock_movements;
+create policy "Admins can insert stock movements"
+on public.stock_movements
+for insert
+to authenticated
+with check ((select app_private.is_booking_admin()));
+
+drop policy if exists "Admins can update stock movements" on public.stock_movements;
+create policy "Admins can update stock movements"
+on public.stock_movements
+for update
+to authenticated
+using ((select app_private.is_booking_admin()))
+with check ((select app_private.is_booking_admin()));
+
+drop policy if exists "Admins can delete stock movements" on public.stock_movements;
+create policy "Admins can delete stock movements"
+on public.stock_movements
 for delete
 to authenticated
 using ((select app_private.is_booking_admin()));

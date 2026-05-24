@@ -3,23 +3,32 @@ import type { FormEvent, KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import {
   ArrowRight,
+  BarChart3,
+  Boxes,
   CalendarCheck,
+  CalendarDays,
   Camera,
   CheckCircle2,
   Clipboard,
   Clock3,
+  CreditCard,
   Filter,
+  LayoutDashboard,
   LockKeyhole,
   Mail,
   MapPin,
   MessageCircle,
+  Package,
   Phone,
   Plus,
   Save,
+  Settings,
   ShieldCheck,
   Sparkles,
   Trash2,
   UserCheck,
+  Users,
+  Wallet,
 } from 'lucide-react'
 import browAtelier from './assets/hellen-brows-chatgpt-image.png'
 import brandLogo from './assets/hellen-martins-logo.svg'
@@ -73,7 +82,17 @@ type NotificationStatus = 'pending' | 'done' | 'skipped'
 type PaymentStatus = 'pending' | 'paid' | 'expired' | 'canceled' | 'failed'
 type AuthMode = 'sign-in' | 'sign-up' | 'forgot-password' | 'reset-password'
 type CustomerPanelTab = 'booking' | 'agenda'
-type AdminPanelTab = 'overview' | 'agenda' | 'bookings' | 'clients' | 'whatsapp' | 'services' | 'policy'
+type AdminPanelTab =
+  | 'overview'
+  | 'agenda'
+  | 'bookings'
+  | 'clients'
+  | 'whatsapp'
+  | 'services'
+  | 'payments'
+  | 'products'
+  | 'reports'
+  | 'settings'
 type ConfirmDialogState = {
   title: string
   message: string
@@ -84,7 +103,84 @@ type ConfirmDialogState = {
 } | null
 
 const customerPanelTabs = ['booking', 'agenda'] as const satisfies readonly CustomerPanelTab[]
-const adminPanelTabs = ['overview', 'agenda', 'bookings', 'clients', 'whatsapp', 'services', 'policy'] as const satisfies readonly AdminPanelTab[]
+const adminPanelTabs = [
+  'overview',
+  'agenda',
+  'bookings',
+  'clients',
+  'whatsapp',
+  'services',
+  'payments',
+  'products',
+  'reports',
+  'settings',
+] as const satisfies readonly AdminPanelTab[]
+
+const adminTabPaths: Record<AdminPanelTab, string> = {
+  overview: '/admin',
+  agenda: '/admin/agenda',
+  bookings: '/admin/agendamentos',
+  clients: '/admin/clientes',
+  whatsapp: '/admin/whatsapp',
+  services: '/admin/servicos',
+  payments: '/admin/pagamentos',
+  products: '/admin/produtos',
+  reports: '/admin/relatorios',
+  settings: '/admin/configuracoes',
+}
+
+const adminRouteTitles: Record<AdminPanelTab, { eyebrow: string; title: string; description: string }> = {
+  overview: {
+    eyebrow: 'Painel privado',
+    title: 'Dashboard operacional da Hellen Martins.',
+    description: 'Resumo do dia, pendencias, faturamento e atalhos para operar o estudio.',
+  },
+  agenda: {
+    eyebrow: 'Agenda',
+    title: 'Calendario diario, semanal e mensal.',
+    description: 'Veja horarios ocupados, bloqueios, remarcacoes e disponibilidade.',
+  },
+  bookings: {
+    eyebrow: 'Agendamentos',
+    title: 'Controle completo de horarios e status.',
+    description: 'Confirme, remarque, conclua, cancele e registre notas do atendimento.',
+  },
+  clients: {
+    eyebrow: 'Clientes',
+    title: 'Fichas, historico e preferencias.',
+    description: 'Consulte dados, atendimentos, pagamentos e anotacoes profissionais.',
+  },
+  whatsapp: {
+    eyebrow: 'WhatsApp',
+    title: 'Mensagens manuais para confirmar e acompanhar.',
+    description: 'Copie textos prontos e abra a conversa da cliente pelo WhatsApp.',
+  },
+  services: {
+    eyebrow: 'Servicos',
+    title: 'Catalogo, precos e fotos dos procedimentos.',
+    description: 'Mantenha a vitrine atualizada com valores, duracao e disponibilidade.',
+  },
+  payments: {
+    eyebrow: 'Financeiro',
+    title: 'Pagamentos por atendimento e periodo.',
+    description: 'Registre dinheiro, Pix e cartao com status pago, pendente ou parcial.',
+  },
+  products: {
+    eyebrow: 'Estoque',
+    title: 'Produtos usados e vendidos no estudio.',
+    description: 'Controle entrada, saida, uso em atendimento, venda e estoque baixo.',
+  },
+  reports: {
+    eyebrow: 'Relatorios',
+    title: 'Indicadores simples para decisao diaria.',
+    description: 'Acompanhe servicos mais realizados, receita e movimentacao de produtos.',
+  },
+  settings: {
+    eyebrow: 'Configuracoes',
+    title: 'Politicas, sinal e canais de contato.',
+    description: 'Ajuste prazos, pagamento de sinal, texto exibido e dados da marca.',
+  },
+}
 
 type BookingRecord = {
   id: string
@@ -177,6 +273,107 @@ type BookingPayment = {
   created_at: string
 }
 
+type ClientProfile = {
+  id: string
+  user_id: string | null
+  full_name: string
+  email: string
+  phone: string
+  birth_date: string | null
+  preferences: string | null
+  professional_notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+type ClientProfileDraft = {
+  fullName: string
+  phone: string
+  birthDate: string
+  preferences: string
+  professionalNotes: string
+}
+
+type BusinessPaymentStatus = 'paid' | 'pending' | 'partial' | 'canceled'
+type BusinessPaymentMethod = 'cash' | 'pix' | 'debit_card' | 'credit_card'
+
+type BusinessPayment = {
+  id: string
+  booking_id: string | null
+  client_id: string | null
+  service_id: string | null
+  client_name: string
+  service_name: string
+  payment_method: BusinessPaymentMethod
+  status: BusinessPaymentStatus
+  total_amount_cents: number
+  paid_amount_cents: number
+  paid_at: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+type PaymentDraft = {
+  bookingId: string
+  paymentMethod: BusinessPaymentMethod
+  status: BusinessPaymentStatus
+  totalAmountCents: string
+  paidAmountCents: string
+  paidAt: string
+  notes: string
+}
+
+type ProductRecord = {
+  id: string
+  name: string
+  category: string
+  stock_quantity: number
+  unit: string
+  cost_cents: number | null
+  sale_price_cents: number | null
+  minimum_stock: number
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+type ProductDraft = {
+  name: string
+  category: string
+  stockQuantity: string
+  unit: string
+  costCents: string
+  salePriceCents: string
+  minimumStock: string
+  notes: string
+}
+
+type StockMovementType = 'input' | 'output' | 'service_use' | 'sale' | 'manual_adjustment'
+
+type StockMovement = {
+  id: string
+  product_id: string
+  movement_type: StockMovementType
+  quantity_delta: number
+  unit_cost_cents: number | null
+  sale_price_cents: number | null
+  booking_id: string | null
+  client_id: string | null
+  notes: string | null
+  created_at: string
+}
+
+type StockMovementDraft = {
+  productId: string
+  movementType: StockMovementType
+  quantityDelta: string
+  unitCostCents: string
+  salePriceCents: string
+  bookingId: string
+  notes: string
+}
+
 type BookedSlotRow = {
   preferred_time: string
   preferred_end_time: string
@@ -226,7 +423,6 @@ type ServiceDraft = {
   sortOrder: string
 }
 
-const instagramUrl = 'https://www.instagram.com/h.ellenmartins'
 const serviceImageBucket = 'service-images'
 const maxServiceImageBytes = 2 * 1024 * 1024
 const allowedServiceImageTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif'])
@@ -320,6 +516,32 @@ const paymentStatusLabels: Record<PaymentStatus, string> = {
   canceled: 'Pagamento cancelado',
   failed: 'Falha no pagamento',
 }
+const businessPaymentStatusLabels: Record<BusinessPaymentStatus, string> = {
+  paid: 'Pago',
+  pending: 'Pendente',
+  partial: 'Parcial',
+  canceled: 'Cancelado',
+}
+const businessPaymentMethodLabels: Record<BusinessPaymentMethod, string> = {
+  cash: 'Dinheiro',
+  pix: 'Pix',
+  debit_card: 'Cartao de debito',
+  credit_card: 'Cartao de credito',
+}
+const stockMovementLabels: Record<StockMovementType, string> = {
+  input: 'Entrada de produto',
+  output: 'Saida de produto',
+  service_use: 'Uso em atendimento',
+  sale: 'Venda para cliente',
+  manual_adjustment: 'Ajuste manual',
+}
+const stockMovementToneLabels: Record<StockMovementType, string> = {
+  input: 'Entrada',
+  output: 'Saida',
+  service_use: 'Uso',
+  sale: 'Venda',
+  manual_adjustment: 'Ajuste',
+}
 const notificationStatusLabels: Record<NotificationStatus, string> = {
   pending: 'Pendente',
   done: 'Feita',
@@ -335,6 +557,9 @@ const weekdayOptions = [
   { value: 4, label: 'Quinta' },
   { value: 5, label: 'Sexta' },
 ]
+const instagramUrl = 'https://www.instagram.com/hellenmartins.designer/'
+const instagramHandle = '@hellenmartins.designer'
+const bookingWhatsAppNumber = import.meta.env.VITE_BOOKING_WHATSAPP?.trim() || '5516988758633'
 const businessTimeZone = 'America/Sao_Paulo'
 const businessDateTimeFormatter = new Intl.DateTimeFormat('en-US', {
   timeZone: businessTimeZone,
@@ -415,6 +640,13 @@ function getInitialDate() {
 function getMonthStart(date: string) {
   const parsed = parseDateOnly(date)
   return toDateOnly(new Date(parsed.getFullYear(), parsed.getMonth(), 1, 12))
+}
+
+function getWeekStart(date: string) {
+  const parsed = parseDateOnly(date)
+  const mondayOffset = (parsed.getDay() + 6) % 7
+  parsed.setDate(parsed.getDate() - mondayOffset)
+  return toDateOnly(parsed)
 }
 
 function addMonths(date: string, amount: number) {
@@ -716,6 +948,29 @@ function parsePriceDraft(value: string) {
   return Math.round(parsed * 100)
 }
 
+function parseDecimalDraft(value: string) {
+  const trimmed = value.trim()
+
+  if (!trimmed) {
+    return null
+  }
+
+  const parsed = Number(trimmed.replace(/\./g, '').replace(',', '.'))
+
+  if (!Number.isFinite(parsed)) {
+    return undefined
+  }
+
+  return parsed
+}
+
+function formatDecimal(value: number) {
+  return new Intl.NumberFormat('pt-BR', {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+  }).format(value)
+}
+
 function formatDate(date: string) {
   return new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',
@@ -743,6 +998,56 @@ function formatFullDate(date: string) {
 
 function getServiceEyebrow(serviceId: string, index: number) {
   return serviceSeeds.find((service) => service.id === serviceId)?.eyebrow ?? `Opcao ${index + 1}`
+}
+
+function getAdminTabFromRoute(route: string): AdminPanelTab {
+  if (route.startsWith('/admin/agenda')) {
+    return 'agenda'
+  }
+
+  if (route.startsWith('/admin/agendamentos')) {
+    return 'bookings'
+  }
+
+  if (route.startsWith('/admin/clientes')) {
+    return 'clients'
+  }
+
+  if (route.startsWith('/admin/whatsapp')) {
+    return 'whatsapp'
+  }
+
+  if (route.startsWith('/admin/servicos')) {
+    return 'services'
+  }
+
+  if (route.startsWith('/admin/pagamentos')) {
+    return 'payments'
+  }
+
+  if (route.startsWith('/admin/produtos')) {
+    return 'products'
+  }
+
+  if (route.startsWith('/admin/relatorios')) {
+    return 'reports'
+  }
+
+  if (route.startsWith('/admin/configuracoes')) {
+    return 'settings'
+  }
+
+  return 'overview'
+}
+
+function getClientRouteEmail(route: string) {
+  const prefix = '/admin/clientes/'
+
+  if (!route.startsWith(prefix)) {
+    return ''
+  }
+
+  return decodeURIComponent(route.slice(prefix.length))
 }
 
 function mapServiceRow(service: ServiceCatalogRow, index: number): ServiceOption {
@@ -805,6 +1110,53 @@ function createPolicyDraft(policy?: BookingPolicy | null): PolicyDraft {
     depositAmountCents: formatPriceDraft(policy?.deposit_amount_cents ?? 0),
     depositCheckoutExpirationMinutes: String(policy?.deposit_checkout_expiration_minutes ?? 30),
     policyText: policy?.policy_text ?? defaultPolicyText,
+  }
+}
+
+function createClientProfileDraft(profile?: ClientProfile | null): ClientProfileDraft {
+  return {
+    fullName: profile?.full_name ?? '',
+    phone: profile?.phone ?? '',
+    birthDate: profile?.birth_date ?? '',
+    preferences: profile?.preferences ?? '',
+    professionalNotes: profile?.professional_notes ?? '',
+  }
+}
+
+function createEmptyPaymentDraft(): PaymentDraft {
+  return {
+    bookingId: '',
+    paymentMethod: 'pix',
+    status: 'paid',
+    totalAmountCents: '',
+    paidAmountCents: '',
+    paidAt: getTodayDate(),
+    notes: '',
+  }
+}
+
+function createEmptyProductDraft(): ProductDraft {
+  return {
+    name: '',
+    category: 'Henna e coloracao',
+    stockQuantity: '0',
+    unit: 'un',
+    costCents: '',
+    salePriceCents: '',
+    minimumStock: '1',
+    notes: '',
+  }
+}
+
+function createEmptyStockMovementDraft(productId = ''): StockMovementDraft {
+  return {
+    productId,
+    movementType: 'input',
+    quantityDelta: '1',
+    unitCostCents: '',
+    salePriceCents: '',
+    bookingId: '',
+    notes: '',
   }
 }
 
@@ -883,6 +1235,13 @@ function App() {
   const [authForm, setAuthForm] = useState({ email: '', password: '' })
   const [authStatus, setAuthStatus] = useState('')
   const [bookingStatus, setBookingStatus] = useState('')
+  const [latestConfirmation, setLatestConfirmation] = useState<{
+    serviceName: string
+    date: string
+    startTime: string
+    endTime: string
+    status: BookingStatus
+  } | null>(null)
   const [customerActionStatus, setCustomerActionStatus] = useState(() => getPaymentReturnMessage())
   const [bookingActionStatus, setBookingActionStatus] = useState('')
   const [serviceActionStatus, setServiceActionStatus] = useState('')
@@ -903,18 +1262,26 @@ function App() {
   const [internalNotes, setInternalNotes] = useState<BookingInternalNote[]>([])
   const [notificationQueue, setNotificationQueue] = useState<BookingNotificationQueueItem[]>([])
   const [bookingPayments, setBookingPayments] = useState<BookingPayment[]>([])
+  const [clientProfiles, setClientProfiles] = useState<ClientProfile[]>([])
+  const [businessPayments, setBusinessPayments] = useState<BusinessPayment[]>([])
+  const [products, setProducts] = useState<ProductRecord[]>([])
+  const [stockMovements, setStockMovements] = useState<StockMovement[]>([])
   const [bookingRefreshKey, setBookingRefreshKey] = useState(0)
   const [serviceRefreshKey, setServiceRefreshKey] = useState(0)
   const [availabilityRefreshKey, setAvailabilityRefreshKey] = useState(0)
   const [operationalRefreshKey, setOperationalRefreshKey] = useState(0)
   const [adminStatusFilter, setAdminStatusFilter] = useState<AdminStatusFilter>('all')
   const [customerPanelTab, setCustomerPanelTab] = useState<CustomerPanelTab>(() => getInitialCustomerPanelTab())
-  const [adminPanelTab, setAdminPanelTab] = useState<AdminPanelTab>('overview')
+  const [adminPanelTab, setAdminPanelTab] = useState<AdminPanelTab>(() => getAdminTabFromRoute(window.location.pathname))
   const [adminSelectedDate, setAdminSelectedDate] = useState(() => getTodayDate())
   const [bookingSearch, setBookingSearch] = useState('')
   const [calendarMonth, setCalendarMonth] = useState(() => getMonthStart(getInitialDate()))
   const [serviceDrafts, setServiceDrafts] = useState<Record<string, ServiceDraft>>({})
+  const [clientProfileDrafts, setClientProfileDrafts] = useState<Record<string, ClientProfileDraft>>({})
   const [newService, setNewService] = useState<ServiceDraft>(() => createEmptyServiceDraft())
+  const [newPayment, setNewPayment] = useState<PaymentDraft>(() => createEmptyPaymentDraft())
+  const [newProduct, setNewProduct] = useState<ProductDraft>(() => createEmptyProductDraft())
+  const [newStockMovement, setNewStockMovement] = useState<StockMovementDraft>(() => createEmptyStockMovementDraft())
   const [availabilityDraft, setAvailabilityDraft] = useState<AvailabilityDraft>({
     weekday: '1',
     startTime: '08:00',
@@ -924,12 +1291,22 @@ function App() {
   const [rescheduleDrafts, setRescheduleDrafts] = useState<Record<string, RescheduleDraft>>({})
   const [cancelReasonDrafts, setCancelReasonDrafts] = useState<Record<string, string>>({})
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({})
+  const [clientSearch, setClientSearch] = useState('')
+  const [paymentSearch, setPaymentSearch] = useState('')
+  const [productSearch, setProductSearch] = useState('')
   const [savingServiceId, setSavingServiceId] = useState('')
   const [uploadingServiceImageId, setUploadingServiceImageId] = useState('')
   const [savingAvailabilityId, setSavingAvailabilityId] = useState('')
+  const [savingClientEmail, setSavingClientEmail] = useState('')
+  const [savingPayment, setSavingPayment] = useState(false)
+  const [savingProduct, setSavingProduct] = useState(false)
+  const [savingStockMovement, setSavingStockMovement] = useState(false)
   const [updatingBookingId, setUpdatingBookingId] = useState('')
   const [updatingQueueId, setUpdatingQueueId] = useState('')
   const [payingBookingId, setPayingBookingId] = useState('')
+  const [clientActionStatus, setClientActionStatus] = useState('')
+  const [financeActionStatus, setFinanceActionStatus] = useState('')
+  const [productActionStatus, setProductActionStatus] = useState('')
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState>(null)
 
   useEffect(() => {
@@ -944,7 +1321,11 @@ function App() {
 
   useEffect(() => {
     function handlePopState() {
-      setRoute(window.location.pathname)
+      const nextRoute = window.location.pathname
+      setRoute(nextRoute)
+      if (nextRoute.startsWith('/admin')) {
+        setAdminPanelTab(getAdminTabFromRoute(nextRoute))
+      }
       setAuthMode(getInitialAuthMode())
       setAuthStatus('')
     }
@@ -977,6 +1358,10 @@ function App() {
           setInternalNotes([])
           setNotificationQueue([])
           setBookingPayments([])
+          setClientProfiles([])
+          setBusinessPayments([])
+          setProducts([])
+          setStockMovements([])
         }
       }
     })
@@ -992,6 +1377,10 @@ function App() {
         setInternalNotes([])
         setNotificationQueue([])
         setBookingPayments([])
+        setClientProfiles([])
+        setBusinessPayments([])
+        setProducts([])
+        setStockMovements([])
       }
 
       if (event === 'PASSWORD_RECOVERY') {
@@ -1207,6 +1596,75 @@ function App() {
 
           setNotificationQueue((data ?? []) as BookingNotificationQueueItem[])
         })
+
+      void client
+        .from('clients')
+        .select('id,user_id,full_name,email,phone,birth_date,preferences,professional_notes,created_at,updated_at')
+        .order('full_name', { ascending: true })
+        .limit(500)
+        .then(({ data, error }) => {
+          if (!isMounted || error) {
+            return
+          }
+
+          const profiles = (data ?? []) as ClientProfile[]
+          setClientProfiles(profiles)
+          setClientProfileDrafts((current) => {
+            const next = { ...current }
+
+            profiles.forEach((profile) => {
+              next[profile.email] = current[profile.email] ?? createClientProfileDraft(profile)
+            })
+
+            return next
+          })
+        })
+
+      void client
+        .from('payments')
+        .select(
+          'id,booking_id,client_id,service_id,client_name,service_name,payment_method,status,total_amount_cents,paid_amount_cents,paid_at,notes,created_at,updated_at',
+        )
+        .order('paid_at', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false })
+        .limit(500)
+        .then(({ data, error }) => {
+          if (!isMounted || error) {
+            return
+          }
+
+          setBusinessPayments((data ?? []) as BusinessPayment[])
+        })
+
+      void client
+        .from('products')
+        .select('id,name,category,stock_quantity,unit,cost_cents,sale_price_cents,minimum_stock,notes,created_at,updated_at')
+        .order('name', { ascending: true })
+        .limit(500)
+        .then(({ data, error }) => {
+          if (!isMounted || error) {
+            return
+          }
+
+          const nextProducts = (data ?? []) as ProductRecord[]
+          setProducts(nextProducts)
+          setNewStockMovement((current) =>
+            current.productId || !nextProducts[0] ? current : { ...current, productId: nextProducts[0].id },
+          )
+        })
+
+      void client
+        .from('stock_movements')
+        .select('id,product_id,movement_type,quantity_delta,unit_cost_cents,sale_price_cents,booking_id,client_id,notes,created_at')
+        .order('created_at', { ascending: false })
+        .limit(500)
+        .then(({ data, error }) => {
+          if (!isMounted || error) {
+            return
+          }
+
+          setStockMovements((data ?? []) as StockMovement[])
+        })
     }
 
     return () => {
@@ -1297,7 +1755,11 @@ function App() {
 
   const isAuthRoute = route === '/auth'
   const isCustomerRoute = route === '/cliente'
-  const isAdminRoute = route === '/admin'
+  const isAdminRoute = route === '/admin' || route.startsWith('/admin/')
+  const isServicesRoute = route === '/servicos'
+  const isBookingRoute = route === '/agendamento'
+  const isConfirmationRoute = route === '/confirmacao'
+  const selectedClientEmail = getClientRouteEmail(route)
   const bookableServices = services.filter((service) => service.active)
   const selectedService =
     bookableServices.find((service) => service.id === booking.serviceId) ??
@@ -1473,6 +1935,105 @@ function App() {
   const completedRevenueCents = bookings
     .filter((item) => item.status === 'completed')
     .reduce((total, item) => total + (services.find((service) => service.id === item.service_id)?.priceCents ?? 0), 0)
+  const paidBusinessPayments = businessPayments.filter((payment) => payment.status === 'paid')
+  const businessRevenueCents = paidBusinessPayments.reduce((total, payment) => total + payment.paid_amount_cents, 0)
+  const estimatedRevenueCents = businessRevenueCents || completedRevenueCents
+  const todayRevenueCents = paidBusinessPayments
+    .filter((payment) => payment.paid_at === currentBusinessDateTime.date)
+    .reduce((total, payment) => total + payment.paid_amount_cents, 0)
+  const weekStart = getWeekStart(currentBusinessDateTime.date)
+  const weekRevenueCents = paidBusinessPayments
+    .filter((payment) => payment.paid_at && payment.paid_at >= weekStart)
+    .reduce((total, payment) => total + payment.paid_amount_cents, 0)
+  const monthRevenueCents = paidBusinessPayments
+    .filter((payment) => payment.paid_at?.startsWith(currentBusinessDateTime.date.slice(0, 7)))
+    .reduce((total, payment) => total + payment.paid_amount_cents, 0)
+  const pendingBusinessPaymentCount =
+    businessPayments.filter((payment) => payment.status === 'pending' || payment.status === 'partial').length +
+    bookingPayments.filter((payment) => payment.status === 'pending').length
+  const lowStockProducts = products.filter((product) => product.stock_quantity <= product.minimum_stock)
+  const servicePerformance = Array.from(
+    bookings
+      .filter((item) => item.status === 'completed' || item.status === 'confirmed')
+      .reduce((items, item) => {
+        items.set(item.service_name, (items.get(item.service_name) ?? 0) + 1)
+        return items
+      }, new Map<string, number>())
+      .entries(),
+  )
+    .map(([serviceName, count]) => ({ serviceName, count }))
+    .sort((first, second) => second.count - first.count)
+  const clientProfilesByEmail = clientProfiles.reduce<Record<string, ClientProfile>>((profiles, profile) => {
+    profiles[profile.email.toLowerCase()] = profile
+    return profiles
+  }, {})
+  const clientDirectory = (clientProfiles.length
+    ? clientProfiles.map((profile) => {
+        const relatedBookings = bookings.filter((item) => item.client_email.toLowerCase() === profile.email.toLowerCase())
+        const lastBooking = [...relatedBookings].sort((first, second) =>
+          second.preferred_date.localeCompare(first.preferred_date),
+        )[0]
+
+        return {
+          email: profile.email,
+          name: profile.full_name,
+          phone: profile.phone,
+          total: relatedBookings.length,
+          lastDate: lastBooking?.preferred_date ?? profile.updated_at.slice(0, 10),
+          lastService: lastBooking?.service_name ?? 'Sem atendimento registrado',
+          lastStatus: lastBooking?.status ?? ('pending' as BookingStatus),
+          profile,
+        }
+      })
+    : clientSummaries.map((client) => ({
+        ...client,
+        profile: clientProfilesByEmail[client.email.toLowerCase()] ?? null,
+      }))).sort((first, second) => second.lastDate.localeCompare(first.lastDate))
+  const filteredClientDirectory = clientDirectory.filter((client) => {
+    const query = clientSearch.trim().toLowerCase()
+
+    if (!query) {
+      return true
+    }
+
+    return [client.name, client.email, client.phone, client.lastService].join(' ').toLowerCase().includes(query)
+  })
+  const selectedClient = selectedClientEmail
+    ? clientDirectory.find((client) => client.email.toLowerCase() === selectedClientEmail.toLowerCase())
+    : null
+  const selectedClientBookings = selectedClient
+    ? bookings.filter((item) => item.client_email.toLowerCase() === selectedClient.email.toLowerCase())
+    : []
+  const selectedClientPayments = selectedClient
+    ? businessPayments.filter((payment) => payment.client_name.toLowerCase() === selectedClient.name.toLowerCase())
+    : []
+  const filteredBusinessPayments = businessPayments.filter((payment) => {
+    const query = paymentSearch.trim().toLowerCase()
+
+    if (!query) {
+      return true
+    }
+
+    return [
+      payment.client_name,
+      payment.service_name,
+      businessPaymentMethodLabels[payment.payment_method],
+      businessPaymentStatusLabels[payment.status],
+      payment.notes ?? '',
+    ]
+      .join(' ')
+      .toLowerCase()
+      .includes(query)
+  })
+  const filteredProducts = products.filter((product) => {
+    const query = productSearch.trim().toLowerCase()
+
+    if (!query) {
+      return true
+    }
+
+    return [product.name, product.category, product.notes ?? ''].join(' ').toLowerCase().includes(query)
+  })
 
   function goHome(targetId?: string) {
     window.history.pushState(null, '', targetId ? `/#${targetId}` : '/')
@@ -1490,7 +2051,15 @@ function App() {
   function goToPath(path: string) {
     window.history.pushState(null, '', path)
     setRoute(path)
+    if (path.startsWith('/admin')) {
+      setAdminPanelTab(getAdminTabFromRoute(path))
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function goToAdminTab(tab: AdminPanelTab) {
+    setAdminPanelTab(tab)
+    goToPath(adminTabPaths[tab])
   }
 
   function goToAuth(mode: AuthMode, next?: string) {
@@ -1636,6 +2205,13 @@ function App() {
         ? 'Horario confirmado. A mensagem fica registrada para envio pelo WhatsApp.'
         : 'Horario solicitado. A confirmacao chega por WhatsApp ou email.',
     )
+    setLatestConfirmation({
+      serviceName: selectedService.name,
+      date: booking.preferredDate,
+      startTime: booking.preferredTime,
+      endTime: booking.preferredEndTime,
+      status: createdStatus,
+    })
     const nextDate = getInitialDate()
     setBooking((current) => ({
       ...current,
@@ -1649,6 +2225,7 @@ function App() {
     setPolicyAccepted(false)
     setCalendarMonth(getMonthStart(nextDate))
     setBookingRefreshKey((key) => key + 1)
+    goToPath('/confirmacao')
   }
 
   async function handleAuthSubmit(event: FormEvent<HTMLFormElement>) {
@@ -1737,6 +2314,10 @@ function App() {
     setInternalNotes([])
     setNotificationQueue([])
     setBookingPayments([])
+    setClientProfiles([])
+    setBusinessPayments([])
+    setProducts([])
+    setStockMovements([])
     setIsAdmin(false)
     setAuthStatus('Sessao encerrada.')
   }
@@ -2439,6 +3020,270 @@ function App() {
     setOperationalRefreshKey((key) => key + 1)
   }
 
+  function updateClientProfileDraft(email: string, patch: Partial<ClientProfileDraft>) {
+    setClientProfileDrafts((current) => ({
+      ...current,
+      [email]: {
+        ...(current[email] ?? createClientProfileDraft(clientProfilesByEmail[email.toLowerCase()])),
+        ...patch,
+      },
+    }))
+  }
+
+  async function handleClientProfileSave(email: string) {
+    const client = supabase
+    const summary = clientDirectory.find((item) => item.email.toLowerCase() === email.toLowerCase())
+    const draft = clientProfileDrafts[email] ?? createClientProfileDraft(summary?.profile ?? null)
+
+    if (!client || !isAdmin || !summary) {
+      return
+    }
+
+    if (!draft.fullName.trim() || !draft.phone.trim()) {
+      setClientActionStatus('Informe nome e WhatsApp para salvar a ficha.')
+      return
+    }
+
+    const profileBookings = bookings.filter((item) => item.client_email.toLowerCase() === email.toLowerCase())
+    setSavingClientEmail(email)
+    setClientActionStatus('')
+    const { error } = await client.from('clients').upsert(
+      {
+        user_id: summary.profile?.user_id ?? profileBookings[0]?.user_id ?? null,
+        full_name: draft.fullName.trim(),
+        email: email.toLowerCase(),
+        phone: draft.phone.trim(),
+        birth_date: draft.birthDate || null,
+        preferences: draft.preferences.trim() || null,
+        professional_notes: draft.professionalNotes.trim() || null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'email' },
+    )
+    setSavingClientEmail('')
+
+    if (error) {
+      setClientActionStatus(`Nao foi possivel salvar a ficha: ${error.message}`)
+      return
+    }
+
+    setClientActionStatus('Ficha da cliente salva.')
+    setOperationalRefreshKey((key) => key + 1)
+  }
+
+  async function handleCreateBusinessPayment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const client = supabase
+    const bookingItem = bookings.find((item) => item.id === newPayment.bookingId)
+    const totalAmountCents =
+      parsePriceDraft(newPayment.totalAmountCents) ??
+      (bookingItem ? services.find((service) => service.id === bookingItem.service_id)?.priceCents ?? null : null)
+    const paidAmountCents = parsePriceDraft(newPayment.paidAmountCents)
+
+    if (!client || !isAdmin || !session) {
+      return
+    }
+
+    if (!bookingItem) {
+      setFinanceActionStatus('Escolha um atendimento para registrar o pagamento.')
+      return
+    }
+
+    if (totalAmountCents === undefined || totalAmountCents === null || paidAmountCents === undefined) {
+      setFinanceActionStatus('Informe valores validos, como 30,00.')
+      return
+    }
+
+    const relatedClient = clientProfilesByEmail[bookingItem.client_email.toLowerCase()]
+    setSavingPayment(true)
+    setFinanceActionStatus('')
+    const { error } = await client.from('payments').insert({
+      booking_id: bookingItem.id,
+      client_id: relatedClient?.id ?? null,
+      service_id: bookingItem.service_id,
+      client_name: bookingItem.client_name,
+      service_name: bookingItem.service_name,
+      payment_method: newPayment.paymentMethod,
+      status: newPayment.status,
+      total_amount_cents: totalAmountCents,
+      paid_amount_cents: paidAmountCents ?? 0,
+      paid_at: newPayment.status === 'paid' || newPayment.status === 'partial' ? newPayment.paidAt || getTodayDate() : null,
+      notes: newPayment.notes.trim() || null,
+      created_by: session.user.id,
+    })
+    setSavingPayment(false)
+
+    if (error) {
+      setFinanceActionStatus(`Nao foi possivel registrar o pagamento: ${error.message}`)
+      return
+    }
+
+    setFinanceActionStatus('Pagamento registrado.')
+    setNewPayment(createEmptyPaymentDraft())
+    setOperationalRefreshKey((key) => key + 1)
+  }
+
+  async function handleDeleteBusinessPayment(paymentId: string) {
+    const client = supabase
+
+    if (!client || !isAdmin) {
+      return
+    }
+
+    setFinanceActionStatus('')
+    const { error } = await client.from('payments').delete().eq('id', paymentId)
+
+    if (error) {
+      setFinanceActionStatus(`Nao foi possivel remover o pagamento: ${error.message}`)
+      return
+    }
+
+    setFinanceActionStatus('Pagamento removido.')
+    setBusinessPayments((current) => current.filter((payment) => payment.id !== paymentId))
+    setOperationalRefreshKey((key) => key + 1)
+  }
+
+  function requestPaymentDelete(payment: BusinessPayment) {
+    setConfirmDialog({
+      title: 'Remover pagamento?',
+      message: `O registro de ${formatPrice(payment.paid_amount_cents)} para ${payment.client_name} sera removido do financeiro.`,
+      confirmLabel: 'Remover pagamento',
+      tone: 'danger',
+      onConfirm: () => void handleDeleteBusinessPayment(payment.id),
+    })
+  }
+
+  async function handleCreateProduct(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const client = supabase
+    const stockQuantity = parseDecimalDraft(newProduct.stockQuantity)
+    const minimumStock = parseDecimalDraft(newProduct.minimumStock)
+    const costCents = parsePriceDraft(newProduct.costCents)
+    const salePriceCents = parsePriceDraft(newProduct.salePriceCents)
+
+    if (!client || !isAdmin || !session) {
+      return
+    }
+
+    if (!newProduct.name.trim() || !newProduct.category.trim()) {
+      setProductActionStatus('Informe nome e categoria do produto.')
+      return
+    }
+
+    if (
+      stockQuantity === undefined ||
+      minimumStock === undefined ||
+      costCents === undefined ||
+      salePriceCents === undefined
+    ) {
+      setProductActionStatus('Revise estoque, minimo e valores em reais.')
+      return
+    }
+
+    setSavingProduct(true)
+    setProductActionStatus('')
+    const { error } = await client.from('products').insert({
+      name: newProduct.name.trim(),
+      category: newProduct.category.trim(),
+      stock_quantity: stockQuantity ?? 0,
+      unit: newProduct.unit.trim() || 'un',
+      cost_cents: costCents,
+      sale_price_cents: salePriceCents,
+      minimum_stock: minimumStock ?? 0,
+      notes: newProduct.notes.trim() || null,
+      created_by: session.user.id,
+    })
+    setSavingProduct(false)
+
+    if (error) {
+      setProductActionStatus(`Nao foi possivel cadastrar o produto: ${error.message}`)
+      return
+    }
+
+    setProductActionStatus('Produto cadastrado.')
+    setNewProduct(createEmptyProductDraft())
+    setOperationalRefreshKey((key) => key + 1)
+  }
+
+  async function handleCreateStockMovement(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const client = supabase
+    const product = products.find((item) => item.id === newStockMovement.productId)
+    const quantityDelta = parseDecimalDraft(newStockMovement.quantityDelta)
+    const unitCostCents = parsePriceDraft(newStockMovement.unitCostCents)
+    const salePriceCents = parsePriceDraft(newStockMovement.salePriceCents)
+    const relatedBooking = bookings.find((item) => item.id === newStockMovement.bookingId)
+    const relatedClient = relatedBooking ? clientProfilesByEmail[relatedBooking.client_email.toLowerCase()] : null
+
+    if (!client || !isAdmin || !session) {
+      return
+    }
+
+    if (!product || quantityDelta === undefined || quantityDelta === null || quantityDelta === 0) {
+      setProductActionStatus('Escolha produto e quantidade para movimentar o estoque.')
+      return
+    }
+
+    if (unitCostCents === undefined || salePriceCents === undefined) {
+      setProductActionStatus('Revise os valores em reais ou deixe em branco.')
+      return
+    }
+
+    setSavingStockMovement(true)
+    setProductActionStatus('')
+    const { error } = await client.from('stock_movements').insert({
+      product_id: product.id,
+      movement_type: newStockMovement.movementType,
+      quantity_delta: quantityDelta,
+      unit_cost_cents: unitCostCents,
+      sale_price_cents: salePriceCents,
+      booking_id: relatedBooking?.id ?? null,
+      client_id: relatedClient?.id ?? null,
+      notes: newStockMovement.notes.trim() || null,
+      created_by: session.user.id,
+    })
+    setSavingStockMovement(false)
+
+    if (error) {
+      setProductActionStatus(`Nao foi possivel movimentar o estoque: ${error.message}`)
+      return
+    }
+
+    setProductActionStatus('Movimentacao registrada.')
+    setNewStockMovement(createEmptyStockMovementDraft(product.id))
+    setOperationalRefreshKey((key) => key + 1)
+  }
+
+  async function handleDeleteProduct(productId: string) {
+    const client = supabase
+
+    if (!client || !isAdmin) {
+      return
+    }
+
+    setProductActionStatus('')
+    const { error } = await client.from('products').delete().eq('id', productId)
+
+    if (error) {
+      setProductActionStatus(`Nao foi possivel excluir o produto: ${error.message}`)
+      return
+    }
+
+    setProductActionStatus('Produto removido.')
+    setProducts((current) => current.filter((product) => product.id !== productId))
+    setOperationalRefreshKey((key) => key + 1)
+  }
+
+  function requestProductDelete(product: ProductRecord) {
+    setConfirmDialog({
+      title: 'Excluir produto do estoque?',
+      message: `${product.name} sera removido da lista. Use apenas para cadastro feito por engano.`,
+      confirmLabel: 'Excluir produto',
+      tone: 'danger',
+      onConfirm: () => void handleDeleteProduct(product.id),
+    })
+  }
+
   async function handleInternalNoteCreate(event: FormEvent<HTMLFormElement>, bookingId: string) {
     event.preventDefault()
     const client = supabase
@@ -2528,7 +3373,7 @@ function App() {
       event,
       adminPanelTabs,
       adminPanelTab,
-      setAdminPanelTab,
+      goToAdminTab,
       (tab) => `admin-tab-${tab}`,
     )
   }
@@ -2541,8 +3386,11 @@ function App() {
           <strong>Hellen Martins Brows</strong>
         </button>
         <div className="nav-links">
-          <button type="button" onClick={() => goHome('servicos')}>
+          <button type="button" onClick={() => goToPath('/servicos')}>
             Servicos
+          </button>
+          <button type="button" onClick={() => (session ? goToPath('/agendamento') : goToAuth('sign-in', 'cliente'))}>
+            Agendamento
           </button>
           {session ? (
             <button type="button" onClick={() => goToPath(isAdmin ? '/admin' : '/cliente')}>
@@ -2550,7 +3398,7 @@ function App() {
             </button>
           ) : null}
           <a href={instagramUrl} target="_blank" rel="noreferrer">
-            Instagram
+            {instagramHandle}
           </a>
         </div>
         <div className="header-auth" aria-label="Acesso da cliente">
@@ -2590,7 +3438,7 @@ function App() {
           </p>
           <div className="contact-stack">
             <span>
-              <Camera size={17} aria-hidden="true" /> @h.ellenmartins
+              <Camera size={17} aria-hidden="true" /> {instagramHandle}
             </span>
             <span>
               <MapPin size={17} aria-hidden="true" /> Atendimento de segunda a sexta
@@ -3111,12 +3959,9 @@ function App() {
         <div className="admin-panel" aria-live="polite">
           <div className="admin-heading">
             <div>
-              <p className="eyebrow">Painel admin</p>
-              <h2>Agenda completa com filtros e status.</h2>
-              <p>
-                Visualize todos os pedidos com acesso restrito, confirme horarios, finalize
-                atendimentos e pause servicos sem processos manuais.
-              </p>
+              <p className="eyebrow">{adminRouteTitles[adminPanelTab].eyebrow}</p>
+              <h2>{adminRouteTitles[adminPanelTab].title}</h2>
+              <p>{adminRouteTitles[adminPanelTab].description}</p>
             </div>
             <span className="admin-badge">
               <UserCheck size={16} aria-hidden="true" /> Admin ativo
@@ -3131,90 +3976,37 @@ function App() {
               aria-orientation="vertical"
             >
               <span role="presentation">Funcionalidades</span>
-              <button
-                type="button"
-                id="admin-tab-overview"
-                role="tab"
-                className={adminPanelTab === 'overview' ? 'active' : ''}
-                aria-controls="admin-workspace-panel"
-                aria-selected={adminPanelTab === 'overview'}
-                onKeyDown={handleAdminTabKeyDown}
-                onClick={() => setAdminPanelTab('overview')}
-              >
-                Resumo
-              </button>
-              <button
-                type="button"
-                id="admin-tab-agenda"
-                role="tab"
-                className={adminPanelTab === 'agenda' ? 'active' : ''}
-                aria-controls="admin-workspace-panel"
-                aria-selected={adminPanelTab === 'agenda'}
-                onKeyDown={handleAdminTabKeyDown}
-                onClick={() => setAdminPanelTab('agenda')}
-              >
-                Agenda
-              </button>
-              <button
-                type="button"
-                id="admin-tab-bookings"
-                role="tab"
-                className={adminPanelTab === 'bookings' ? 'active' : ''}
-                aria-controls="admin-workspace-panel"
-                aria-selected={adminPanelTab === 'bookings'}
-                onKeyDown={handleAdminTabKeyDown}
-                onClick={() => setAdminPanelTab('bookings')}
-              >
-                Agendamentos
-              </button>
-              <button
-                type="button"
-                id="admin-tab-clients"
-                role="tab"
-                className={adminPanelTab === 'clients' ? 'active' : ''}
-                aria-controls="admin-workspace-panel"
-                aria-selected={adminPanelTab === 'clients'}
-                onKeyDown={handleAdminTabKeyDown}
-                onClick={() => setAdminPanelTab('clients')}
-              >
-                Clientes
-              </button>
-              <button
-                type="button"
-                id="admin-tab-whatsapp"
-                role="tab"
-                className={adminPanelTab === 'whatsapp' ? 'active' : ''}
-                aria-controls="admin-workspace-panel"
-                aria-selected={adminPanelTab === 'whatsapp'}
-                onKeyDown={handleAdminTabKeyDown}
-                onClick={() => setAdminPanelTab('whatsapp')}
-              >
-                WhatsApp
-              </button>
-              <button
-                type="button"
-                id="admin-tab-services"
-                role="tab"
-                className={adminPanelTab === 'services' ? 'active' : ''}
-                aria-controls="admin-workspace-panel"
-                aria-selected={adminPanelTab === 'services'}
-                onKeyDown={handleAdminTabKeyDown}
-                onClick={() => setAdminPanelTab('services')}
-              >
-                Servicos
-              </button>
-              <button
-                type="button"
-                id="admin-tab-policy"
-                role="tab"
-                className={adminPanelTab === 'policy' ? 'active' : ''}
-                aria-controls="admin-workspace-panel"
-                aria-selected={adminPanelTab === 'policy'}
-                onKeyDown={handleAdminTabKeyDown}
-                onClick={() => setAdminPanelTab('policy')}
-              >
-                Politica e sinal
-              </button>
+              {adminPanelTabs.map((tab) => {
+                const Icon = {
+                  overview: LayoutDashboard,
+                  agenda: CalendarDays,
+                  bookings: CalendarCheck,
+                  clients: Users,
+                  whatsapp: MessageCircle,
+                  services: Sparkles,
+                  payments: Wallet,
+                  products: Boxes,
+                  reports: BarChart3,
+                  settings: Settings,
+                }[tab]
+
+                return (
+                  <button
+                    type="button"
+                    id={`admin-tab-${tab}`}
+                    role="tab"
+                    key={tab}
+                    className={adminPanelTab === tab ? 'active' : ''}
+                    aria-controls="admin-workspace-panel"
+                    aria-selected={adminPanelTab === tab}
+                    onKeyDown={handleAdminTabKeyDown}
+                    onClick={() => goToAdminTab(tab)}
+                  >
+                    <Icon size={16} aria-hidden="true" />
+                    {adminRouteTitles[tab].eyebrow}
+                  </button>
+                )
+              })}
             </aside>
             <div
               className="workspace-content"
@@ -3237,20 +4029,36 @@ function App() {
 
           <div className="admin-reports" aria-label="Relatorios simples">
             <article>
-              <span>Agendamentos ativos</span>
-              <strong>{activeBookingCount}</strong>
+              <span>Agendamentos hoje</span>
+              <strong>{todayActiveBookings.length}</strong>
+            </article>
+            <article>
+              <span>Clientes cadastradas</span>
+              <strong>{clientDirectory.length}</strong>
+            </article>
+            <article>
+              <span>Faturamento do dia</span>
+              <strong>{formatPrice(todayRevenueCents)}</strong>
+            </article>
+            <article>
+              <span>Faturamento da semana</span>
+              <strong>{formatPrice(weekRevenueCents)}</strong>
+            </article>
+            <article>
+              <span>Faturamento do mes</span>
+              <strong>{formatPrice(monthRevenueCents || estimatedRevenueCents)}</strong>
+            </article>
+            <article>
+              <span>Pagamentos pendentes</span>
+              <strong>{pendingBusinessPaymentCount}</strong>
+            </article>
+            <article>
+              <span>Estoque baixo</span>
+              <strong>{lowStockProducts.length}</strong>
             </article>
             <article>
               <span>Confirmados futuros</span>
               <strong>{upcomingConfirmedCount}</strong>
-            </article>
-            <article>
-              <span>Fila WhatsApp pendente</span>
-              <strong>{pendingNotificationCount}</strong>
-            </article>
-            <article>
-              <span>Receita concluida</span>
-              <strong>{formatPrice(completedRevenueCents)}</strong>
             </article>
           </div>
 
@@ -3263,7 +4071,7 @@ function App() {
                 type="button"
                 onClick={() => {
                   setAdminSelectedDate(currentBusinessDateTime.date)
-                  setAdminPanelTab('agenda')
+                  goToAdminTab('agenda')
                 }}
               >
                 Ver agenda de hoje
@@ -3277,7 +4085,7 @@ function App() {
                 type="button"
                 onClick={() => {
                   setAdminStatusFilter('pending')
-                  setAdminPanelTab('bookings')
+                  goToAdminTab('bookings')
                 }}
               >
                 Filtrar pendentes
@@ -3287,15 +4095,31 @@ function App() {
               <span>WhatsApp manual</span>
               <strong>{pendingNotificationCount}</strong>
               <small>mensagem(ns) na fila</small>
-              <button type="button" onClick={() => setAdminPanelTab('whatsapp')}>
+              <button type="button" onClick={() => goToAdminTab('whatsapp')}>
                 Abrir fila
+              </button>
+            </article>
+            <article>
+              <span>Financeiro</span>
+              <strong>{formatPrice(estimatedRevenueCents)}</strong>
+              <small>receita registrada</small>
+              <button type="button" onClick={() => goToAdminTab('payments')}>
+                Registrar pagamento
+              </button>
+            </article>
+            <article>
+              <span>Produtos</span>
+              <strong>{lowStockProducts.length}</strong>
+              <small>item(ns) com estoque baixo</small>
+              <button type="button" onClick={() => goToAdminTab('products')}>
+                Ver estoque
               </button>
             </article>
           </div>
             </>
           ) : null}
 
-          {adminPanelTab === 'policy' ? (
+          {adminPanelTab === 'settings' ? (
           <section className="policy-manager" id="admin-politica" aria-label="Politica de agendamento">
             <div className="admin-heading compact">
               <div>
@@ -3605,26 +4429,161 @@ function App() {
             <div className="admin-heading compact">
               <div>
                 <p className="eyebrow">Clientes</p>
-                <h2>Informacoes e historico rapido.</h2>
+                <h2>{selectedClient ? 'Ficha completa da cliente.' : 'Informacoes, historico e preferencias.'}</h2>
               </div>
             </div>
-            <div className="client-directory-grid">
-              {clientSummaries.length ? (
-                clientSummaries.map((client) => (
-                  <article key={client.email}>
-                    <strong>{client.name}</strong>
-                    <span>{client.email}</span>
-                    <span>{client.phone}</span>
-                    <small>
-                      {client.total} atendimento(s) - ultimo: {formatFullDate(client.lastDate)} - {client.lastService}
-                    </small>
-                    <small className={getStatusTone(client.lastStatus)}>{statusLabels[client.lastStatus]}</small>
-                  </article>
-                ))
-              ) : (
-                <p className="empty-state">Clientes aparecem aqui apos o primeiro agendamento.</p>
-              )}
-            </div>
+            {selectedClient ? (
+              <div className="client-detail-grid">
+                <article className="client-profile-card">
+                  <button type="button" className="text-button" onClick={() => goToAdminTab('clients')}>
+                    Voltar para clientes
+                  </button>
+                  <strong>{selectedClient.name}</strong>
+                  <span>{selectedClient.email}</span>
+                  <span>{selectedClient.phone}</span>
+                  <small>
+                    {selectedClient.total} atendimento(s) - ultimo: {formatFullDate(selectedClient.lastDate)}
+                  </small>
+                </article>
+
+                <form
+                  className="client-profile-form"
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    void handleClientProfileSave(selectedClient.email)
+                  }}
+                >
+                  {(() => {
+                    const draft =
+                      clientProfileDrafts[selectedClient.email] ??
+                      createClientProfileDraft(selectedClient.profile ?? null)
+
+                    return (
+                      <>
+                        <label>
+                          Nome completo
+                          <input
+                            value={draft.fullName || selectedClient.name}
+                            onChange={(event) =>
+                              updateClientProfileDraft(selectedClient.email, { fullName: event.target.value })
+                            }
+                          />
+                        </label>
+                        <label>
+                          WhatsApp
+                          <input
+                            inputMode="tel"
+                            value={draft.phone || selectedClient.phone}
+                            onChange={(event) =>
+                              updateClientProfileDraft(selectedClient.email, { phone: event.target.value })
+                            }
+                          />
+                        </label>
+                        <label>
+                          Nascimento (opcional)
+                          <input
+                            type="date"
+                            value={draft.birthDate}
+                            onChange={(event) =>
+                              updateClientProfileDraft(selectedClient.email, { birthDate: event.target.value })
+                            }
+                          />
+                        </label>
+                        <label>
+                          Preferencias da cliente
+                          <textarea
+                            rows={3}
+                            value={draft.preferences}
+                            onChange={(event) =>
+                              updateClientProfileDraft(selectedClient.email, { preferences: event.target.value })
+                            }
+                            placeholder="Formato preferido, cor, frequencia, estilo de acabamento"
+                          />
+                        </label>
+                        <label>
+                          Anotacoes profissionais
+                          <textarea
+                            rows={4}
+                            value={draft.professionalNotes}
+                            onChange={(event) =>
+                              updateClientProfileDraft(selectedClient.email, { professionalNotes: event.target.value })
+                            }
+                            placeholder="Sensibilidade, alergias relatadas, henna preferida ou cuidados"
+                          />
+                        </label>
+                        <button type="submit" disabled={savingClientEmail === selectedClient.email}>
+                          <Save size={16} aria-hidden="true" /> Salvar ficha
+                        </button>
+                      </>
+                    )
+                  })()}
+                </form>
+
+                <div className="client-history-panel">
+                  <h3>Historico de atendimentos</h3>
+                  {selectedClientBookings.length ? (
+                    selectedClientBookings.map((item) => (
+                      <article key={item.id}>
+                        <strong>{item.service_name}</strong>
+                        <span>{formatFullDate(item.preferred_date)} - {formatTimeRange(item.preferred_time, item.preferred_end_time)}</span>
+                        <small className={getStatusTone(item.status)}>{statusLabels[item.status]}</small>
+                      </article>
+                    ))
+                  ) : (
+                    <p className="empty-state">Nenhum atendimento registrado para esta cliente.</p>
+                  )}
+                </div>
+
+                <div className="client-history-panel">
+                  <h3>Historico de pagamentos</h3>
+                  {selectedClientPayments.length ? (
+                    selectedClientPayments.map((payment) => (
+                      <article key={payment.id}>
+                        <strong>{formatPrice(payment.paid_amount_cents)}</strong>
+                        <span>{payment.service_name} - {businessPaymentMethodLabels[payment.payment_method]}</span>
+                        <small>{businessPaymentStatusLabels[payment.status]}</small>
+                      </article>
+                    ))
+                  ) : (
+                    <p className="empty-state">Pagamentos aparecem aqui apos o primeiro registro financeiro.</p>
+                  )}
+                </div>
+                <p className="form-status" role="status">{clientActionStatus}</p>
+              </div>
+            ) : (
+              <>
+                <div className="admin-controls single-control">
+                  <label>
+                    Busca
+                    <input
+                      value={clientSearch}
+                      onChange={(event) => setClientSearch(event.target.value)}
+                      placeholder="Nome, WhatsApp, email ou servico"
+                    />
+                  </label>
+                </div>
+                <div className="client-directory-grid">
+                  {filteredClientDirectory.length ? (
+                    filteredClientDirectory.map((client) => (
+                      <article key={client.email}>
+                        <strong>{client.name}</strong>
+                        <span>{client.email}</span>
+                        <span>{client.phone}</span>
+                        <small>
+                          {client.total} atendimento(s) - ultimo: {formatFullDate(client.lastDate)} - {client.lastService}
+                        </small>
+                        <small className={getStatusTone(client.lastStatus)}>{statusLabels[client.lastStatus]}</small>
+                        <button type="button" onClick={() => goToPath(`/admin/clientes/${encodeURIComponent(client.email)}`)}>
+                          Ver ficha
+                        </button>
+                      </article>
+                    ))
+                  ) : (
+                    <p className="empty-state">Clientes aparecem aqui apos o primeiro agendamento.</p>
+                  )}
+                </div>
+              </>
+            )}
           </section>
           ) : null}
 
@@ -3910,6 +4869,454 @@ function App() {
           </section>
           ) : null}
 
+          {adminPanelTab === 'payments' ? (
+          <section className="finance-manager" id="admin-pagamentos" aria-label="Gestao financeira">
+            <div className="admin-heading compact">
+              <div>
+                <p className="eyebrow">Financeiro</p>
+                <h2>Pagamentos por atendimento.</h2>
+              </div>
+            </div>
+
+            <div className="admin-reports" aria-label="Resumo financeiro por periodo">
+              <article>
+                <span>Hoje</span>
+                <strong>{formatPrice(todayRevenueCents)}</strong>
+              </article>
+              <article>
+                <span>Semana</span>
+                <strong>{formatPrice(weekRevenueCents)}</strong>
+              </article>
+              <article>
+                <span>Mes</span>
+                <strong>{formatPrice(monthRevenueCents || estimatedRevenueCents)}</strong>
+              </article>
+              <article>
+                <span>Pendentes</span>
+                <strong>{pendingBusinessPaymentCount}</strong>
+              </article>
+            </div>
+
+            <form className="payment-form" onSubmit={handleCreateBusinessPayment}>
+              <label>
+                Atendimento
+                <select
+                  value={newPayment.bookingId}
+                  onChange={(event) => {
+                    const bookingItem = bookings.find((item) => item.id === event.target.value)
+                    const servicePrice = bookingItem
+                      ? services.find((service) => service.id === bookingItem.service_id)?.priceCents
+                      : undefined
+
+                    setNewPayment({
+                      ...newPayment,
+                      bookingId: event.target.value,
+                      totalAmountCents: formatPriceDraft(servicePrice),
+                      paidAmountCents: formatPriceDraft(servicePrice),
+                    })
+                  }}
+                >
+                  <option value="">Selecione</option>
+                  {bookings.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {formatFullDate(item.preferred_date)} - {item.client_name} - {item.service_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Forma
+                <select
+                  value={newPayment.paymentMethod}
+                  onChange={(event) =>
+                    setNewPayment({ ...newPayment, paymentMethod: event.target.value as BusinessPaymentMethod })
+                  }
+                >
+                  {Object.entries(businessPaymentMethodLabels).map(([method, label]) => (
+                    <option key={method} value={method}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Status
+                <select
+                  value={newPayment.status}
+                  onChange={(event) =>
+                    setNewPayment({ ...newPayment, status: event.target.value as BusinessPaymentStatus })
+                  }
+                >
+                  {Object.entries(businessPaymentStatusLabels).map(([status, label]) => (
+                    <option key={status} value={status}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Valor total
+                <input
+                  inputMode="decimal"
+                  value={newPayment.totalAmountCents}
+                  onChange={(event) => setNewPayment({ ...newPayment, totalAmountCents: event.target.value })}
+                  placeholder="30,00"
+                />
+              </label>
+              <label>
+                Valor pago
+                <input
+                  inputMode="decimal"
+                  value={newPayment.paidAmountCents}
+                  onChange={(event) => setNewPayment({ ...newPayment, paidAmountCents: event.target.value })}
+                  placeholder="30,00"
+                />
+              </label>
+              <label>
+                Data
+                <input
+                  type="date"
+                  value={newPayment.paidAt}
+                  onChange={(event) => setNewPayment({ ...newPayment, paidAt: event.target.value })}
+                />
+              </label>
+              <label className="wide-field">
+                Observacoes
+                <input
+                  value={newPayment.notes}
+                  onChange={(event) => setNewPayment({ ...newPayment, notes: event.target.value })}
+                  placeholder="Ex: restante pago em Pix"
+                />
+              </label>
+              <button type="submit" disabled={savingPayment}>
+                <CreditCard size={16} aria-hidden="true" /> Registrar pagamento
+              </button>
+            </form>
+            <p className="form-status" role="status">{financeActionStatus}</p>
+
+            <div className="admin-controls single-control">
+              <label>
+                Busca
+                <input
+                  value={paymentSearch}
+                  onChange={(event) => setPaymentSearch(event.target.value)}
+                  placeholder="Cliente, servico, forma ou status"
+                />
+              </label>
+            </div>
+            <div className="payment-list">
+              {filteredBusinessPayments.length ? (
+                filteredBusinessPayments.map((payment) => (
+                  <article key={payment.id} className="payment-card">
+                    <div>
+                      <strong>{payment.client_name}</strong>
+                      <span>{payment.service_name}</span>
+                      <small>
+                        {businessPaymentMethodLabels[payment.payment_method]} - {payment.paid_at ? formatFullDate(payment.paid_at) : 'Sem data'}
+                      </small>
+                    </div>
+                    <div>
+                      <span className={`payment-pill payment-${payment.status}`}>
+                        {businessPaymentStatusLabels[payment.status]}
+                      </span>
+                      <strong>{formatPrice(payment.paid_amount_cents)} / {formatPrice(payment.total_amount_cents)}</strong>
+                    </div>
+                    <button
+                      type="button"
+                      className="icon-button danger"
+                      aria-label={`Remover pagamento de ${payment.client_name}`}
+                      onClick={() => requestPaymentDelete(payment)}
+                    >
+                      <Trash2 size={16} aria-hidden="true" />
+                    </button>
+                  </article>
+                ))
+              ) : (
+                <p className="empty-state">Nenhum pagamento registrado ainda.</p>
+              )}
+            </div>
+          </section>
+          ) : null}
+
+          {adminPanelTab === 'products' ? (
+          <section className="product-manager" id="admin-produtos" aria-label="Produtos e estoque">
+            <div className="admin-heading compact">
+              <div>
+                <p className="eyebrow">Produtos</p>
+                <h2>Estoque e movimentacoes.</h2>
+              </div>
+            </div>
+
+            <div className="admin-reports" aria-label="Resumo de estoque">
+              <article>
+                <span>Produtos cadastrados</span>
+                <strong>{products.length}</strong>
+              </article>
+              <article>
+                <span>Estoque baixo</span>
+                <strong>{lowStockProducts.length}</strong>
+              </article>
+              <article>
+                <span>Movimentacoes</span>
+                <strong>{stockMovements.length}</strong>
+              </article>
+            </div>
+
+            <form className="product-form" onSubmit={handleCreateProduct}>
+              <label>
+                Produto
+                <input
+                  value={newProduct.name}
+                  onChange={(event) => setNewProduct({ ...newProduct, name: event.target.value })}
+                  placeholder="Henna castanho medio"
+                />
+              </label>
+              <label>
+                Categoria
+                <input
+                  value={newProduct.category}
+                  onChange={(event) => setNewProduct({ ...newProduct, category: event.target.value })}
+                  placeholder="Henna, coloracao, limpeza"
+                />
+              </label>
+              <label>
+                Estoque
+                <input
+                  inputMode="decimal"
+                  value={newProduct.stockQuantity}
+                  onChange={(event) => setNewProduct({ ...newProduct, stockQuantity: event.target.value })}
+                />
+              </label>
+              <label>
+                Unidade
+                <input
+                  value={newProduct.unit}
+                  onChange={(event) => setNewProduct({ ...newProduct, unit: event.target.value })}
+                  placeholder="un, g, ml"
+                />
+              </label>
+              <label>
+                Custo
+                <input
+                  inputMode="decimal"
+                  value={newProduct.costCents}
+                  onChange={(event) => setNewProduct({ ...newProduct, costCents: event.target.value })}
+                  placeholder="20,00"
+                />
+              </label>
+              <label>
+                Venda
+                <input
+                  inputMode="decimal"
+                  value={newProduct.salePriceCents}
+                  onChange={(event) => setNewProduct({ ...newProduct, salePriceCents: event.target.value })}
+                  placeholder="35,00"
+                />
+              </label>
+              <label>
+                Estoque minimo
+                <input
+                  inputMode="decimal"
+                  value={newProduct.minimumStock}
+                  onChange={(event) => setNewProduct({ ...newProduct, minimumStock: event.target.value })}
+                />
+              </label>
+              <label className="wide-field">
+                Observacoes
+                <input
+                  value={newProduct.notes}
+                  onChange={(event) => setNewProduct({ ...newProduct, notes: event.target.value })}
+                  placeholder="Marca, validade ou fornecedor"
+                />
+              </label>
+              <button type="submit" disabled={savingProduct}>
+                <Package size={16} aria-hidden="true" /> Cadastrar produto
+              </button>
+            </form>
+
+            <form className="stock-form" onSubmit={handleCreateStockMovement}>
+              <label>
+                Produto
+                <select
+                  value={newStockMovement.productId}
+                  onChange={(event) => setNewStockMovement({ ...newStockMovement, productId: event.target.value })}
+                >
+                  <option value="">Selecione</option>
+                  {products.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Tipo
+                <select
+                  value={newStockMovement.movementType}
+                  onChange={(event) =>
+                    setNewStockMovement({ ...newStockMovement, movementType: event.target.value as StockMovementType })
+                  }
+                >
+                  {Object.entries(stockMovementLabels).map(([type, label]) => (
+                    <option key={type} value={type}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Quantidade
+                <input
+                  inputMode="decimal"
+                  value={newStockMovement.quantityDelta}
+                  onChange={(event) => setNewStockMovement({ ...newStockMovement, quantityDelta: event.target.value })}
+                  placeholder="1"
+                />
+              </label>
+              <label>
+                Atendimento
+                <select
+                  value={newStockMovement.bookingId}
+                  onChange={(event) => setNewStockMovement({ ...newStockMovement, bookingId: event.target.value })}
+                >
+                  <option value="">Sem vinculo</option>
+                  {bookings.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {formatFullDate(item.preferred_date)} - {item.client_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="wide-field">
+                Observacoes
+                <input
+                  value={newStockMovement.notes}
+                  onChange={(event) => setNewStockMovement({ ...newStockMovement, notes: event.target.value })}
+                  placeholder="Ex: uso no atendimento ou reposicao"
+                />
+              </label>
+              <button type="submit" disabled={savingStockMovement || !products.length}>
+                Registrar movimentacao
+              </button>
+            </form>
+            <p className="form-status" role="status">{productActionStatus}</p>
+
+            <div className="admin-controls single-control">
+              <label>
+                Busca
+                <input
+                  value={productSearch}
+                  onChange={(event) => setProductSearch(event.target.value)}
+                  placeholder="Produto, categoria ou observacao"
+                />
+              </label>
+            </div>
+            <div className="product-grid">
+              {filteredProducts.length ? (
+                filteredProducts.map((product) => (
+                  <article key={product.id} className={product.stock_quantity <= product.minimum_stock ? 'product-card is-low' : 'product-card'}>
+                    <div>
+                      <strong>{product.name}</strong>
+                      <span>{product.category}</span>
+                      <small>
+                        Estoque: {formatDecimal(product.stock_quantity)} {product.unit} - minimo {formatDecimal(product.minimum_stock)}
+                      </small>
+                    </div>
+                    <div>
+                      <span>{formatPrice(product.cost_cents ?? 0)} custo</span>
+                      <span>{product.sale_price_cents ? `${formatPrice(product.sale_price_cents)} venda` : 'Sem venda'}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="icon-button danger"
+                      aria-label={`Excluir ${product.name}`}
+                      onClick={() => requestProductDelete(product)}
+                    >
+                      <Trash2 size={16} aria-hidden="true" />
+                    </button>
+                  </article>
+                ))
+              ) : (
+                <p className="empty-state">Nenhum produto cadastrado ainda.</p>
+              )}
+            </div>
+
+            <div className="stock-movement-list">
+              <h3>Ultimas movimentacoes</h3>
+              {stockMovements.slice(0, 8).map((movement) => {
+                const product = products.find((item) => item.id === movement.product_id)
+
+                return (
+                  <article key={movement.id}>
+                    <strong>{product?.name ?? 'Produto'}</strong>
+                    <span>
+                      {stockMovementToneLabels[movement.movement_type]} - {formatDecimal(movement.quantity_delta)}
+                    </span>
+                    <small>{formatDateTime(movement.created_at)}</small>
+                  </article>
+                )
+              })}
+            </div>
+          </section>
+          ) : null}
+
+          {adminPanelTab === 'reports' ? (
+          <section className="report-manager" id="admin-relatorios" aria-label="Relatorios">
+            <div className="admin-heading compact">
+              <div>
+                <p className="eyebrow">Relatorios</p>
+                <h2>Visao simples do estudio.</h2>
+              </div>
+            </div>
+            <div className="admin-reports">
+              <article>
+                <span>Receita registrada</span>
+                <strong>{formatPrice(estimatedRevenueCents)}</strong>
+              </article>
+              <article>
+                <span>Atendimentos ativos</span>
+                <strong>{activeBookingCount}</strong>
+              </article>
+              <article>
+                <span>Clientes</span>
+                <strong>{clientDirectory.length}</strong>
+              </article>
+              <article>
+                <span>Produtos em estoque baixo</span>
+                <strong>{lowStockProducts.length}</strong>
+              </article>
+            </div>
+            <div className="report-grid">
+              <section>
+                <h3>Servicos mais realizados</h3>
+                {servicePerformance.length ? (
+                  servicePerformance.slice(0, 6).map((item) => (
+                    <article key={item.serviceName}>
+                      <strong>{item.serviceName}</strong>
+                      <span>{item.count} atendimento(s)</span>
+                    </article>
+                  ))
+                ) : (
+                  <p className="empty-state">Os servicos aparecem aqui apos confirmacoes ou conclusoes.</p>
+                )}
+              </section>
+              <section>
+                <h3>Produtos com estoque baixo</h3>
+                {lowStockProducts.length ? (
+                  lowStockProducts.map((product) => (
+                    <article key={product.id}>
+                      <strong>{product.name}</strong>
+                      <span>{formatDecimal(product.stock_quantity)} {product.unit} em estoque</span>
+                    </article>
+                  ))
+                ) : (
+                  <p className="empty-state">Nenhum produto abaixo do estoque minimo.</p>
+                )}
+              </section>
+            </div>
+          </section>
+          ) : null}
+
           {adminPanelTab === 'services' ? (
           <div className="service-manager" id="admin-servicos">
             <div className="admin-heading compact">
@@ -4100,6 +5507,112 @@ function App() {
           </div>
         </div>
       </section>
+    )
+  }
+
+  function renderPublicPageHeader(eyebrow: string, title: string, description: string) {
+    return (
+      <section className="page-header-section public-header-section">
+        <div className="hero-noise" aria-hidden="true" />
+        {renderTopbar()}
+        <div className="page-heading">
+          <p className="eyebrow">{eyebrow}</p>
+          <h1>{title}</h1>
+          <p>{description}</p>
+        </div>
+      </section>
+    )
+  }
+
+  function renderServicesPage() {
+    return (
+      <main>
+        {renderPublicPageHeader(
+          'Servicos',
+          'Procedimentos para realcar sua beleza com naturalidade.',
+          'Escolha entre design reconstrutivo, henna e coloracao com preco, duracao e descricao clara.',
+        )}
+        <section className="services-section" id="servicos">
+          <div className="section-heading">
+            <p className="eyebrow">Menu de atendimento</p>
+            <h2>Cada detalhe foi pensado com carinho.</h2>
+          </div>
+          <div className="service-grid">
+            {bookableServices.map((service) => (
+              <article className="service-card" key={service.id}>
+                <span className="service-card-media">
+                  <span className="service-card-fallback" aria-hidden="true">HB</span>
+                  <img
+                    src={getServiceCoverUrl(service)}
+                    alt={`Exemplo visual de ${service.name}`}
+                    loading="lazy"
+                    onError={(event) => {
+                      event.currentTarget.hidden = true
+                    }}
+                  />
+                </span>
+                <span>{service.eyebrow}</span>
+                <h3>{service.name}</h3>
+                <p>{service.description}</p>
+                <div>
+                  <small>
+                    <Clock3 size={15} aria-hidden="true" /> {service.durationMinutes} min
+                  </small>
+                  <strong>{formatPrice(service.priceCents)}</strong>
+                </div>
+              </article>
+            ))}
+          </div>
+          <div className="section-cta">
+            <button type="button" className="primary-action" onClick={() => (session ? goToPath('/agendamento') : goToAuth('sign-in', 'cliente'))}>
+              Agendar horario
+              <ArrowRight size={18} aria-hidden="true" />
+            </button>
+            <a href={instagramUrl} target="_blank" rel="noreferrer" className="secondary-link">
+              Ver Instagram
+            </a>
+          </div>
+        </section>
+      </main>
+    )
+  }
+
+  function renderConfirmationPage() {
+    const whatsappMessage = latestConfirmation
+      ? `Ola Hellen, acabei de solicitar ${latestConfirmation.serviceName} para ${formatFullDate(latestConfirmation.date)} das ${formatTimeRange(latestConfirmation.startTime, latestConfirmation.endTime)}.`
+      : 'Ola Hellen, quero confirmar meu horario.'
+
+    return (
+      <main>
+        {renderPublicPageHeader(
+          'Confirmacao',
+          'Seu pedido de horario foi registrado.',
+          'Acompanhe sua agenda e fale com a Hellen pelo WhatsApp se precisar ajustar algum detalhe.',
+        )}
+        <section className="confirmation-section">
+          <article className="confirmation-card">
+            <CheckCircle2 size={34} aria-hidden="true" />
+            <p className="eyebrow">Agendamento</p>
+            <h2>{latestConfirmation ? statusLabels[latestConfirmation.status] : 'Pedido recebido'}</h2>
+            {latestConfirmation ? (
+              <p>
+                {latestConfirmation.serviceName} em {formatFullDate(latestConfirmation.date)}, das{' '}
+                {formatTimeRange(latestConfirmation.startTime, latestConfirmation.endTime)}.
+              </p>
+            ) : (
+              <p>Confira sua area da cliente para ver os horarios e status mais recentes.</p>
+            )}
+            <div className="form-actions">
+              <button type="button" onClick={() => goToPath('/cliente')}>
+                Ver minha agenda
+              </button>
+              <a href={getWhatsAppUrl(bookingWhatsAppNumber, whatsappMessage)} target="_blank" rel="noreferrer">
+                <MessageCircle size={16} aria-hidden="true" /> Falar no WhatsApp
+              </a>
+            </div>
+          </article>
+        </section>
+      </main>
     )
   }
 
@@ -4332,16 +5845,45 @@ function App() {
     )
   }
 
+  if (isServicesRoute) {
+    return renderServicesPage()
+  }
+
+  if (isBookingRoute) {
+    return (
+      <main>
+        {renderPublicPageHeader(
+          'Agendamento',
+          'Agende seu horario de forma simples e rapida.',
+          'Escolha servico, data e horario disponivel. Separe um tempinho para voce.',
+        )}
+        {renderBookingSection()}
+        {renderConfirmDialog()}
+      </main>
+    )
+  }
+
+  if (isConfirmationRoute) {
+    return (
+      <>
+        {renderConfirmationPage()}
+        {renderConfirmDialog()}
+      </>
+    )
+  }
+
   if (isAdminRoute) {
+    const heading = adminRouteTitles[adminPanelTab]
+
     return (
       <main>
         <section className="page-header-section admin-header-section">
           <div className="hero-noise" aria-hidden="true" />
           {renderTopbar()}
           <div className="page-heading">
-            <p className="eyebrow">Painel privado</p>
-            <h1>Controle administrativo separado da vitrine e da area da cliente.</h1>
-            <p>Gerencie pedidos, status e catalogo com acesso exclusivo.</p>
+            <p className="eyebrow">{heading.eyebrow}</p>
+            <h1>{heading.title}</h1>
+            <p>{heading.description}</p>
           </div>
         </section>
         {renderAdminSection()}
@@ -4362,7 +5904,7 @@ function App() {
               <img src={brandLogo} alt="" />
               <span>Hellen Martins</span>
             </div>
-            <p className="eyebrow">Hellen Martins Beauty</p>
+            <p className="eyebrow">Hellen Martins Designer de Sobrancelhas</p>
             <h1>Sobrancelhas naturais com medida, tecnica e acabamento fino.</h1>
             <p className="hero-lede">
               Design personalizado para realcar seu olhar com naturalidade, conforto e
@@ -4372,7 +5914,7 @@ function App() {
               <button
                 type="button"
                 className="primary-action"
-                onClick={() => (session ? goToPath(isAdmin ? '/admin' : '/cliente') : goToAuth('sign-in', 'cliente'))}
+                onClick={() => (session ? goToPath(isAdmin ? '/admin' : '/agendamento') : goToAuth('sign-in', 'cliente'))}
               >
                 Agendar agora
                 <ArrowRight size={18} aria-hidden="true" />
@@ -4407,7 +5949,7 @@ function App() {
           <span>Atendimento com tempo real para simetria</span>
         </article>
         <article>
-          <strong>A partir de R$ 10</strong>
+          <strong>A partir de R$ 20</strong>
           <span>Desenho guiado pelo rosto e estilo da cliente</span>
         </article>
         <article>
@@ -4459,7 +6001,7 @@ function App() {
           </p>
           <div className="contact-stack">
             <span>
-              <Camera size={17} aria-hidden="true" /> @h.ellenmartins
+              <Camera size={17} aria-hidden="true" /> {instagramHandle}
             </span>
             <span>
               <MapPin size={17} aria-hidden="true" /> Atendimento sob confirmacao

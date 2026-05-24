@@ -6,7 +6,7 @@ Aplicacao SPA em React/Vite com funcoes serverless na Vercel. O cliente usa `@su
 
 ## Frontend
 
-- `src/App.tsx`: landing publica, `/auth`, `/cliente`, `/admin`, formulario autenticado, agenda, catalogo e painel operacional.
+- `src/App.tsx`: landing publica, `/servicos`, `/agendamento`, `/confirmacao`, `/auth`, `/cliente` e painel admin reorganizado por rotas.
 - `src/lib/supabase.ts`: inicializacao condicional do Supabase client.
 - `src/App.css` e `src/index.css`: design system visual sem dependencia de UI kit.
 
@@ -76,6 +76,56 @@ Registro idempotente dos eventos recebidos do Asaas, com `processed_at` e `proce
 
 Lista de usuarios que podem operar a agenda completa. O campo `role` aceita `owner` e `admin`; apenas `owner` gerencia outros perfis administrativos.
 
+### `clients`
+
+Ficha consolidada da cliente. A tabela recebe backfill a partir de `bookings` e tambem e sincronizada por trigger quando novos agendamentos sao criados ou atualizados.
+
+Campos principais:
+
+- `user_id uuid references auth.users(id)`
+- `full_name text`
+- `email text unique`
+- `phone text`
+- `birth_date date`
+- `preferences text`
+- `professional_notes text`
+
+### `payments`
+
+Pagamentos por atendimento, independentes do sinal Asaas.
+
+Campos principais:
+
+- `booking_id uuid references bookings(id)`
+- `client_id uuid references clients(id)`
+- `service_id text references service_catalog(id)`
+- `payment_method text`
+- `status text`
+- `total_amount_cents integer`
+- `paid_amount_cents integer`
+- `paid_at date`
+
+### `products`
+
+Produtos usados ou vendidos no estudio.
+
+Campos principais:
+
+- `name text`
+- `category text`
+- `stock_quantity numeric`
+- `unit text`
+- `cost_cents integer`
+- `sale_price_cents integer`
+- `minimum_stock numeric`
+- `notes text`
+
+### `stock_movements`
+
+Movimentacoes de estoque com trigger para atualizar `products.stock_quantity`.
+
+Tipos aceitos: `input`, `output`, `service_use`, `sale`, `manual_adjustment`.
+
 ## RLS
 
 - `service_catalog`: leitura publica apenas para itens ativos.
@@ -83,6 +133,9 @@ Lista de usuarios que podem operar a agenda completa. O campo `role` aceita `own
 - `bookings`: update/delete somente admin ou funcoes controladas para cancelamento/remarcacao da propria cliente.
 - `booking_payments`: leitura da propria cliente ou admin; escrita sensivel via funcao serverless.
 - `admin_profiles`: leitura do proprio perfil ou admin; escrita restrita a `owner`.
+- `clients`: cliente le a propria ficha; admin gerencia todas.
+- `payments`: cliente le pagamentos vinculados aos proprios agendamentos; admin gerencia todos.
+- `products` e `stock_movements`: acesso restrito a admin.
 
 ## Fluxos
 
@@ -97,7 +150,7 @@ Lista de usuarios que podem operar a agenda completa. O campo `role` aceita `own
 
 1. Usuario cria conta pelo site.
 2. Owner insere o `auth.users.id` em `admin_profiles` com `role = 'owner'` ou `role = 'admin'`.
-3. A mesma listagem passa a retornar todos os pedidos por RLS.
+3. O painel libera dashboard, agenda, agendamentos, clientes, WhatsApp, servicos, pagamentos, produtos, relatorios e configuracoes.
 
 ### Pagamento e webhook
 
@@ -125,5 +178,5 @@ Lista de usuarios que podem operar a agenda completa. O campo `role` aceita `own
 - `npm run lint`
 - `npm test`
 - `npm run build`
-- Smoke test publico em `/`, `/cliente`, `/admin`.
+- Smoke test publico em `/`, `/servicos`, `/agendamento`, `/confirmacao`, `/cliente`, `/admin`, `/admin/pagamentos`, `/admin/produtos`.
 - Teste autenticado de cliente/admin em ambiente com Supabase configurado.

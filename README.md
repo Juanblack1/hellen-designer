@@ -82,9 +82,21 @@ npm run dev
 ## Rotas
 
 - `/`: vitrine publica.
+- `/servicos`: catalogo publico de servicos, valores e duracao.
+- `/agendamento`: fluxo guiado de agendamento.
+- `/confirmacao`: confirmacao visual depois do pedido de horario.
 - `/auth`: entrada, cadastro e recuperacao de senha.
 - `/cliente`: agenda e historico da cliente autenticada.
-- `/admin`: painel privado para contas em `admin_profiles`.
+- `/admin`: dashboard administrativo.
+- `/admin/agenda`: calendario operacional e bloqueios.
+- `/admin/agendamentos`: lista completa de horarios, status, remarcacao e notas.
+- `/admin/clientes`: fichas, historico e preferencias das clientes.
+- `/admin/whatsapp`: fila manual de mensagens.
+- `/admin/servicos`: catalogo, precos e fotos.
+- `/admin/pagamentos`: financeiro por atendimento.
+- `/admin/produtos`: produtos, estoque e movimentacoes.
+- `/admin/relatorios`: indicadores simples.
+- `/admin/configuracoes`: politicas, sinal e dados operacionais.
 
 ## Banco de dados
 
@@ -93,6 +105,8 @@ Com `SUPABASE_DB_URL` definido em um ambiente seguro, aplique o schema:
 ```bash
 npm run db:push
 ```
+
+O schema cria e protege as tabelas operacionais de clientes, pagamentos, produtos e movimentacoes de estoque. Ele tambem faz backfill de `clients` a partir dos agendamentos existentes. Como novas tabelas no Supabase podem exigir grants explicitos para a Data API, `supabase/schema.sql` inclui `GRANT` para as novas tabelas junto com RLS.
 
 Depois que a primeira conta admin existir no Supabase Auth, promova-a pelo SQL editor do Supabase. Use `owner` para a conta que pode gerenciar outros admins e `admin` para operacao diaria:
 
