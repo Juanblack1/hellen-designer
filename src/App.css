@@ -1165,6 +1165,11 @@
   padding: clamp(48px, 7vw, 88px) clamp(18px, 4vw, 56px);
 }
 
+.admin-page-section {
+  max-width: min(1540px, 100%);
+  padding-inline: clamp(18px, 3vw, 40px);
+}
+
 .workspace-shell {
   display: grid;
   gap: 22px;
@@ -2208,6 +2213,267 @@ button:disabled {
   text-decoration: none;
 }
 
+.admin-command-center,
+.agenda-command-strip,
+.client-crm-summary {
+  background:
+    radial-gradient(circle at 88% 12%, rgba(244, 200, 115, 0.16), transparent 28%),
+    linear-gradient(145deg, rgba(19, 13, 8, 0.98), rgba(7, 5, 4, 0.96));
+  border: 1px solid rgba(244, 200, 115, 0.22);
+  border-radius: 28px;
+  box-shadow: 0 24px 72px rgba(0, 0, 0, 0.2);
+}
+
+.admin-command-center {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 0.75fr) minmax(420px, 1fr);
+  padding: 22px;
+}
+
+.admin-command-copy h3,
+.agenda-command-strip h3 {
+  color: var(--gold-light);
+  font-family: var(--display);
+  font-size: clamp(2rem, 4vw, 4.2rem);
+  letter-spacing: -0.055em;
+  line-height: 0.96;
+  margin: 0;
+}
+
+.admin-command-copy p:not(.eyebrow),
+.agenda-command-strip p {
+  color: rgba(248, 234, 208, 0.72);
+  line-height: 1.6;
+  margin: 14px 0 0;
+  max-width: 620px;
+}
+
+.admin-command-actions,
+.admin-command-queue,
+.agenda-command-metrics,
+.client-crm-summary {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-command-actions {
+  grid-template-columns: repeat(2, minmax(0, max-content));
+  margin-top: 22px;
+}
+
+.admin-command-actions button,
+.admin-command-queue button,
+.availability-day-heading button,
+.availability-slot-row button {
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 900;
+  min-height: 38px;
+  padding: 0 14px;
+}
+
+.admin-command-actions button:not(.secondary-button),
+.admin-command-queue button,
+.availability-day-heading button {
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  color: #090806;
+}
+
+.admin-command-queue {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-command-queue article,
+.agenda-command-metrics article,
+.client-crm-summary article {
+  background: rgba(255, 252, 243, 0.06);
+  border: 1px solid rgba(244, 200, 115, 0.14);
+  border-radius: 20px;
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+}
+
+.admin-command-queue small,
+.agenda-command-metrics span,
+.agenda-command-metrics small,
+.client-crm-summary span {
+  color: rgba(248, 234, 208, 0.6);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.admin-command-queue strong,
+.agenda-command-metrics strong,
+.client-crm-summary strong {
+  color: var(--gold-light);
+  font-family: var(--display);
+  font-size: 1.55rem;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.admin-command-queue span {
+  color: rgba(248, 234, 208, 0.78);
+  line-height: 1.45;
+}
+
+.agenda-command-strip {
+  align-items: stretch;
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) minmax(480px, 0.95fr);
+  margin-bottom: 16px;
+  padding: 22px;
+}
+
+.agenda-command-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admin-day-slot-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.admin-day-slot {
+  align-items: center;
+  background: rgba(255, 252, 243, 0.06);
+  border: 1px solid rgba(244, 200, 115, 0.12);
+  border-radius: 16px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 120px minmax(0, 1fr) auto;
+  padding: 12px;
+}
+
+.selected-day-agenda {
+  background: rgba(10, 8, 6, 0.72);
+  border: 1px solid rgba(244, 200, 115, 0.12);
+}
+
+.selected-day-agenda > strong,
+.admin-day-slot strong,
+.admin-day-slot span {
+  color: var(--gold-light);
+}
+
+.admin-day-slot small {
+  color: rgba(248, 234, 208, 0.66);
+}
+
+.admin-day-slot.is-free {
+  background: rgba(80, 119, 58, 0.14);
+  border-color: rgba(137, 185, 101, 0.32);
+}
+
+.admin-day-slot.is-booked {
+  background: rgba(244, 200, 115, 0.12);
+  border-color: rgba(244, 200, 115, 0.36);
+}
+
+.admin-day-slot.is-blocked,
+.admin-day-slot.is-outside-model {
+  background: rgba(255, 126, 97, 0.12);
+  border-color: rgba(255, 126, 97, 0.3);
+}
+
+.admin-day-slot.is-paused,
+.admin-day-slot.is-past {
+  opacity: 0.62;
+}
+
+.day-block-status {
+  background: rgba(80, 119, 58, 0.12);
+  border: 1px solid rgba(137, 185, 101, 0.28);
+  border-radius: 18px;
+  display: grid;
+  gap: 5px;
+  padding: 14px;
+}
+
+.day-block-status.is-blocked {
+  background: rgba(255, 126, 97, 0.12);
+  border-color: rgba(255, 126, 97, 0.3);
+}
+
+.day-block-status strong {
+  color: var(--gold-light);
+}
+
+.day-block-status span {
+  color: rgba(248, 234, 208, 0.7);
+  line-height: 1.45;
+}
+
+.availability-list {
+  grid-template-columns: 1fr;
+}
+
+.availability-list article.availability-day-group {
+  align-items: stretch;
+  grid-template-columns: 1fr;
+}
+
+.availability-day-heading,
+.availability-slot-row {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+}
+
+.availability-day-heading {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.availability-day-heading strong {
+  color: var(--gold-light);
+}
+
+.availability-day-slots {
+  display: grid;
+  gap: 8px;
+}
+
+.availability-slot-row {
+  background: rgba(255, 252, 243, 0.045);
+  border-radius: 14px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  padding: 10px 12px;
+}
+
+.availability-slot-row span {
+  color: rgba(248, 234, 208, 0.78);
+}
+
+.availability-slot-row.is-paused {
+  opacity: 0.58;
+}
+
+.availability-slot-row button {
+  background: rgba(255, 126, 97, 0.14);
+  color: #ffb09f;
+}
+
+.compact-toggle {
+  color: rgba(248, 234, 208, 0.74);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.client-crm-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 8px;
+  padding: 14px;
+}
+
 .admin-controls {
   grid-template-columns: 220px 1fr;
 }
@@ -2455,11 +2721,28 @@ button:disabled {
 }
 
 .policy-form {
-  grid-template-columns: repeat(3, minmax(120px, 0.7fr)) minmax(220px, 1fr) auto;
+  background: rgba(255, 252, 243, 0.04);
+  border: 1px solid rgba(244, 200, 115, 0.12);
+  border-radius: 22px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 16px;
 }
 
 .policy-form .wide-field {
   grid-column: 1 / -1;
+}
+
+.policy-form .policy-toggle {
+  align-items: center;
+  background: rgba(244, 200, 115, 0.08);
+  border: 1px solid rgba(244, 200, 115, 0.14);
+  border-radius: 16px;
+  min-height: 58px;
+  padding: 12px;
+}
+
+.policy-form button {
+  justify-self: start;
 }
 
 .policy-form button,
@@ -2585,11 +2868,19 @@ button:disabled {
 }
 
 .new-service-form {
-  background: var(--sand);
+  background: rgba(255, 252, 243, 0.05);
   border: 1px solid rgba(244, 200, 115, 0.14);
   border-radius: 22px;
-  grid-template-columns: minmax(190px, 1.2fr) 120px 110px minmax(240px, 1.5fr) auto;
+  grid-template-columns: minmax(220px, 1fr) 140px 120px;
   padding: 16px;
+}
+
+.new-service-form .wide-field {
+  grid-column: 1 / -1;
+}
+
+.new-service-form button {
+  justify-self: start;
 }
 
 .wide-field {
@@ -2721,7 +3012,7 @@ button:disabled {
 .service-editor-grid {
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(180px, 1.3fr) 120px 100px 100px;
+  grid-template-columns: minmax(220px, 1fr) 140px 120px 120px;
 }
 
 .service-editor-grid .wide-field {

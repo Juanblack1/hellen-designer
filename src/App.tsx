@@ -898,6 +898,37 @@ function isSlotInPast(date: string, startTime: string, currentDateTime: Business
   )
 }
 
+function getTimeMinutes(time: string) {
+  const [hours = '0', minutes = '0'] = timeLabel(time).split(':')
+  return Number(hours) * 60 + Number(minutes)
+}
+
+function getSlotDurationMinutes(startTime: string, endTime: string) {
+  return Math.max(getTimeMinutes(endTime) - getTimeMinutes(startTime), 0)
+}
+
+function formatDurationLabel(minutes: number) {
+  if (minutes < 60) {
+    return `${minutes} min`
+  }
+
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+
+  return rest ? `${hours}h${String(rest).padStart(2, '0')}` : `${hours}h`
+}
+
+function sortAvailabilitySlots(first: AvailabilitySlot, second: AvailabilitySlot) {
+  return first.weekday - second.weekday || getTimeMinutes(first.start_time) - getTimeMinutes(second.start_time)
+}
+
+function sortBookingsByDateTime(first: BookingRecord, second: BookingRecord) {
+  return (
+    first.preferred_date.localeCompare(second.preferred_date) ||
+    getTimeMinutes(first.preferred_time) - getTimeMinutes(second.preferred_time)
+  )
+}
+
 function getInitialAuthMode(): AuthMode {
   const mode = new URLSearchParams(window.location.search).get('mode')
 
@@ -2047,10 +2078,51 @@ function App() {
   }, [confirmDialog])
 
   const calendarDays = getCalendarDays(calendarMonth)
-  const adminSelectedBookings = bookings.filter((item) => item.preferred_date === adminSelectedDate)
+  const adminSelectedBookings = bookings
+    .filter((item) => item.preferred_date === adminSelectedDate)
+    .sort(sortBookingsByDateTime)
   const todayActiveBookings = bookings.filter(
     (item) => item.preferred_date === currentBusinessDateTime.date && isActiveBookingStatus(item.status),
   )
+  const selectedDayAllSlots = availabilitySlots
+    .filter((slot) => slot.weekday === getIsoWeekday(adminSelectedDate))
+    .sort(sortAvailabilitySlots)
+  const selectedDayActiveSlots = selectedDayAllSlots.filter((slot) => slot.active)
+  const selectedDayIsBlocked = unavailableDateSet.has(adminSelectedDate) || isWeekendDate(adminSelectedDate)
+  const selectedDayRows = selectedDayAllSlots.map((slot) => {
+    const matchingBooking = adminSelectedBookings.find(
+      (item) => getSlotKey(item.preferred_time, item.preferred_end_time) === getSlotKey(slot.start_time, slot.end_time),
+    )
+    const isPast = isSlotInPast(adminSelectedDate, slot.start_time, currentBusinessDateTime)
+    const status = selectedDayIsBlocked
+      ? 'blocked'
+      : !slot.active
+        ? 'paused'
+        : matchingBooking && isActiveBookingStatus(matchingBooking.status)
+          ? 'booked'
+          : isPast
+            ? 'past'
+            : 'free'
+
+    return { slot, booking: matchingBooking, status }
+  })
+  const selectedDayBookingsOutsideModel = adminSelectedBookings.filter(
+    (booking) => !selectedDayRows.some((row) => row.booking?.id === booking.id),
+  )
+  const selectedDayFreeSlotCount = selectedDayRows.filter((row) => row.status === 'free').length
+  const selectedDayBookedSlotCount = adminSelectedBookings.filter((booking) => isActiveBookingStatus(booking.status)).length
+  const weeklyAvailability = weekdayOptions.map((option) => {
+    const slots = availabilitySlots.filter((slot) => slot.weekday === option.value).sort(sortAvailabilitySlots)
+    const activeSlots = slots.filter((slot) => slot.active)
+    const activeMinutes = activeSlots.reduce(
+      (total, slot) => total + getSlotDurationMinutes(slot.start_time, slot.end_time),
+      0,
+    )
+
+    return { ...option, slots, activeSlots, activeMinutes }
+  })
+  const activeWeekdayCount = weeklyAvailability.filter((day) => day.activeSlots.length > 0).length
+  const weeklyActiveSlotCount = weeklyAvailability.reduce((total, day) => total + day.activeSlots.length, 0)
   const pendingBookingCount = bookings.filter((item) => item.status === 'pending').length
   const clientSummaries = Array.from(
     bookings
@@ -2142,6 +2214,45 @@ function App() {
     businessPayments.filter((payment) => payment.status === 'pending' || payment.status === 'partial').length +
     bookingPayments.filter((payment) => payment.status === 'pending').length
   const lowStockProducts = products.filter((product) => product.stock_quantity <= product.minimum_stock)
+  const pendingDecisionBookings = bookings
+    .filter(
+      (item) =>
+        (item.status === 'pending' || item.status === 'awaiting_deposit') &&
+        item.preferred_date >= currentBusinessDateTime.date,
+    )
+    .sort(sortBookingsByDateTime)
+  const adminActionQueue = [
+    ...pendingDecisionBookings.slice(0, 3).map((item) => ({
+      id: `booking-${item.id}`,
+      eyebrow: item.status === 'awaiting_deposit' ? 'Sinal pendente' : 'Confirmar horario',
+      title: `${item.client_name} - ${item.service_name}`,
+      detail: `${formatFullDate(item.preferred_date)} as ${formatTimeRange(item.preferred_time, item.preferred_end_time)}`,
+      action: 'Ver agendamento',
+      onClick: () => {
+        setAdminStatusFilter(item.status)
+        goToAdminTab('bookings')
+      },
+    })),
+    ...businessPayments
+      .filter((payment) => payment.status === 'pending' || payment.status === 'partial')
+      .slice(0, 2)
+      .map((payment) => ({
+        id: `payment-${payment.id}`,
+        eyebrow: 'Financeiro',
+        title: payment.client_name,
+        detail: `${payment.service_name} - ${formatPrice(payment.total_amount_cents - payment.paid_amount_cents)} em aberto`,
+        action: 'Registrar pagamento',
+        onClick: () => goToAdminTab('payments'),
+      })),
+    ...lowStockProducts.slice(0, 2).map((product) => ({
+      id: `stock-${product.id}`,
+      eyebrow: 'Estoque baixo',
+      title: product.name,
+      detail: `${product.stock_quantity} ${product.unit} em estoque - minimo ${product.minimum_stock}`,
+      action: 'Ver produto',
+      onClick: () => goToAdminTab('products'),
+    })),
+  ].slice(0, 6)
   const servicePerformance = Array.from(
     bookings
       .filter((item) => item.status === 'completed' || item.status === 'confirmed')
@@ -2163,6 +2274,12 @@ function App() {
         const lastBooking = [...relatedBookings].sort((first, second) =>
           second.preferred_date.localeCompare(first.preferred_date),
         )[0]
+        const nextBooking = [...relatedBookings]
+          .filter((item) => item.preferred_date >= currentBusinessDateTime.date && isActiveBookingStatus(item.status))
+          .sort(sortBookingsByDateTime)[0]
+        const totalPaidCents = businessPayments
+          .filter((payment) => payment.client_name.toLowerCase() === profile.full_name.toLowerCase())
+          .reduce((total, payment) => total + payment.paid_amount_cents, 0)
 
         return {
           email: profile.email,
@@ -2172,13 +2289,29 @@ function App() {
           lastDate: lastBooking?.preferred_date ?? profile.updated_at.slice(0, 10),
           lastService: lastBooking?.service_name ?? 'Sem atendimento registrado',
           lastStatus: lastBooking?.status ?? ('pending' as BookingStatus),
+          nextDate: nextBooking?.preferred_date ?? null,
+          nextService: nextBooking?.service_name ?? null,
+          totalPaidCents,
           profile,
         }
       })
-    : clientSummaries.map((client) => ({
-        ...client,
-        profile: clientProfilesByEmail[client.email.toLowerCase()] ?? null,
-      }))).sort((first, second) => second.lastDate.localeCompare(first.lastDate))
+    : clientSummaries.map((client) => {
+        const relatedBookings = bookings.filter((item) => item.client_email.toLowerCase() === client.email.toLowerCase())
+        const nextBooking = [...relatedBookings]
+          .filter((item) => item.preferred_date >= currentBusinessDateTime.date && isActiveBookingStatus(item.status))
+          .sort(sortBookingsByDateTime)[0]
+        const totalPaidCents = businessPayments
+          .filter((payment) => payment.client_name.toLowerCase() === client.name.toLowerCase())
+          .reduce((total, payment) => total + payment.paid_amount_cents, 0)
+
+        return {
+          ...client,
+          nextDate: nextBooking?.preferred_date ?? null,
+          nextService: nextBooking?.service_name ?? null,
+          totalPaidCents,
+          profile: clientProfilesByEmail[client.email.toLowerCase()] ?? null,
+        }
+      })).sort((first, second) => second.lastDate.localeCompare(first.lastDate))
   const filteredClientDirectory = clientDirectory.filter((client) => {
     const query = clientSearch.trim().toLowerCase()
 
@@ -4267,6 +4400,50 @@ function App() {
 
           {adminPanelTab === 'overview' ? (
             <>
+          <section className="admin-command-center" aria-label="Comando diario do admin">
+            <div className="admin-command-copy">
+              <p className="eyebrow">Comando diario</p>
+              <h3>O que precisa da sua decisao agora.</h3>
+              <p>
+                Priorize confirmacoes, sinais, pagamentos e estoque antes de abrir as telas completas.
+              </p>
+              <div className="admin-command-actions">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAdminSelectedDate(currentBusinessDateTime.date)
+                    goToAdminTab('agenda')
+                  }}
+                >
+                  Abrir agenda de hoje
+                </button>
+                <button type="button" className="secondary-button" onClick={() => goToAdminTab('clients')}>
+                  Ver clientes
+                </button>
+              </div>
+            </div>
+            <div className="admin-command-queue">
+              {adminActionQueue.length ? (
+                adminActionQueue.map((item) => (
+                  <article key={item.id}>
+                    <small>{item.eyebrow}</small>
+                    <strong>{item.title}</strong>
+                    <span>{item.detail}</span>
+                    <button type="button" onClick={item.onClick}>
+                      {item.action}
+                    </button>
+                  </article>
+                ))
+              ) : (
+                <article className="is-empty">
+                  <small>Sem pendencias criticas</small>
+                  <strong>Agenda sob controle.</strong>
+                  <span>Quando houver sinal, cliente ou estoque pedindo atencao, aparece aqui.</span>
+                </article>
+              )}
+            </div>
+          </section>
+
           <div className="admin-stats" aria-label="Resumo de status">
             {bookingStats.map((item) => (
               <article key={item.status}>
@@ -4458,13 +4635,42 @@ function App() {
           ) : null}
 
           {adminPanelTab === 'agenda' ? (
+          <>
+          <section className="agenda-command-strip" aria-label="Resumo do dia selecionado">
+            <div>
+              <p className="eyebrow">Dia selecionado</p>
+              <h3>{formatFullDate(adminSelectedDate)}</h3>
+              <p>
+                {selectedDayIsBlocked
+                  ? 'Dia bloqueado ou fora do expediente.'
+                  : `${selectedDayActiveSlots.length} periodo(s) ativo(s), ${selectedDayFreeSlotCount} livre(s) e ${selectedDayBookedSlotCount} cliente(s) marcado(s).`}
+              </p>
+            </div>
+            <div className="agenda-command-metrics">
+              <article>
+                <span>Modelo semanal</span>
+                <strong>{weeklyActiveSlotCount}</strong>
+                <small>periodos ativos</small>
+              </article>
+              <article>
+                <span>Dias com agenda</span>
+                <strong>{activeWeekdayCount}</strong>
+                <small>na semana</small>
+              </article>
+              <article>
+                <span>Bloqueios do mes</span>
+                <strong>{unavailableDays.length}</strong>
+                <small>excecoes</small>
+              </article>
+            </div>
+          </section>
           <div className="admin-ops-grid">
             <section className="admin-agenda-card" id="admin-agenda" aria-label="Agenda do mes">
               <div className="admin-heading compact">
                 <div>
                   <p className="eyebrow">Agenda</p>
                   <h2>Calendario operacional.</h2>
-                  <p id="admin-calendar-help">Escolha um dia para ver os horarios ativos, bloqueios e clientes marcados.</p>
+                  <p id="admin-calendar-help">Escolha um dia para ver capacidade, encaixes livres, clientes marcados e bloqueios.</p>
                 </div>
               </div>
               <div className="digital-calendar compact-calendar" aria-describedby="admin-calendar-help" aria-label="Calendario operacional">
@@ -4530,16 +4736,38 @@ function App() {
               </div>
               <div className="selected-day-agenda" aria-live="polite">
                 <strong>{formatFullDate(adminSelectedDate)}</strong>
-                {adminSelectedBookings.length ? (
-                  adminSelectedBookings.map((item) => (
-                    <span key={item.id}>
-                      {formatTimeRange(item.preferred_time, item.preferred_end_time)} - {item.client_name} -{' '}
-                      {item.service_name}
-                    </span>
-                  ))
-                ) : (
-                  <span>Nenhum cliente marcado neste dia.</span>
-                )}
+                <div className="admin-day-slot-list">
+                  {selectedDayRows.length ? (
+                    selectedDayRows.map(({ slot, booking, status }) => (
+                      <article key={slot.id} className={`admin-day-slot is-${status}`}>
+                        <span>{formatTimeRange(slot.start_time, slot.end_time)}</span>
+                        <strong>
+                          {booking
+                            ? `${booking.client_name} - ${booking.service_name}`
+                            : status === 'free'
+                              ? 'Livre para encaixe'
+                              : status === 'paused'
+                                ? 'Periodo pausado'
+                                : status === 'blocked'
+                                  ? 'Dia bloqueado'
+                                  : 'Encerrado'}
+                        </strong>
+                        <small>
+                          {booking ? statusLabels[booking.status] : `${formatDurationLabel(getSlotDurationMinutes(slot.start_time, slot.end_time))} de atendimento`}
+                        </small>
+                      </article>
+                    ))
+                  ) : (
+                    <p className="empty-state">Nenhum periodo no modelo semanal para este dia.</p>
+                  )}
+                  {selectedDayBookingsOutsideModel.map((booking) => (
+                    <article key={booking.id} className="admin-day-slot is-outside-model">
+                      <span>{formatTimeRange(booking.preferred_time, booking.preferred_end_time)}</span>
+                      <strong>{booking.client_name} - {booking.service_name}</strong>
+                      <small>Marcado fora do modelo semanal atual</small>
+                    </article>
+                  ))}
+                </div>
               </div>
             </section>
 
@@ -4548,7 +4776,16 @@ function App() {
                 <div>
                   <p className="eyebrow">Bloqueios</p>
                   <h2>Dias indisponiveis.</h2>
+                  <p>Use para viagens, cursos, feriados ou pausas completas do dia.</p>
                 </div>
+              </div>
+              <div className={selectedDayIsBlocked ? 'day-block-status is-blocked' : 'day-block-status'}>
+                <strong>{selectedDayIsBlocked ? 'Dia selecionado bloqueado' : 'Dia selecionado aberto'}</strong>
+                <span>
+                  {selectedDayIsBlocked
+                    ? 'Novos encaixes nao devem ser criados neste dia.'
+                    : 'Confira os periodos livres antes de confirmar pelo WhatsApp.'}
+                </span>
               </div>
               <form className="unavailable-form" onSubmit={handleCreateUnavailableDay}>
                 <label>
@@ -4597,7 +4834,8 @@ function App() {
               <div className="admin-heading compact">
                 <div>
                   <p className="eyebrow">Horarios</p>
-                  <h2>Periodos liberados.</h2>
+                  <h2>Modelo semanal de periodos.</h2>
+                  <p>Cadastre blocos por dia. O preview mostra como eles viram a agenda real.</p>
                 </div>
               </div>
               <form className="availability-form" onSubmit={handleCreateAvailabilitySlot}>
@@ -4641,28 +4879,54 @@ function App() {
               </p>
               <div className="availability-list">
                 {availabilitySlots.length ? (
-                  availabilitySlots.map((slot) => (
-                    <article key={slot.id} className={!slot.active ? 'is-paused' : ''}>
-                      <span>
-                        <strong>{getWeekdayName(slot.weekday)}</strong>
-                        <small>{formatTimeRange(slot.start_time, slot.end_time)}</small>
-                      </span>
-                      <label className="toggle-label">
-                        <input
-                          type="checkbox"
-                          checked={slot.active}
-                          disabled={savingAvailabilityId === slot.id}
-                          onChange={(event) => void handleAvailabilitySlotActiveChange(slot, event.target.checked)}
-                        />
-                        Ativo
-                      </label>
-                      <button
-                        type="button"
-                        disabled={savingAvailabilityId === slot.id}
-                        onClick={() => requestAvailabilitySlotDelete(slot)}
-                      >
-                        Remover
-                      </button>
+                  weeklyAvailability.map((day) => (
+                    <article key={day.value} className="availability-day-group">
+                      <div className="availability-day-heading">
+                        <span>
+                          <strong>{day.label}</strong>
+                          <small>
+                            {day.activeSlots.length
+                              ? `${day.activeSlots.length} periodo(s) - ${formatDurationLabel(day.activeMinutes)}`
+                              : 'Sem periodos ativos'}
+                          </small>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setAvailabilityDraft((draft) => ({ ...draft, weekday: String(day.value) }))}
+                        >
+                          Usar este dia
+                        </button>
+                      </div>
+                      <div className="availability-day-slots">
+                        {day.slots.length ? (
+                          day.slots.map((slot) => (
+                            <div key={slot.id} className={!slot.active ? 'availability-slot-row is-paused' : 'availability-slot-row'}>
+                              <span>
+                                {formatTimeRange(slot.start_time, slot.end_time)} -{' '}
+                                {formatDurationLabel(getSlotDurationMinutes(slot.start_time, slot.end_time))}
+                              </span>
+                              <label className="toggle-label compact-toggle">
+                                <input
+                                  type="checkbox"
+                                  checked={slot.active}
+                                  disabled={savingAvailabilityId === slot.id}
+                                  onChange={(event) => void handleAvailabilitySlotActiveChange(slot, event.target.checked)}
+                                />
+                                {slot.active ? 'Ativo' : 'Pausado'}
+                              </label>
+                              <button
+                                type="button"
+                                disabled={savingAvailabilityId === slot.id}
+                                onClick={() => requestAvailabilitySlotDelete(slot)}
+                              >
+                                Remover
+                              </button>
+                            </div>
+                          ))
+                        ) : (
+                          <small>Nenhum periodo cadastrado.</small>
+                        )}
+                      </div>
                     </article>
                   ))
                 ) : (
@@ -4671,6 +4935,7 @@ function App() {
               </div>
             </section>
           </div>
+          </>
           ) : null}
 
           {adminPanelTab === 'clients' ? (
@@ -4684,6 +4949,20 @@ function App() {
                 </p>
               </div>
             </div>
+            <div className="client-crm-summary" aria-label="Resumo do CRM">
+              <article>
+                <span>Total de clientes</span>
+                <strong>{clientDirectory.length}</strong>
+              </article>
+              <article>
+                <span>Com proximo horario</span>
+                <strong>{clientDirectory.filter((client) => client.nextDate).length}</strong>
+              </article>
+              <article>
+                <span>Receita registrada</span>
+                <strong>{formatPrice(clientDirectory.reduce((total, client) => total + client.totalPaidCents, 0))}</strong>
+              </article>
+            </div>
             {selectedClient ? (
               <div className="client-detail-grid">
                 <article className="client-profile-card">
@@ -4696,6 +4975,10 @@ function App() {
                   <small>
                     {selectedClient.total} atendimento(s) - ultimo: {formatFullDate(selectedClient.lastDate)}
                   </small>
+                  <small>
+                    Proximo: {selectedClient.nextDate ? `${formatFullDate(selectedClient.nextDate)} - ${selectedClient.nextService}` : 'sem horario ativo'}
+                  </small>
+                  <small>Receita registrada: {formatPrice(selectedClient.totalPaidCents)}</small>
                 </article>
 
                 <form
@@ -4824,6 +5107,10 @@ function App() {
                         <small>
                           {client.total} atendimento(s) - ultimo: {formatFullDate(client.lastDate)} - {client.lastService}
                         </small>
+                        <small>
+                          Proximo: {client.nextDate ? `${formatFullDate(client.nextDate)} - ${client.nextService}` : 'sem horario ativo'}
+                        </small>
+                        <small>Receita registrada: {formatPrice(client.totalPaidCents)}</small>
                         <small className={getStatusTone(client.lastStatus)}>{statusLabels[client.lastStatus]}</small>
                         <button type="button" onClick={() => goToPath(`/admin/clientes/${encodeURIComponent(client.email)}`)}>
                           Ver ficha
