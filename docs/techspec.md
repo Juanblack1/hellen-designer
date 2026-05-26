@@ -2,13 +2,14 @@
 
 ## Arquitetura
 
-Aplicacao SPA em React/Vite com funcoes serverless na Vercel. O cliente usa `@supabase/supabase-js` com as variaveis publicas `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`. Operacoes sensiveis de pagamento usam `SUPABASE_SERVICE_ROLE_KEY` apenas nas funcoes `/api`. O banco usa Postgres com RLS para proteger leitura e escrita.
+Aplicacao SPA em React/Vite com funcoes serverless na Vercel. O frontend usa `@supabase/supabase-js` com as variaveis publicas `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`. Operacoes sensiveis de pagamento usam `SUPABASE_SERVICE_ROLE_KEY` apenas nas funcoes `/api`. O banco usa Postgres com RLS para proteger leitura e escrita.
 
 ## Frontend
 
-- `src/App.tsx`: landing publica, `/servicos`, `/agendamento`, `/confirmacao`, `/auth`, `/cliente` e painel admin reorganizado por rotas.
+- `src/App.tsx`: landing publica, `/app`, `/servicos`, `/agendamento`, `/confirmacao`, `/auth`, `/cliente` futura e painel admin reorganizado por rotas.
 - `src/lib/supabase.ts`: inicializacao condicional do Supabase client.
 - `src/App.css` e `src/index.css`: design system visual sem dependencia de UI kit.
+- `public/manifest.webmanifest` e `public/sw.js`: camada PWA para instalacao do aplicativo e cache basico do app shell.
 
 ## Backend serverless
 
@@ -139,7 +140,14 @@ Tipos aceitos: `input`, `output`, `service_use`, `sale`, `manual_adjustment`.
 
 ## Fluxos
 
-### Agendamento autenticado
+### Escopo inicial admin-first
+
+1. Visitante conhece servicos na landing publica.
+2. CTAs publicos abrem WhatsApp com mensagem inicial de agendamento.
+3. Hellen/admin registra e opera calendario, clientes, pagamentos e estoque pelo painel privado.
+4. Area da cliente e checkout autenticado permanecem como base futura, sem destaque publico.
+
+### Agendamento autenticado futuro
 
 1. Cliente entra/cria conta via Supabase Auth.
 2. Frontend insere `bookings` com `user_id = auth.uid()`.
@@ -148,9 +156,17 @@ Tipos aceitos: `input`, `output`, `service_use`, `sale`, `manual_adjustment`.
 
 ### Admin
 
-1. Usuario cria conta pelo site.
+1. Usuario admin entra pelo acesso privado em `/auth`.
 2. Owner insere o `auth.users.id` em `admin_profiles` com `role = 'owner'` ou `role = 'admin'`.
 3. O painel libera dashboard, agenda, agendamentos, clientes, WhatsApp, servicos, pagamentos, produtos, relatorios e configuracoes.
+
+### Aplicativo PWA
+
+1. Admin acessa `/app` para instalar o PWA.
+2. O navegador le `manifest.webmanifest` e registra `sw.js` em producao.
+3. Quando o evento `beforeinstallprompt` estiver disponivel, o frontend exibe a opcao de instalar o aplicativo.
+4. Depois de instalado, o app abre em `/app` com atalhos para painel admin, agenda admin e CRM de clientes cadastradas.
+5. O CRM de clientes cadastradas fica em `/admin/clientes`; a area individual da cliente fica reservada para etapa futura.
 
 ### Pagamento e webhook
 
@@ -178,5 +194,5 @@ Tipos aceitos: `input`, `output`, `service_use`, `sale`, `manual_adjustment`.
 - `npm run lint`
 - `npm test`
 - `npm run build`
-- Smoke test publico em `/`, `/servicos`, `/agendamento`, `/confirmacao`, `/cliente`, `/admin`, `/admin/pagamentos`, `/admin/produtos`.
-- Teste autenticado de cliente/admin em ambiente com Supabase configurado.
+- Smoke test publico em `/`, `/app`, `/servicos`, `/agendamento`, `/confirmacao`, `/cliente`, `/admin`, `/admin/pagamentos`, `/admin/produtos`.
+- Teste autenticado de admin em ambiente com Supabase configurado; cliente autenticada fica para a etapa futura.

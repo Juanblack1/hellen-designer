@@ -1,0 +1,43 @@
+{
+  "name": "Hellen Martins Brows",
+  "short_name": "Hellen Brows",
+  "description": "Aplicativo de agenda e gestao para o studio Hellen Martins Brows.",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#100c08",
+  "theme_color": "#3b241d",
+  "categories": ["beauty", "business", "productivity"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Painel admin",
+      "short_name": "Admin",
+      "description": "Abrir o painel de gestao.",
+      "url": "/admin",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Agenda admin",
+      "short_name": "Agenda",
+      "description": "Abrir o calendario operacional.",
+      "url": "/admin/agenda",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Clientes",
+      "short_name": "Clientes",
+      "description": "Abrir o CRM administrativo.",
+      "url": "/admin/clientes",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ]
+}

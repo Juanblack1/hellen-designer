@@ -1,28 +1,35 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <radialGradient id="grainGold" cx="34%" cy="24%" r="74%">
-      <stop offset="0" stop-color="#f2e9b9"/>
-      <stop offset="0.34" stop-color="#b6a56a"/>
-      <stop offset="0.66" stop-color="#817344"/>
-      <stop offset="1" stop-color="#c8b977"/>
+    <radialGradient id="goldGlow" cx="50%" cy="36%" r="62%">
+      <stop offset="0" stop-color="#fff2b0"/>
+      <stop offset="0.25" stop-color="#ffc64f"/>
+      <stop offset="0.58" stop-color="#b77419"/>
+      <stop offset="1" stop-color="#4b2706" stop-opacity="0"/>
     </radialGradient>
-    <linearGradient id="shine" x1="92" y1="96" x2="414" y2="408" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#ffffff" stop-opacity="0.62"/>
-      <stop offset="0.22" stop-color="#ffffff" stop-opacity="0"/>
-      <stop offset="0.72" stop-color="#ffffff" stop-opacity="0.28"/>
-      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    <linearGradient id="goldLine" x1="106" y1="112" x2="404" y2="402" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff4b8"/>
+      <stop offset="0.22" stop-color="#f6b92d"/>
+      <stop offset="0.55" stop-color="#d88916"/>
+      <stop offset="0.82" stop-color="#fff0a6"/>
+      <stop offset="1" stop-color="#a86410"/>
     </linearGradient>
-    <filter id="softShadow" x="58" y="58" width="396" height="396" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feDropShadow dx="0" dy="24" stdDeviation="28" flood-color="#3b241d" flood-opacity="0.18"/>
+    <filter id="logoGlow" x="48" y="48" width="416" height="416" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="7" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="1 0 0 0 1 0 1 0 0 .67 0 0 1 0 .10 0 0 0 .72 0"/>
+      <feBlend in="SourceGraphic"/>
     </filter>
   </defs>
-  <rect width="512" height="512" rx="256" fill="#f6f0e7"/>
-  <circle cx="256" cy="240" r="178" fill="url(#grainGold)" filter="url(#softShadow)"/>
-  <circle cx="256" cy="240" r="178" fill="url(#shine)"/>
-  <path d="M176 162V294" stroke="#fffaf2" stroke-width="8" stroke-linecap="round"/>
-  <path d="M176 229H250" stroke="#fffaf2" stroke-width="8" stroke-linecap="round"/>
-  <path d="M250 162V294" stroke="#fffaf2" stroke-width="8" stroke-linecap="round"/>
-  <path d="M250 294L287 165L326 294L361 165V294" stroke="#fffaf2" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M141 347C174 314 191 332 210 326C234 319 236 296 259 310C278 322 272 346 298 341C323 337 335 306 371 331" stroke="#fffaf2" stroke-width="9" stroke-linecap="round"/>
-  <text x="256" y="388" text-anchor="middle" fill="#fffaf2" font-family="Georgia, serif" font-size="36" font-style="italic" letter-spacing="1.5">Hellen Martins</text>
+  <rect width="512" height="512" rx="256" fill="#040301"/>
+  <circle cx="256" cy="256" r="230" fill="url(#goldGlow)" opacity="0.2"/>
+  <circle cx="256" cy="228" r="150" stroke="url(#goldLine)" stroke-width="7" filter="url(#logoGlow)"/>
+  <circle cx="256" cy="228" r="132" stroke="url(#goldLine)" stroke-width="2.4" opacity="0.78"/>
+  <path d="M178 154V285" stroke="url(#goldLine)" stroke-width="7" stroke-linecap="round" filter="url(#logoGlow)"/>
+  <path d="M178 220H249" stroke="url(#goldLine)" stroke-width="7" stroke-linecap="round"/>
+  <path d="M249 154V285" stroke="url(#goldLine)" stroke-width="7" stroke-linecap="round"/>
+  <path d="M249 285L284 157L322 285L358 157V285" stroke="url(#goldLine)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M88 336C146 289 192 311 223 304C256 296 257 263 293 286C324 306 316 343 357 330C389 321 403 285 445 310" stroke="url(#goldLine)" stroke-width="5" stroke-linecap="round" opacity="0.78"/>
+  <circle cx="350" cy="125" r="10" fill="#fff4b8" filter="url(#logoGlow)"/>
+  <circle cx="334" cy="278" r="8" fill="#fff4b8" filter="url(#logoGlow)"/>
+  <text x="256" y="398" text-anchor="middle" fill="url(#goldLine)" font-family="Georgia, serif" font-size="39" font-style="italic" letter-spacing="1.2">Hellen Martins</text>
+  <text x="256" y="436" text-anchor="middle" fill="#f2b33b" font-family="Georgia, serif" font-size="17" letter-spacing="6">DESIGNER DE SOBRANCELHAS</text>
 </svg>

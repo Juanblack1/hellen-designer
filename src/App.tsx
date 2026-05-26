@@ -30,7 +30,8 @@ import {
   Users,
   Wallet,
 } from 'lucide-react'
-import browAtelier from './assets/hellen-brows-chatgpt-image.png'
+import brandBanner from './assets/hellen-brand-banner.svg'
+import careCardImage from './assets/hellen-care-card.svg'
 import brandLogo from './assets/hellen-martins-logo.svg'
 import { supabase } from './lib/supabase'
 import './App.css'
@@ -101,6 +102,35 @@ type ConfirmDialogState = {
   tone?: 'default' | 'danger'
   onConfirm: () => void
 } | null
+type PlatformFeatureIcon =
+  | 'agenda'
+  | 'crm'
+  | 'finance'
+  | 'stock'
+  | 'whatsapp'
+  | 'reports'
+  | 'app'
+  | 'security'
+type PlatformFeature = {
+  icon: PlatformFeatureIcon
+  eyebrow: string
+  title: string
+  description: string
+  detail: string
+}
+type AccessZone = {
+  icon: PlatformFeatureIcon
+  label: string
+  title: string
+  description: string
+  path: string
+  cta: string
+  items: string[]
+}
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
+}
 
 const customerPanelTabs = ['booking', 'agenda'] as const satisfies readonly CustomerPanelTab[]
 const adminPanelTabs = [
@@ -146,9 +176,9 @@ const adminRouteTitles: Record<AdminPanelTab, { eyebrow: string; title: string; 
     description: 'Confirme, remarque, conclua, cancele e registre notas do atendimento.',
   },
   clients: {
-    eyebrow: 'Clientes',
-    title: 'Fichas, historico e preferencias.',
-    description: 'Consulte dados, atendimentos, pagamentos e anotacoes profissionais.',
+    eyebrow: 'Clientes cadastradas',
+    title: 'CRM privado com fichas, historico e preferencias.',
+    description: 'Modulo administrativo para consultar dados, atendimentos, pagamentos e anotacoes profissionais.',
   },
   whatsapp: {
     eyebrow: 'WhatsApp',
@@ -480,6 +510,130 @@ const serviceSeeds: ServiceOption[] = [
   },
 ]
 
+const platformFeatures: PlatformFeature[] = [
+  {
+    icon: 'agenda',
+    eyebrow: 'Agenda admin',
+    title: 'Horarios organizados mesmo quando a cliente chama no WhatsApp.',
+    description:
+      'A Hellen cadastra, confirma, remarca e bloqueia horarios no painel enquanto a landing leva a cliente para o WhatsApp.',
+    detail: 'Operacao interna',
+  },
+  {
+    icon: 'crm',
+    eyebrow: 'Clientes e historico',
+    title: 'CRM pensado para sobrancelhas.',
+    description:
+      'Dados, preferencias, observacoes profissionais e historico de atendimentos ficam reunidos na ficha da cliente.',
+    detail: 'Ficha viva da cliente',
+  },
+  {
+    icon: 'finance',
+    eyebrow: 'Financeiro',
+    title: 'Pagamentos, sinal e caixa visiveis.',
+    description:
+      'Registre Pix, dinheiro e cartao, acompanhe pendencias e mantenha o sinal separado da confirmacao do horario.',
+    detail: 'Fluxo de caixa simples',
+  },
+  {
+    icon: 'stock',
+    eyebrow: 'Produtos e estoque',
+    title: 'Materiais do studio sob controle.',
+    description:
+      'Cadastre produtos, estoque minimo, entradas, saidas, vendas e uso em atendimento sem planilha paralela.',
+    detail: 'Alerta de baixo estoque',
+  },
+  {
+    icon: 'whatsapp',
+    eyebrow: 'Lembretes manuais',
+    title: 'Fila pronta para confirmar e acompanhar.',
+    description:
+      'Mensagens de confirmacao, lembrete, cancelamento e pos-atendimento ficam prontas para copiar ou abrir no WhatsApp.',
+    detail: 'Sem API paga obrigatoria',
+  },
+  {
+    icon: 'reports',
+    eyebrow: 'Indicadores',
+    title: 'Painel para decidir o proximo passo.',
+    description:
+      'Acompanhe agenda do dia, faturamento, servicos mais pedidos, clientes recorrentes e produtos em risco.',
+    detail: 'Dashboard operacional',
+  },
+]
+
+const appHighlights: PlatformFeature[] = [
+  {
+    icon: 'app',
+    eyebrow: 'App instalavel',
+    title: 'Painel da Hellen no celular como aplicativo.',
+    description:
+      'O PWA abre em tela cheia, ocupa pouco espaco e entrega a agenda, clientes, pagamentos e estoque sincronizados.',
+    detail: 'iOS, Android e desktop',
+  },
+  {
+    icon: 'security',
+    eyebrow: 'Acesso privado',
+    title: 'Sistema interno protegido por login admin.',
+    description:
+      'Nesta fase, somente admin opera o sistema; a area da cliente fica preparada para uma etapa futura.',
+    detail: 'LGPD como diretriz',
+  },
+  {
+    icon: 'crm',
+    eyebrow: 'Evolucao do atendimento',
+    title: 'Base pronta para fotos, anamnese e pacotes.',
+    description:
+      'A experiencia ja organiza o ciclo principal e deixa caminho claro para fichas, antes/depois, comissoes e fidelidade.',
+    detail: 'Roadmap nichado',
+  },
+]
+
+const operatingFlows = [
+  'Cliente chama pelo WhatsApp a partir da landing publica.',
+  'Hellen cadastra, confirma, remarca ou cancela o horario no painel admin.',
+  'Atendimento concluido atualiza historico, financeiro e relatorios.',
+  'Produtos usados ou vendidos entram no controle de estoque.',
+]
+
+const accessZones: AccessZone[] = [
+  {
+    icon: 'app',
+    label: 'Publico',
+    title: 'O que qualquer visitante ve',
+    description: 'Vitrine, servicos, precos, beneficios, Instagram, WhatsApp e chamada para agendar.',
+    path: '/',
+    cta: 'Ver area publica',
+    items: ['Home', 'Servicos', 'Pagina do app', 'Botao de agendamento'],
+  },
+  {
+    icon: 'crm',
+    label: 'Cliente em breve',
+    title: 'O que a cliente acessara depois',
+    description: 'Agenda propria, pedidos, status, sinal, remarcacao permitida e historico da conta.',
+    path: '/cliente',
+    cta: 'Ver etapa futura',
+    items: ['Minha agenda', 'Novo horario', 'Status do pedido', 'Meus pagamentos'],
+  },
+  {
+    icon: 'reports',
+    label: 'Admin',
+    title: 'O que so a Hellen/admin opera',
+    description: 'Backoffice completo para agenda, financeiro, catalogo, produtos, estoque e configuracoes.',
+    path: '/admin',
+    cta: 'Abrir painel admin',
+    items: ['Agenda geral', 'Financeiro', 'Produtos e estoque', 'Relatorios'],
+  },
+  {
+    icon: 'security',
+    label: 'Clientes cadastradas',
+    title: 'O que fica dentro do CRM admin',
+    description: 'Base privada de clientes registradas, separada da futura area individual da cliente.',
+    path: '/admin/clientes',
+    cta: 'Ver CRM admin',
+    items: ['Fichas', 'Preferencias', 'Notas profissionais', 'Historico e pagamentos'],
+  },
+]
+
 const statusLabels: Record<BookingStatus, string> = {
   awaiting_deposit: 'Aguardando sinal',
   pending: 'Aguardando confirmacao',
@@ -560,6 +714,9 @@ const weekdayOptions = [
 const instagramUrl = 'https://www.instagram.com/hellenmartins.designer/'
 const instagramHandle = '@hellenmartins.designer'
 const bookingWhatsAppNumber = import.meta.env.VITE_BOOKING_WHATSAPP?.trim() || '5516988758633'
+const clientPortalEnabled = false
+const initialBookingWhatsAppMessage =
+  'Ola Hellen, quero agendar um horario e saber quais opcoes estao disponiveis.'
 const businessTimeZone = 'America/Sao_Paulo'
 const businessDateTimeFormatter = new Intl.DateTimeFormat('en-US', {
   timeZone: businessTimeZone,
@@ -769,6 +926,14 @@ function getPaymentReturnMessage() {
     default:
       return paymentResult ? 'Voltamos do pagamento. Confira o status atualizado da sua agenda.' : ''
   }
+}
+
+function getInitialInstallStatus() {
+  if (window.matchMedia('(display-mode: standalone)').matches) {
+    return 'Aplicativo instalado: use a agenda em tela cheia no seu dispositivo.'
+  }
+
+  return ''
 }
 
 function getInitialCustomerPanelTab(): CustomerPanelTab {
@@ -1066,7 +1231,7 @@ function mapServiceRow(service: ServiceCatalogRow, index: number): ServiceOption
 
 function getServiceCoverUrl(service: ServiceOption) {
   if (!service.imagePath || !supabase) {
-    return browAtelier
+    return brandBanner
   }
 
   return supabase.storage.from(serviceImageBucket).getPublicUrl(service.imagePath).data.publicUrl
@@ -1307,6 +1472,8 @@ function App() {
   const [clientActionStatus, setClientActionStatus] = useState('')
   const [financeActionStatus, setFinanceActionStatus] = useState('')
   const [productActionStatus, setProductActionStatus] = useState('')
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
+  const [installStatus, setInstallStatus] = useState(() => getInitialInstallStatus())
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState>(null)
 
   useEffect(() => {
@@ -1334,6 +1501,27 @@ function App() {
 
     return () => {
       window.removeEventListener('popstate', handlePopState)
+    }
+  }, [])
+
+  useEffect(() => {
+    function handleBeforeInstallPrompt(event: Event) {
+      event.preventDefault()
+      setInstallPrompt(event as BeforeInstallPromptEvent)
+      setInstallStatus('Aplicativo pronto para instalar neste dispositivo.')
+    }
+
+    function handleAppInstalled() {
+      setInstallPrompt(null)
+      setInstallStatus('Aplicativo instalado com sucesso.')
+    }
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    window.addEventListener('appinstalled', handleAppInstalled)
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+      window.removeEventListener('appinstalled', handleAppInstalled)
     }
   }, [])
 
@@ -1759,6 +1947,7 @@ function App() {
   const isServicesRoute = route === '/servicos'
   const isBookingRoute = route === '/agendamento'
   const isConfirmationRoute = route === '/confirmacao'
+  const isAppRoute = route === '/app'
   const selectedClientEmail = getClientRouteEmail(route)
   const bookableServices = services.filter((service) => service.active)
   const selectedService =
@@ -1822,6 +2011,7 @@ function App() {
               : depositRequired
                 ? 'Tudo certo. Confira o resumo e pague o sinal para reservar seu horario.'
                 : 'Tudo certo. Confira o resumo e solicite seu horario.')
+  const initialBookingWhatsAppUrl = getWhatsAppUrl(bookingWhatsAppNumber, initialBookingWhatsAppMessage)
 
   useEffect(() => {
     if (!isCustomerRoute) {
@@ -2076,6 +2266,51 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  async function handleInstallApp() {
+    if (!installPrompt) {
+      setInstallStatus(
+        'Para instalar, abra o menu do navegador e escolha Adicionar a tela inicial ou Instalar aplicativo.',
+      )
+      return
+    }
+
+    try {
+      await installPrompt.prompt()
+      const choice = await installPrompt.userChoice
+      setInstallPrompt(null)
+      setInstallStatus(
+        choice.outcome === 'accepted'
+          ? 'Aplicativo instalado com sucesso.'
+          : 'Instalacao cancelada. Voce pode tentar novamente pelo menu do navegador.',
+      )
+    } catch {
+      setInstallStatus('Nao foi possivel abrir a instalacao agora. Use o menu do navegador.')
+    }
+  }
+
+  function renderPlatformIcon(icon: PlatformFeatureIcon) {
+    switch (icon) {
+      case 'agenda':
+        return <CalendarDays size={22} aria-hidden="true" />
+      case 'crm':
+        return <Users size={22} aria-hidden="true" />
+      case 'finance':
+        return <Wallet size={22} aria-hidden="true" />
+      case 'stock':
+        return <Boxes size={22} aria-hidden="true" />
+      case 'whatsapp':
+        return <MessageCircle size={22} aria-hidden="true" />
+      case 'reports':
+        return <BarChart3 size={22} aria-hidden="true" />
+      case 'app':
+        return <Phone size={22} aria-hidden="true" />
+      case 'security':
+        return <ShieldCheck size={22} aria-hidden="true" />
+      default:
+        return <Sparkles size={22} aria-hidden="true" />
+    }
+  }
+
   async function openDepositCheckout(bookingId: string, setStatus: (message: string) => void = setBookingStatus) {
     const client = supabase
 
@@ -2124,6 +2359,11 @@ function App() {
     event.preventDefault()
     setBookingStatus('')
     const client = supabase
+
+    if (!clientPortalEnabled) {
+      window.open(initialBookingWhatsAppUrl, '_blank', 'noopener,noreferrer')
+      return
+    }
 
     if (!session) {
       goToAuth('sign-in', 'cliente')
@@ -2242,8 +2482,9 @@ function App() {
     const email = authForm.email.trim().toLowerCase()
     const password = authForm.password
     const nextTarget = new URLSearchParams(window.location.search).get('next')
+    const submittedAuthMode = !clientPortalEnabled && authMode === 'sign-up' ? 'sign-in' : authMode
 
-    if (authMode === 'forgot-password') {
+    if (submittedAuthMode === 'forgot-password') {
       const { error } = await client.auth.resetPasswordForEmail(email, {
         redirectTo: getAuthRedirectUrl('reset-password'),
       })
@@ -2258,7 +2499,7 @@ function App() {
       return
     }
 
-    if (authMode === 'reset-password') {
+    if (submittedAuthMode === 'reset-password') {
       const { error } = await client.auth.updateUser({ password })
       setIsSubmittingAuth(false)
 
@@ -2269,12 +2510,12 @@ function App() {
 
       setAuthStatus('Senha atualizada com sucesso.')
       setAuthForm({ email: '', password: '' })
-      goToPath('/cliente')
+      goToPath(clientPortalEnabled ? '/cliente' : '/admin')
       return
     }
 
     const { error } =
-      authMode === 'sign-in'
+      submittedAuthMode === 'sign-in'
         ? await client.auth.signInWithPassword({ email, password })
         : await client.auth.signUp({
             email,
@@ -2289,14 +2530,14 @@ function App() {
       return
     }
 
-    if (authMode === 'sign-up') {
+    if (submittedAuthMode === 'sign-up') {
       setAuthStatus('Enviamos um link de confirmacao. Abra seu email para ativar a conta.')
       setAuthForm((current) => ({ ...current, password: '' }))
       return
     }
 
     setAuthForm({ email: '', password: '' })
-    goToPath(nextTarget === 'admin' ? '/admin' : '/cliente')
+    goToPath(nextTarget === 'admin' || !clientPortalEnabled ? '/admin' : '/cliente')
   }
 
   async function handleSignOut() {
@@ -3379,6 +3620,9 @@ function App() {
   }
 
   function renderTopbar() {
+    const sessionAccessPath = isAdmin ? '/admin' : clientPortalEnabled ? '/cliente' : '/'
+    const sessionAccessLabel = isAdmin ? 'Painel admin' : clientPortalEnabled ? 'Area da cliente' : 'Inicio'
+
     return (
       <nav className="topbar" aria-label="Navegacao principal">
         <button type="button" className="brand brand-button" onClick={() => goHome()} aria-label="Hellen Martins Brows">
@@ -3389,40 +3633,56 @@ function App() {
           <button type="button" onClick={() => goToPath('/servicos')}>
             Servicos
           </button>
-          <button type="button" onClick={() => (session ? goToPath('/agendamento') : goToAuth('sign-in', 'cliente'))}>
-            Agendamento
-          </button>
-          {session ? (
-            <button type="button" onClick={() => goToPath(isAdmin ? '/admin' : '/cliente')}>
-              {isAdmin ? 'Admin' : 'Cliente'}
+          <a href={initialBookingWhatsAppUrl} target="_blank" rel="noreferrer">
+            Agendar pelo WhatsApp
+          </a>
+          {session && (isAdmin || clientPortalEnabled) ? (
+            <button type="button" onClick={() => goToPath(sessionAccessPath)}>
+              {sessionAccessLabel}
             </button>
           ) : null}
           <a href={instagramUrl} target="_blank" rel="noreferrer">
             {instagramHandle}
           </a>
         </div>
-        <div className="header-auth" aria-label="Acesso da cliente">
+        <div className="header-auth" aria-label="Acesso administrativo">
           {session ? (
             <>
-              <button type="button" className="header-signin" onClick={() => goToPath(isAdmin ? '/admin' : '/cliente')}>
-                {isAdmin ? 'Painel admin' : 'Minha agenda'}
+              <button type="button" className="header-signin" onClick={() => goToPath(sessionAccessPath)}>
+                {isAdmin ? 'Painel admin' : sessionAccessLabel}
               </button>
               <button type="button" className="header-logout" onClick={handleSignOut}>
                 Sair
               </button>
             </>
           ) : (
-            <>
-              <button type="button" className="header-signin" onClick={() => goToAuth('sign-in')}>
-                Entrar
-              </button>
-              <button type="button" className="header-signup" onClick={() => goToAuth('sign-up')}>
-                Criar conta
-              </button>
-            </>
+            <button type="button" className="header-signin" onClick={() => goToAuth('sign-in', 'admin')}>
+              Admin
+            </button>
           )}
         </div>
       </nav>
+    )
+  }
+
+  function renderInitialBookingGate() {
+    return (
+      <div className="booking-gate">
+        <MessageCircle size={28} aria-hidden="true" />
+        <h3>Agendamento pelo WhatsApp nesta fase.</h3>
+        <p>
+          A Hellen confirma os horarios manualmente e registra tudo no painel interno para evitar
+          conflito de agenda.
+        </p>
+        <div className="form-actions">
+          <a href={initialBookingWhatsAppUrl} target="_blank" rel="noreferrer">
+            <MessageCircle size={16} aria-hidden="true" /> Chamar no WhatsApp
+          </a>
+          <button type="button" className="secondary-button" onClick={() => goToPath('/servicos')}>
+            Ver servicos
+          </button>
+        </div>
+      </div>
     )
   }
 
@@ -3431,10 +3691,10 @@ function App() {
       <section className="booking-section" id="agenda">
         <div className="booking-intro">
           <p className="eyebrow">Agendamento</p>
-          <h2>Escolha uma data e veja os horarios disponiveis.</h2>
+          <h2>Chame a Hellen no WhatsApp para combinar seu horario.</h2>
           <p>
-            Seus dados, historico e pedidos de horario ficam em um espaco reservado, separado da
-            vitrine publica.
+            Nesta primeira fase, a cliente combina pelo WhatsApp e a Hellen organiza calendario,
+            historico e confirmacoes no painel interno.
           </p>
           <div className="contact-stack">
             <span>
@@ -3444,12 +3704,12 @@ function App() {
               <MapPin size={17} aria-hidden="true" /> Atendimento de segunda a sexta
             </span>
             <span>
-              <Mail size={17} aria-hidden="true" /> Confirmacao por email
+              <MessageCircle size={17} aria-hidden="true" /> Confirmacao manual pelo WhatsApp
             </span>
           </div>
         </div>
 
-        {session ? (
+        {clientPortalEnabled && session ? (
           <form className="booking-form" onSubmit={handleBookingSubmit}>
             <div className="booking-flow-card" aria-label="Como funciona o agendamento">
               <div>
@@ -3741,18 +4001,7 @@ function App() {
               {bookingGuidance}
             </p>
           </form>
-        ) : (
-          <div className="booking-gate">
-            <LockKeyhole size={28} aria-hidden="true" />
-            <h3>Entre para escolher um horario.</h3>
-            <p>A agenda com datas e horarios fica disponivel depois do login.</p>
-            <div className="form-actions">
-              <button type="button" onClick={() => goToAuth('sign-in', 'cliente')}>
-                Entrar para agendar
-              </button>
-            </div>
-          </div>
-        )}
+        ) : renderInitialBookingGate()}
       </section>
     )
   }
@@ -4425,11 +4674,14 @@ function App() {
           ) : null}
 
           {adminPanelTab === 'clients' ? (
-          <section className="client-directory" id="admin-clientes" aria-label="Informacoes de clientes">
+          <section className="client-directory" id="admin-clientes" aria-label="CRM administrativo de clientes cadastradas">
             <div className="admin-heading compact">
               <div>
-                <p className="eyebrow">Clientes</p>
-                <h2>{selectedClient ? 'Ficha completa da cliente.' : 'Informacoes, historico e preferencias.'}</h2>
+                <p className="eyebrow">Clientes cadastradas</p>
+                <h2>{selectedClient ? 'Ficha completa no CRM admin.' : 'Base privada de clientes, historico e preferencias.'}</h2>
+                <p>
+                  Esta area e administrativa. A futura area da cliente ficara separada deste CRM interno.
+                </p>
               </div>
             </div>
             {selectedClient ? (
@@ -5524,6 +5776,201 @@ function App() {
     )
   }
 
+  function renderFeatureCard(feature: PlatformFeature) {
+    return (
+      <article className="platform-card" key={feature.title}>
+        <span className="platform-card-icon">{renderPlatformIcon(feature.icon)}</span>
+        <small>{feature.eyebrow}</small>
+        <h3>{feature.title}</h3>
+        <p>{feature.description}</p>
+        <strong>{feature.detail}</strong>
+      </article>
+    )
+  }
+
+  function handleAccessZoneClick(zone: AccessZone) {
+    if (zone.path.startsWith('/admin')) {
+      if (session && isAdmin) {
+        goToPath(zone.path)
+        return
+      }
+
+      goToAuth('sign-in', 'admin')
+      return
+    }
+
+    if (zone.path === '/cliente' || zone.path === '/agendamento') {
+      if (!clientPortalEnabled) {
+        window.open(initialBookingWhatsAppUrl, '_blank', 'noopener,noreferrer')
+        return
+      }
+
+      if (session) {
+        goToPath(zone.path)
+        return
+      }
+
+      goToAuth('sign-in', 'cliente')
+      return
+    }
+
+    if (zone.path === '/') {
+      goHome()
+      return
+    }
+
+    goToPath(zone.path)
+  }
+
+  function renderAccessSeparationSection() {
+    const visibleAccessZones = accessZones.filter((zone) => clientPortalEnabled || zone.path !== '/cliente')
+
+    return (
+      <section className="access-section" id="acessos">
+        <div className="section-heading platform-heading">
+          <p className="eyebrow">Separacao de acesso</p>
+          <h2>Publico, admin e CRM nao se misturam.</h2>
+          <p>
+            Cada area tem uma finalidade clara. A visitante ve a vitrine e chama no WhatsApp; o
+            admin opera o negocio; e clientes cadastradas ficam como base privada dentro do CRM.
+          </p>
+        </div>
+        <div className="access-grid">
+          {visibleAccessZones.map((zone) => (
+            <article className="access-card" key={zone.label}>
+              <span className="platform-card-icon">{renderPlatformIcon(zone.icon)}</span>
+              <small>{zone.label}</small>
+              <h3>{zone.title}</h3>
+              <p>{zone.description}</p>
+              <ul>
+                {zone.items.map((item) => (
+                  <li key={item}>
+                    <CheckCircle2 size={15} aria-hidden="true" /> {item}
+                  </li>
+                ))}
+              </ul>
+              <button type="button" className="secondary-action" onClick={() => handleAccessZoneClick(zone)}>
+                {zone.cta}
+              </button>
+            </article>
+          ))}
+        </div>
+      </section>
+    )
+  }
+
+  function renderAppPreview() {
+    const previewItems = [
+      { label: 'Hoje', value: todayActiveBookings.length || 4, detail: 'horarios ativos' },
+      { label: 'Pendencias', value: pendingBusinessPaymentCount || 2, detail: 'pagamentos e lembretes' },
+      { label: 'Estoque', value: lowStockProducts.length || 3, detail: 'itens em atencao' },
+    ]
+
+    return (
+      <div className="phone-preview" aria-label="Previa visual do aplicativo Hellen Brows">
+        <div className="phone-preview-screen">
+          <div className="phone-preview-top">
+            <span>Hellen Brows App</span>
+            <strong>{formatDate(currentBusinessDateTime.date)}</strong>
+          </div>
+          <div className="phone-preview-hero">
+            <small>Proximo atendimento</small>
+            <strong>{adminSelectedBookings[0]?.client_name ?? 'Cliente confirmada'}</strong>
+            <span>
+              {adminSelectedBookings[0]
+                ? `${adminSelectedBookings[0].service_name} as ${formatTimeRange(
+                    adminSelectedBookings[0].preferred_time,
+                    adminSelectedBookings[0].preferred_end_time,
+                  )}`
+                : 'Design com henna as 14:40'}
+            </span>
+          </div>
+          <div className="phone-preview-grid">
+            {previewItems.map((item) => (
+              <article key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                <small>{item.detail}</small>
+              </article>
+            ))}
+          </div>
+          <div className="phone-preview-list">
+            {appHighlights.map((feature) => (
+              <div key={feature.title}>
+                {renderPlatformIcon(feature.icon)}
+                <span>{feature.eyebrow}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  function renderAppPage() {
+    return (
+      <main>
+        {renderPublicPageHeader(
+          'Aplicativo Hellen Brows',
+          'Um app interno para a Hellen operar o studio pelo celular.',
+          'Nesta fase, a cliente chama pelo WhatsApp. A Hellen administra agenda, CRM, pagamentos, estoque e indicadores em uma area privada.',
+        )}
+
+        <section className="app-launch-section">
+          <div className="app-launch-copy">
+            <p className="eyebrow">Web, iOS, Android e desktop</p>
+            <h2>O mesmo sistema da web, com comportamento de aplicativo para a rotina admin.</h2>
+            <p>
+              A versao instalavel entrega acesso rapido sem confundir papeis: visitantes veem a
+              vitrine e chamam no WhatsApp, enquanto o admin opera o negocio completo.
+            </p>
+            <div className="app-actions">
+              <button type="button" className="primary-action" onClick={() => void handleInstallApp()}>
+                <Phone size={18} aria-hidden="true" /> Instalar agora
+              </button>
+              <button type="button" className="secondary-action" onClick={() => (session && isAdmin ? goToPath('/admin') : goToAuth('sign-in', 'admin'))}>
+                Painel admin
+              </button>
+              <a href={initialBookingWhatsAppUrl} target="_blank" rel="noreferrer" className="secondary-action">
+                WhatsApp publico
+              </a>
+            </div>
+            <p className="form-status" role="status" aria-live="polite">
+              {installStatus || 'Se o botao nao abrir a instalacao, use Adicionar a tela inicial no menu do navegador.'}
+            </p>
+          </div>
+          {renderAppPreview()}
+        </section>
+
+        {renderAccessSeparationSection()}
+
+        <section className="app-capabilities-section">
+          <div className="section-heading compact">
+            <p className="eyebrow">Modulos do aplicativo</p>
+            <h2>O MVP real do studio, operado primeiro pelo admin.</h2>
+          </div>
+          <div className="platform-grid">{[...platformFeatures, ...appHighlights].map(renderFeatureCard)}</div>
+        </section>
+
+        <section className="workflow-section" aria-label="Fluxo operacional do aplicativo">
+          <div>
+            <p className="eyebrow">Fluxo diario</p>
+            <h2>Do WhatsApp ao pos-atendimento sem planilha paralela.</h2>
+          </div>
+          <ol>
+            {operatingFlows.map((flow, index) => (
+              <li key={flow}>
+                <span>{String(index + 1).padStart(2, '0')}</span>
+                <p>{flow}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+        {renderConfirmDialog()}
+      </main>
+    )
+  }
+
   function renderServicesPage() {
     return (
       <main>
@@ -5564,10 +6011,10 @@ function App() {
             ))}
           </div>
           <div className="section-cta">
-            <button type="button" className="primary-action" onClick={() => (session ? goToPath('/agendamento') : goToAuth('sign-in', 'cliente'))}>
-              Agendar horario
+            <a href={initialBookingWhatsAppUrl} target="_blank" rel="noreferrer" className="primary-action">
+              Agendar pelo WhatsApp
               <ArrowRight size={18} aria-hidden="true" />
-            </button>
+            </a>
             <a href={instagramUrl} target="_blank" rel="noreferrer" className="secondary-link">
               Ver Instagram
             </a>
@@ -5587,7 +6034,7 @@ function App() {
         {renderPublicPageHeader(
           'Confirmacao',
           'Seu pedido de horario foi registrado.',
-          'Acompanhe sua agenda e fale com a Hellen pelo WhatsApp se precisar ajustar algum detalhe.',
+          'Fale com a Hellen pelo WhatsApp se precisar ajustar algum detalhe.',
         )}
         <section className="confirmation-section">
           <article className="confirmation-card">
@@ -5600,12 +6047,18 @@ function App() {
                 {formatTimeRange(latestConfirmation.startTime, latestConfirmation.endTime)}.
               </p>
             ) : (
-              <p>Confira sua area da cliente para ver os horarios e status mais recentes.</p>
+              <p>Por enquanto, a confirmacao e os ajustes acontecem pelo WhatsApp.</p>
             )}
             <div className="form-actions">
-              <button type="button" onClick={() => goToPath('/cliente')}>
-                Ver minha agenda
-              </button>
+              {clientPortalEnabled ? (
+                <button type="button" onClick={() => goToPath('/cliente')}>
+                  Ver minha agenda
+                </button>
+              ) : (
+                <button type="button" onClick={() => goHome()}>
+                  Voltar ao site
+                </button>
+              )}
               <a href={getWhatsAppUrl(bookingWhatsAppNumber, whatsappMessage)} target="_blank" rel="noreferrer">
                 <MessageCircle size={16} aria-hidden="true" /> Falar no WhatsApp
               </a>
@@ -5657,13 +6110,14 @@ function App() {
   if (isAuthRoute) {
     const isRecovery = authMode === 'forgot-password'
     const isReset = authMode === 'reset-password'
+    const isSignUpVisible = clientPortalEnabled && authMode === 'sign-up'
     const authTitle = isReset
       ? 'Crie uma nova senha.'
       : isRecovery
         ? 'Recupere seu acesso.'
-        : authMode === 'sign-up'
+        : isSignUpVisible
           ? 'Crie sua conta para agendar.'
-          : 'Entre para marcar seu horario.'
+          : 'Acesso administrativo da Hellen.'
 
     return (
       <main className="auth-page">
@@ -5675,18 +6129,18 @@ function App() {
           <p className="eyebrow">Acesso seguro</p>
           <h1>{authTitle}</h1>
           <p>
-            Use seu email para confirmar a conta, recuperar senha e acompanhar seus horarios em
-            um espaco reservado.
+            Use email e senha para entrar no painel privado. A cliente agenda pelo WhatsApp nesta
+            primeira fase.
           </p>
           <div className="auth-benefits">
             <span>
-              <CheckCircle2 size={16} aria-hidden="true" /> Confirmacao por email
+              <CheckCircle2 size={16} aria-hidden="true" /> Login admin
             </span>
             <span>
               <CheckCircle2 size={16} aria-hidden="true" /> Recuperacao de senha
             </span>
             <span>
-              <CheckCircle2 size={16} aria-hidden="true" /> Historico de agendamentos
+              <CheckCircle2 size={16} aria-hidden="true" /> Painel privado
             </span>
           </div>
         </section>
@@ -5696,17 +6150,19 @@ function App() {
             <button
               type="button"
               className={authMode === 'sign-in' ? 'active' : ''}
-              onClick={() => goToAuth('sign-in')}
+              onClick={() => goToAuth('sign-in', 'admin')}
             >
               Entrar
             </button>
-            <button
-              type="button"
-              className={authMode === 'sign-up' ? 'active' : ''}
-              onClick={() => goToAuth('sign-up')}
-            >
-              Criar conta
-            </button>
+            {clientPortalEnabled ? (
+              <button
+                type="button"
+                className={authMode === 'sign-up' ? 'active' : ''}
+                onClick={() => goToAuth('sign-up')}
+              >
+                Criar conta
+              </button>
+            ) : null}
           </div>
 
           {session && !isReset ? (
@@ -5714,7 +6170,7 @@ function App() {
               <UserCheck size={24} aria-hidden="true" />
               <h2>Voce ja esta conectado.</h2>
               <p>{session.user.email}</p>
-              <button type="button" onClick={() => goToPath(isAdmin ? '/admin' : '/cliente')}>
+              <button type="button" onClick={() => goToPath(isAdmin ? '/admin' : clientPortalEnabled ? '/cliente' : '/')}>
                 Continuar
               </button>
               <button type="button" className="text-button" onClick={handleSignOut}>
@@ -5757,7 +6213,7 @@ function App() {
                     ? 'Atualizar senha'
                     : isRecovery
                       ? 'Enviar link de recuperacao'
-                      : authMode === 'sign-in'
+                      : authMode === 'sign-in' || !clientPortalEnabled
                         ? 'Entrar'
                         : 'Criar conta'}
               </button>
@@ -5775,6 +6231,30 @@ function App() {
               </p>
             </form>
           )}
+        </section>
+        {renderConfirmDialog()}
+      </main>
+    )
+  }
+
+  if (isCustomerRoute && !clientPortalEnabled) {
+    return (
+      <main>
+        {renderPublicPageHeader(
+          'Area da cliente em breve',
+          'O atendimento da cliente continua pelo WhatsApp nesta fase.',
+          'A area individual ficara para uma proxima etapa. Agora, a Hellen usa o painel admin para organizar calendario, historico e confirmacoes.',
+        )}
+        <section className="booking-section">
+          <div className="booking-intro">
+            <p className="eyebrow">Atendimento atual</p>
+            <h2>Sem login de cliente por enquanto.</h2>
+            <p>
+              Para marcar, remarcar ou tirar duvidas, use o WhatsApp. O sistema interno segue
+              organizado apenas para a Hellen/admin.
+            </p>
+          </div>
+          {renderInitialBookingGate()}
         </section>
         {renderConfirmDialog()}
       </main>
@@ -5849,13 +6329,17 @@ function App() {
     return renderServicesPage()
   }
 
+  if (isAppRoute) {
+    return renderAppPage()
+  }
+
   if (isBookingRoute) {
     return (
       <main>
         {renderPublicPageHeader(
           'Agendamento',
-          'Agende seu horario de forma simples e rapida.',
-          'Escolha servico, data e horario disponivel. Separe um tempinho para voce.',
+          'Agende seu horario pelo WhatsApp.',
+          'Nesta fase, a Hellen confirma manualmente e registra tudo no painel interno para manter a agenda organizada.',
         )}
         {renderBookingSection()}
         {renderConfirmDialog()}
@@ -5907,18 +6391,14 @@ function App() {
             <p className="eyebrow">Hellen Martins Designer de Sobrancelhas</p>
             <h1>Sobrancelhas naturais com medida, tecnica e acabamento fino.</h1>
             <p className="hero-lede">
-              Design personalizado para realcar seu olhar com naturalidade, conforto e
-              acabamento delicado.
+              Agende seu horario para design personalizado, henna, coloracao e acabamento delicado
+              com foco em naturalidade e harmonia do rosto.
             </p>
             <div className="hero-actions">
-              <button
-                type="button"
-                className="primary-action"
-                onClick={() => (session ? goToPath(isAdmin ? '/admin' : '/agendamento') : goToAuth('sign-in', 'cliente'))}
-              >
-                Agendar agora
+              <a href={initialBookingWhatsAppUrl} target="_blank" rel="noreferrer" className="primary-action">
+                Agendar pelo WhatsApp
                 <ArrowRight size={18} aria-hidden="true" />
-              </button>
+              </a>
             </div>
             <div className="trust-row" aria-label="Diferenciais">
               <span>
@@ -5930,9 +6410,9 @@ function App() {
             </div>
           </div>
 
-          <div className="hero-visual" aria-label="Ilustracao editorial de sobrancelhas">
-            <div className="portrait-frame generated-portrait">
-              <img src={browAtelier} alt="Imagem editorial original para Hellen Martins Brows" />
+          <div className="hero-visual" aria-label="Identidade visual Hellen Martins Brows">
+            <div className="brand-showcase-frame">
+              <img src={brandBanner} alt="Logo Hellen Martins Designer de Sobrancelhas em fundo preto e dourado" />
               <div className="appointment-card glass-card">
                 <CalendarCheck size={18} aria-hidden="true" />
                 <span>Agenda aberta</span>
@@ -5956,6 +6436,24 @@ function App() {
           <strong>Seg a Sex</strong>
           <span>Atendimento organizado em dias uteis</span>
         </article>
+      </section>
+
+      <section className="brand-care-section" aria-label="Mensagem de cuidado da Hellen Martins">
+        <div className="care-image-card">
+          <img src={careCardImage} alt="Cada detalhe foi pensado com carinho, obrigada por confiar no meu trabalho" />
+        </div>
+        <div className="care-copy">
+          <p className="eyebrow">Cuidado em cada detalhe</p>
+          <h2>Um atendimento pensado para valorizar seu olhar sem exageros.</h2>
+          <p>
+            A identidade preta e dourada traz a mesma sensacao do atendimento: sofisticado,
+            delicado e feito com calma para respeitar seus tracos naturais.
+          </p>
+          <a href={initialBookingWhatsAppUrl} target="_blank" rel="noreferrer" className="primary-action">
+            Chamar para agendar
+            <MessageCircle size={18} aria-hidden="true" />
+          </a>
+        </div>
       </section>
 
       <section className="services-section" id="servicos">

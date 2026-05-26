@@ -1,7 +1,17 @@
 <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="64" height="64" rx="32" fill="#F4EEE5"/>
-  <circle cx="32" cy="30" r="23" fill="#9F8F59"/>
-  <path d="M19 20V40M19 30H29M29 20V40" stroke="#FFF9EF" stroke-width="3.2" stroke-linecap="round"/>
-  <path d="M32 40L37 21L42 40L47 21V40" stroke="#FFF9EF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M17 46C23 40 27 43 31 42C36 41 36 37 41 40C45 42 45 47 51 43" stroke="#FFF9EF" stroke-width="3" stroke-linecap="round"/>
+  <defs>
+    <linearGradient id="gold" x1="13" y1="9" x2="52" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff2a8"/>
+      <stop offset="0.36" stop-color="#f6b92d"/>
+      <stop offset="0.7" stop-color="#a8620e"/>
+      <stop offset="1" stop-color="#ffe999"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="32" fill="#050301"/>
+  <circle cx="32" cy="29" r="21" stroke="url(#gold)" stroke-width="2.2"/>
+  <circle cx="32" cy="29" r="18" stroke="url(#gold)" stroke-width="0.8" opacity="0.7"/>
+  <path d="M21 19V38M21 29H30M30 19V38" stroke="url(#gold)" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M30 38L35 20L40 38L45 20V38" stroke="url(#gold)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="44" cy="15" r="2.2" fill="#fff2a8"/>
+  <path d="M14 47C22 41 28 44 32 43C38 41 38 37 44 40C48 42 49 47 55 43" stroke="url(#gold)" stroke-width="1.8" stroke-linecap="round"/>
 </svg>

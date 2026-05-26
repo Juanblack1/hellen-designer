@@ -30,6 +30,12 @@
 - [x] Adicionar ficha detalhada de cliente com preferencias e anotacoes profissionais.
 - [x] Adicionar area financeira por atendimento.
 - [x] Adicionar produtos, estoque e movimentacoes.
+- [x] Reposicionar a home como studio + plataforma de agenda/gestao inspirada no PRD.
+- [x] Criar rota `/app` para apresentar a experiencia do aplicativo.
+- [x] Adicionar PWA instalavel com manifest, service worker e atalhos.
+- [x] Separar no produto o que e publico, cliente logada, admin e clientes cadastradas no CRM.
+- [x] Atualizar identidade visual da landing com estilo preto/dourado e novos assets de marca.
+- [x] Ajustar fase inicial para landing com WhatsApp publico e sistema privado admin-first.
 
 ## Supabase
 

@@ -1,0 +1,27 @@
+<svg width="1024" height="1448" viewBox="0 0 1024 1448" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gold" x1="154" y1="98" x2="876" y2="1348" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff2a8"/>
+      <stop offset="0.28" stop-color="#d99a24"/>
+      <stop offset="0.58" stop-color="#fff1a7"/>
+      <stop offset="1" stop-color="#a8620e"/>
+    </linearGradient>
+    <filter id="glow" x="0" y="0" width="1024" height="1448" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="1 0 0 0 1 0 1 0 0 .64 0 0 1 0 .12 0 0 0 .42 0"/>
+      <feBlend in="SourceGraphic"/>
+    </filter>
+  </defs>
+  <rect width="1024" height="1448" fill="#030200"/>
+  <rect x="28" y="28" width="968" height="1392" stroke="url(#gold)" stroke-width="4"/>
+  <rect x="42" y="42" width="940" height="1364" stroke="url(#gold)" stroke-width="1.5" opacity="0.65"/>
+  <path d="M512 288C474 246 405 272 405 331C405 390 512 443 512 443C512 443 619 390 619 331C619 272 550 246 512 288Z" fill="url(#gold)" filter="url(#glow)"/>
+  <text x="512" y="620" text-anchor="middle" fill="url(#gold)" font-family="Georgia, serif" font-size="90" letter-spacing="1">Cada detalhe</text>
+  <text x="512" y="744" text-anchor="middle" fill="url(#gold)" font-family="Georgia, serif" font-size="90" letter-spacing="1">foi pensado</text>
+  <text x="512" y="872" text-anchor="middle" fill="url(#gold)" font-family="Georgia, serif" font-size="84" font-style="italic" letter-spacing="10">com carinho</text>
+  <path d="M306 950C374 936 450 936 512 950C574 936 650 936 718 950" stroke="url(#gold)" stroke-width="3" opacity="0.9"/>
+  <path d="M512 934C496 914 462 928 462 955C462 981 512 1008 512 1008C512 1008 562 981 562 955C562 928 528 914 512 934Z" fill="url(#gold)"/>
+  <text x="512" y="1116" text-anchor="middle" fill="url(#gold)" font-family="Georgia, serif" font-size="48">obrigada por confiar</text>
+  <text x="512" y="1186" text-anchor="middle" fill="url(#gold)" font-family="Georgia, serif" font-size="48">no meu trabalho.</text>
+  <circle cx="512" cy="1280" r="12" fill="url(#gold)" filter="url(#glow)"/>
+</svg>

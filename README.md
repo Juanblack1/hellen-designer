@@ -1,6 +1,6 @@
 # Hellen Martins Brows
 
-Site de agendamento para servicos de sobrancelhas, construido com React, Vite, Supabase Auth/Postgres e deploy na Vercel.
+Site publico e PWA de gestao admin-first para o studio Hellen Martins Brows, construido com React, Vite, Supabase Auth/Postgres e deploy na Vercel.
 
 Live: https://hellen-brows.vercel.app
 
@@ -14,7 +14,12 @@ GitHub: https://github.com/Juanblack1/hellen-brows
 - Asaas Checkout hospedado para sinal de reserva
 - Vitest + GitHub Actions para verificacao continua
 - CSS autoral com direcao beauty editorial
+- PWA instalavel com manifest, service worker e atalhos de app
 - Vercel para hospedagem
+
+## Escopo atual
+
+Nesta fase, a cliente usa a landing publica para conhecer servicos e chamar a Hellen pelo WhatsApp. O sistema operacional e privado para admin: calendario, clientes, pagamentos, produtos, estoque, relatorios e configuracoes. A area da cliente e o checkout autenticado ficam preparados no codigo para uma etapa futura, mas nao sao destaque publico agora.
 
 ## Variaveis de ambiente
 
@@ -82,11 +87,12 @@ npm run dev
 ## Rotas
 
 - `/`: vitrine publica.
+- `/app`: apresentacao do aplicativo instalavel para gestao admin.
 - `/servicos`: catalogo publico de servicos, valores e duracao.
-- `/agendamento`: fluxo guiado de agendamento.
+- `/agendamento`: chamada publica para agendar pelo WhatsApp.
 - `/confirmacao`: confirmacao visual depois do pedido de horario.
-- `/auth`: entrada, cadastro e recuperacao de senha.
-- `/cliente`: agenda e historico da cliente autenticada.
+- `/auth`: entrada e recuperacao de senha para acesso admin.
+- `/cliente`: pagina futura da cliente; hoje orienta atendimento pelo WhatsApp.
 - `/admin`: dashboard administrativo.
 - `/admin/agenda`: calendario operacional e bloqueios.
 - `/admin/agendamentos`: lista completa de horarios, status, remarcacao e notas.
@@ -97,6 +103,10 @@ npm run dev
 - `/admin/produtos`: produtos, estoque e movimentacoes.
 - `/admin/relatorios`: indicadores simples.
 - `/admin/configuracoes`: politicas, sinal e dados operacionais.
+
+## Aplicativo instalavel
+
+O projeto inclui `public/manifest.webmanifest` e `public/sw.js`, entao a rota `/app` pode ser instalada pelo navegador como aplicativo no celular, tablet ou desktop. O app usa a mesma base em nuvem da versao web e, nesta fase, prioriza painel admin, agenda operacional e CRM de clientes cadastradas.
 
 ## Banco de dados
 
