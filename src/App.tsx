@@ -381,9 +381,7 @@ function App() {
       setGallery(galleryResult.data as GalleryItem[])
     }
 
-    if (profileResult.error || serviceResult.error || galleryResult.error) {
-      setDataStatus('Nao foi possivel carregar tudo do Supabase. Mantive conteudo padrao.')
-    }
+    // Public visitors should see the branded fallback content, not technical loading details.
   }
 
   async function checkAdminAccess(currentSession: Session) {
@@ -454,7 +452,7 @@ function App() {
       productResult.error ||
       movementResult.error
     ) {
-      setDataStatus('Alguns dados do admin nao carregaram. Confira schema e permissoes.')
+      setDataStatus('Alguns dados nao carregaram. Confira conexao e permissoes.')
     }
   }
 
@@ -533,7 +531,7 @@ function App() {
 
     if (!supabase) {
       setIsAdmin(true)
-      setAuthStatus('Modo demo local ativo.')
+      setAuthStatus('Acesso local ativado.')
       return
     }
 
@@ -1305,7 +1303,6 @@ function App() {
           </button>
         </footer>
 
-        {dataStatus ? <p className="toast-status">{dataStatus}</p> : null}
       </main>
     )
   }

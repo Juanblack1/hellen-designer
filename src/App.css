@@ -618,7 +618,6 @@ dd {
   font-size: 1.3rem;
 }
 
-.toast-status,
 .form-status {
   color: var(--gold-bright);
   font-size: 0.88rem;
@@ -627,18 +626,6 @@ dd {
 
 .form-status.error {
   color: var(--danger);
-}
-
-.toast-status {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  bottom: 18px;
-  left: 50%;
-  padding: 10px 12px;
-  position: fixed;
-  transform: translateX(-50%);
-  z-index: 40;
 }
 
 .admin-auth-page {
