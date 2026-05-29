@@ -22,6 +22,22 @@
       "deviceType": "DESKTOP",
       "localHtml": ".stitch/designs/admin.html",
       "localScreenshot": ".stitch/designs/admin.png"
+    },
+    {
+      "id": "0858e4ce73ef44879741838c839c76b3",
+      "name": "Hellen Designer - Booking Landing Page",
+      "route": "/",
+      "deviceType": "MOBILE",
+      "localHtml": ".stitch/designs/booking-landing.html",
+      "localScreenshot": ".stitch/designs/booking-landing.png"
+    },
+    {
+      "id": "05ce60fd718b4ca6987b7408414e391c",
+      "name": "Agenda - Admin Studio Gold",
+      "route": "/admin",
+      "deviceType": "MOBILE",
+      "localHtml": ".stitch/designs/admin-agenda-corthy.html",
+      "localScreenshot": ".stitch/designs/admin-agenda-corthy.png"
     }
   ]
 }

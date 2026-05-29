@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<title>Hellen Designer - Agenda Admin</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&amp;family=Playfair+Display:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface": "#100C08",
+                    "outline": "#9c8f7d",
+                    "on-primary-fixed-variant": "#5f4100",
+                    "surface-variant": "#373432",
+                    "on-secondary": "#3e2e00",
+                    "primary-fixed": "#ffdeaa",
+                    "on-tertiary": "#462a00",
+                    "error-container": "#93000a",
+                    "outline-variant": "#4f4536",
+                    "on-tertiary-container": "#5c3900",
+                    "surface-raised": "#17110B",
+                    "on-tertiary-fixed": "#2a1700",
+                    "line": "#4D3517",
+                    "on-primary-fixed": "#271900",
+                    "on-secondary-container": "#cdb275",
+                    "inverse-on-surface": "#33302d",
+                    "on-surface": "#e8e1dd",
+                    "on-error": "#690005",
+                    "surface-container": "#221f1d",
+                    "secondary": "#dfc484",
+                    "danger": "#FF7E61",
+                    "surface-dim": "#151311",
+                    "inverse-surface": "#e8e1dd",
+                    "on-secondary-fixed": "#251a00",
+                    "on-secondary-fixed-variant": "#574411",
+                    "on-background": "#e8e1dd",
+                    "text-primary": "#F8EAD0",
+                    "surface-bright": "#3c3936",
+                    "on-tertiary-fixed-variant": "#643e00",
+                    "surface-container-lowest": "#100e0c",
+                    "surface-container-high": "#2c2927",
+                    "on-primary-container": "#573c00",
+                    "primary": "#f7bf59",
+                    "inverse-primary": "#7d5700",
+                    "error": "#ffb4ab",
+                    "surface-tint": "#f5bd58",
+                    "text-muted": "#C6B696",
+                    "tertiary-fixed-dim": "#fabb68",
+                    "warning": "#F4C873",
+                    "surface-soft": "#21170D",
+                    "on-primary": "#422c00",
+                    "on-error-container": "#ffdad6",
+                    "tertiary-fixed": "#ffddb7",
+                    "background": "#151311",
+                    "surface-container-highest": "#373432",
+                    "surface-container-low": "#1d1b19",
+                    "primary-fixed-dim": "#f5bd58",
+                    "success": "#63D697",
+                    "secondary-fixed-dim": "#dfc484",
+                    "secondary-container": "#574411",
+                    "on-surface-variant": "#d3c4b1",
+                    "tertiary": "#fcbc6a",
+                    "tertiary-container": "#dda152",
+                    "secondary-fixed": "#fce09e",
+                    "primary-container": "#d9a441"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "section-gap": "80px",
+                    "gutter": "16px",
+                    "base": "8px",
+                    "admin-tight": "4px",
+                    "admin-normal": "12px",
+                    "container-padding": "24px"
+            },
+            "fontFamily": {
+                    "headline-lg-mobile": ["Playfair Display"],
+                    "headline-md": ["Playfair Display"],
+                    "label-sm": ["Montserrat"],
+                    "display-lg": ["Playfair Display"],
+                    "body-md": ["Montserrat"],
+                    "label-md": ["Montserrat"],
+                    "headline-lg": ["Playfair Display"],
+                    "body-lg": ["Montserrat"],
+                    "tabular-nums": ["Montserrat"]
+            },
+            "fontSize": {
+                    "headline-lg-mobile": ["32px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                    "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                    "label-sm": ["12px", {"lineHeight": "1.2", "fontWeight": "500"}],
+                    "display-lg": ["56px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                    "label-md": ["14px", {"lineHeight": "1.2", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "headline-lg": ["40px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "tabular-nums": ["14px", {"fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .timeline-scroll::-webkit-scrollbar { display: none; }
+        .timeline-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+        .glass-panel { backdrop-filter: blur(12px); background: rgba(23, 17, 11, 0.85); }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body-md text-body-md overflow-x-hidden">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface border-b border-line h-16 flex flex-col justify-center px-gutter">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="calendar_today">calendar_today</span>
+<h1 class="font-headline-md text-headline-md font-bold text-primary">Agenda</h1>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="share">share</span>
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="view_list">view_list</span>
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="help_outline">help_outline</span>
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="more_vert">more_vert</span>
+</div>
+</div>
+</header>
+<!-- Content Area -->
+<main class="pt-16 pb-32">
+<!-- Date Selector -->
+<div class="flex items-center justify-between px-gutter py-4 bg-surface-raised sticky top-16 z-40 border-b border-line">
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-variant/20 transition-colors">
+<span class="material-symbols-outlined text-primary" data-icon="chevron_left">chevron_left</span>
+</button>
+<div class="text-center">
+<p class="font-label-md text-label-md text-primary uppercase tracking-widest">Quinta-feira</p>
+<p class="font-headline-md text-headline-md">24 de Outubro</p>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-variant/20 transition-colors">
+<span class="material-symbols-outlined text-primary" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+<!-- Dashboard Summary (Compact Strip) -->
+<section class="flex overflow-x-auto timeline-scroll gap-4 px-gutter py-4 bg-surface-dim">
+<div class="flex-shrink-0 bg-surface-soft border border-line p-3 rounded-xl min-w-[100px]">
+<p class="text-label-sm font-label-sm text-outline uppercase">Faturamento</p>
+<p class="text-primary font-tabular-nums text-lg font-bold">R$ 2.450</p>
+</div>
+<div class="flex-shrink-0 bg-surface-soft border border-line p-3 rounded-xl min-w-[100px]">
+<p class="text-label-sm font-label-sm text-outline uppercase">Agendados</p>
+<p class="text-on-surface font-tabular-nums text-lg font-bold">08</p>
+</div>
+<div class="flex-shrink-0 bg-surface-soft border border-line p-3 rounded-xl min-w-[100px]">
+<p class="text-label-sm font-label-sm text-outline uppercase">Pendentes</p>
+<p class="text-warning font-tabular-nums text-lg font-bold">02</p>
+</div>
+<div class="flex-shrink-0 bg-surface-soft border border-line p-3 rounded-xl min-w-[100px]">
+<p class="text-label-sm font-label-sm text-outline uppercase">Novos Clientes</p>
+<p class="text-success font-tabular-nums text-lg font-bold">03</p>
+</div>
+</section>
+<!-- Timeline Grid -->
+<section class="relative px-gutter mt-2">
+<div class="flex gap-4">
+<!-- Time Column -->
+<div class="w-16 flex-shrink-0">
+<!-- Iterating hours from 08 to 20 -->
+<div class="h-20 flex flex-col justify-start pt-1">
+<span class="font-tabular-nums text-label-sm text-outline">08:00</span>
+</div>
+<div class="h-20 flex flex-col justify-start pt-1">
+<span class="font-tabular-nums text-label-sm text-outline">09:00</span>
+</div>
+<div class="h-20 flex flex-col justify-start pt-1">
+<span class="font-tabular-nums text-label-sm text-outline">10:00</span>
+</div>
+<div class="h-20 flex flex-col justify-start pt-1">
+<span class="font-tabular-nums text-label-sm text-outline">11:00</span>
+</div>
+<div class="h-20 flex flex-col justify-start pt-1">
+<span class="font-tabular-nums text-label-sm text-outline">12:00</span>
+</div>
+<div class="h-20 flex flex-col justify-start pt-1">
+<span class="font-tabular-nums text-label-sm text-outline">13:00</span>
+</div>
+<div class="h-20 flex flex-col justify-start pt-1">
+<span class="font-tabular-nums text-label-sm text-outline">14:00</span>
+</div>
+<div class="h-20 flex flex-col justify-start pt-1">
+<span class="font-tabular-nums text-label-sm text-outline">15:00</span>
+</div>
+<div class="h-20 flex flex-col justify-start pt-1">
+<span class="font-tabular-nums text-label-sm text-outline">16:00</span>
+</div>
+<div class="h-20 flex flex-col justify-start pt-1">
+<span class="font-tabular-nums text-label-sm text-outline">17:00</span>
+</div>
+<div class="h-20 flex flex-col justify-start pt-1">
+<span class="font-tabular-nums text-label-sm text-outline">18:00</span>
+</div>
+<div class="h-20 flex flex-col justify-start pt-1">
+<span class="font-tabular-nums text-label-sm text-outline">19:00</span>
+</div>
+<div class="h-20 flex flex-col justify-start pt-1">
+<span class="font-tabular-nums text-label-sm text-outline">20:00</span>
+</div>
+</div>
+<!-- Appointments Column -->
+<div class="flex-grow relative border-l border-line/30">
+<!-- Background Grid Lines -->
+<div class="absolute inset-0">
+<!-- Generates 12 blocks of 1 hour (20px each hour if h-20) -->
+<div class="h-10 border-b border-line/10"></div><div class="h-10 border-b border-line/20"></div>
+<div class="h-10 border-b border-line/10"></div><div class="h-10 border-b border-line/20"></div>
+<div class="h-10 border-b border-line/10"></div><div class="h-10 border-b border-line/20"></div>
+<div class="h-10 border-b border-line/10"></div><div class="h-10 border-b border-line/20"></div>
+<div class="h-10 border-b border-line/10"></div><div class="h-10 border-b border-line/20"></div>
+<div class="h-10 border-b border-line/10"></div><div class="h-10 border-b border-line/20"></div>
+<div class="h-10 border-b border-line/10"></div><div class="h-10 border-b border-line/20"></div>
+<div class="h-10 border-b border-line/10"></div><div class="h-10 border-b border-line/20"></div>
+<div class="h-10 border-b border-line/10"></div><div class="h-10 border-b border-line/20"></div>
+<div class="h-10 border-b border-line/10"></div><div class="h-10 border-b border-line/20"></div>
+<div class="h-10 border-b border-line/10"></div><div class="h-10 border-b border-line/20"></div>
+<div class="h-10 border-b border-line/10"></div><div class="h-10 border-b border-line/20"></div>
+</div>
+<!-- Appointment: Microblading (10:00 - 11:30) -->
+<!-- Position: Top 160px (2 hours from 08:00), Height 120px (1.5 hours) -->
+<div class="absolute top-[160px] left-2 right-2 h-[120px] bg-primary/20 border-l-4 border-primary rounded-r-lg p-3 cursor-pointer hover:bg-primary/30 transition-all z-20" onclick="toggleDetail()">
+<div class="flex justify-between items-start">
+<span class="font-label-md text-label-md text-primary">Microblading Retoque</span>
+<span class="bg-success text-on-secondary px-2 py-0.5 rounded-full text-[10px] font-bold uppercase">Pago</span>
+</div>
+<h4 class="font-body-md font-bold text-on-background mt-1">Juliana Costa</h4>
+<div class="flex items-center gap-2 mt-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]" data-icon="schedule">schedule</span>
+<span class="text-label-sm font-tabular-nums">10:00 - 11:30</span>
+</div>
+</div>
+<!-- Block: Lunch/Unavailable (12:00 - 13:30) -->
+<!-- Position: Top 320px (4 hours from 08:00), Height 120px -->
+<div class="absolute top-[320px] left-0 right-0 h-[120px] bg-surface-variant/40 flex items-center justify-center border-y border-line/20">
+<div class="flex items-center gap-2 text-outline">
+<span class="material-symbols-outlined" data-icon="restaurant">restaurant</span>
+<span class="font-label-md text-label-md uppercase tracking-widest">Almoço / Indisponível</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Stocks Preview -->
+<section class="mt-8 px-gutter">
+<h3 class="font-headline-md text-headline-md mb-4 text-primary">Estoque Crítico</h3>
+<div class="space-y-2">
+<div class="flex items-center justify-between p-3 bg-surface-soft border border-line rounded-xl">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-surface-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-danger" data-icon="inventory_2">inventory_2</span>
+</div>
+<div>
+<p class="font-body-md font-medium">Pigmento RB Kollors</p>
+<p class="text-label-sm text-outline">Universal - 15ml</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-danger font-bold">01 un</p>
+<p class="text-[10px] text-outline uppercase">Repor já</p>
+</div>
+</div>
+<div class="flex items-center justify-between p-3 bg-surface-soft border border-line rounded-xl">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-surface-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-warning" data-icon="inventory_2">inventory_2</span>
+</div>
+<div>
+<p class="font-body-md font-medium">Agulhas 1RL 0.25</p>
+<p class="text-label-sm text-outline">Caixa c/ 20</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-warning font-bold">04 un</p>
+<p class="text-[10px] text-outline uppercase">Abaixo do ideal</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Quick Actions Grid -->
+<section class="mt-8 px-gutter mb-12">
+<div class="grid grid-cols-4 gap-4">
+<div class="flex flex-col items-center gap-2">
+<button class="w-14 h-14 rounded-full bg-surface-variant border border-line flex items-center justify-center text-primary active:scale-90 transition-transform">
+<span class="material-symbols-outlined" data-icon="add_task">add_task</span>
+</button>
+<span class="text-[10px] uppercase font-bold text-outline text-center">Novo Agend.</span>
+</div>
+<div class="flex flex-col items-center gap-2">
+<button class="w-14 h-14 rounded-full bg-surface-variant border border-line flex items-center justify-center text-primary active:scale-90 transition-transform">
+<span class="material-symbols-outlined" data-icon="person_add">person_add</span>
+</button>
+<span class="text-[10px] uppercase font-bold text-outline text-center">Novo Cliente</span>
+</div>
+<div class="flex flex-col items-center gap-2">
+<button class="w-14 h-14 rounded-full bg-surface-variant border border-line flex items-center justify-center text-primary active:scale-90 transition-transform">
+<span class="material-symbols-outlined" data-icon="add_shopping_cart">add_shopping_cart</span>
+</button>
+<span class="text-[10px] uppercase font-bold text-outline text-center">Produto</span>
+</div>
+<div class="flex flex-col items-center gap-2">
+<button class="w-14 h-14 rounded-full bg-surface-variant border border-line flex items-center justify-center text-primary active:scale-90 transition-transform">
+<span class="material-symbols-outlined" data-icon="account_balance_wallet">account_balance_wallet</span>
+</button>
+<span class="text-[10px] uppercase font-bold text-outline text-center">Pagamento</span>
+</div>
+</div>
+</section>
+</main>
+<!-- Client Detail Preview Panel (Hidden by Default) -->
+<div class="fixed inset-x-0 bottom-0 z-[60] glass-panel rounded-t-3xl border-t border-line transform translate-y-full transition-transform duration-300 p-6 pb-24" id="detailPanel">
+<div class="w-12 h-1 bg-line rounded-full mx-auto mb-6"></div>
+<div class="flex justify-between items-start mb-4">
+<div>
+<h2 class="font-headline-md text-headline-md text-primary">Juliana Costa</h2>
+<p class="text-on-surface-variant">Microblading Retoque</p>
+</div>
+<button class="text-outline hover:text-primary transition-colors" onclick="toggleDetail()">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+</button>
+</div>
+<div class="space-y-4 mb-8">
+<div class="flex items-center gap-3 p-3 bg-surface-container rounded-xl">
+<span class="material-symbols-outlined text-primary" data-icon="notes">notes</span>
+<p class="text-body-md italic text-on-surface-variant">"Cliente prefere design mais arqueado e cor aquecida."</p>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-outline" data-icon="history">history</span>
+<p class="text-label-md text-outline">Última visita: 15 de Setembro (Design c/ Henna)</p>
+</div>
+</div>
+<button class="w-full bg-primary text-on-primary py-4 rounded-xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg shadow-primary/10">
+<span class="material-symbols-outlined" data-icon="chat">chat</span>
+            CONFIRMAR WHATSAPP
+        </button>
+</div>
+<!-- FAB -->
+<button class="fixed right-6 bottom-20 z-40 w-16 h-16 rounded-full bg-primary text-on-primary shadow-2xl flex items-center justify-center active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-[32px] font-bold" data-icon="add">add</span>
+</button>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 pb-safe flex justify-around items-center h-16 bg-surface border-t border-line shadow-lg">
+<button class="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 hover:text-primary transition-all active:scale-95">
+<span class="material-symbols-outlined" data-icon="today">today</span>
+<span class="font-label-sm text-label-sm">Hoje</span>
+</button>
+<button class="flex flex-col items-center justify-center bg-secondary-container text-primary rounded-xl px-4 py-1 active:scale-95">
+<span class="material-symbols-outlined" data-icon="event_note">event_note</span>
+<span class="font-label-sm text-label-sm">Agenda</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 hover:text-primary transition-all active:scale-95">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span class="font-label-sm text-label-sm">Clientes</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 hover:text-primary transition-all active:scale-95">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span class="font-label-sm text-label-sm">Financeiro</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 hover:text-primary transition-all active:scale-95">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span>
+<span class="font-label-sm text-label-sm">Produtos</span>
+</button>
+</nav>
+<script>
+        function toggleDetail() {
+            const panel = document.getElementById('detailPanel');
+            if (panel.classList.contains('translate-y-full')) {
+                panel.classList.remove('translate-y-full');
+                panel.classList.add('translate-y-0');
+            } else {
+                panel.classList.add('translate-y-full');
+                panel.classList.remove('translate-y-0');
+            }
+        }
+    </script>
+</body></html>

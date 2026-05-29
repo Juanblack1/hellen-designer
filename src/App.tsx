@@ -2,22 +2,38 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import {
+  Banknote,
+  BarChart3,
+  Ban,
+  Boxes,
+  CalendarCheck2,
   CalendarDays,
   Camera,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  CircleHelp,
   Clock3,
+  CreditCard,
   Eye,
   EyeOff,
+  Home,
+  List,
   LogOut,
+  Menu,
   MessageCircle,
+  Package,
   Phone,
   Plus,
   Save,
   Search,
+  Send,
+  Share2,
   ShieldCheck,
   Sparkles,
   Trash2,
   UserRound,
+  UsersRound,
   Wallet,
   XCircle,
 } from 'lucide-react'
@@ -26,18 +42,33 @@ import portraitImage from './assets/hellen-brows-chatgpt-image.png'
 import careCardImage from './assets/hellen-care-card.svg'
 import brandLogo from './assets/hellen-martins-logo.svg'
 import {
+  addDays,
+  buildTimeSlots,
   buildWhatsAppUrl,
   calculateAdminStats,
   centsToInputValue,
   defaultAppointments,
   defaultClients,
   defaultGallery,
+  defaultProducts,
   defaultProfile,
   defaultServices,
+  defaultStockMovements,
+  defaultUnavailableBlocks,
   formatCurrency,
+  formatDateLong,
+  formatDateShort,
+  getAvailableSlots,
+  getLowStockProducts,
   getPaymentState,
+  getServiceUsage,
+  hasScheduleConflict,
+  isTimeInBlock,
+  isUnavailableTime,
+  maskBrazilianPhone,
   parseCurrencyToCents,
   sortByOrder,
+  timelineSlots,
 } from './domain'
 import type {
   AppointmentRecord,
@@ -46,12 +77,16 @@ import type {
   ClientRecord,
   GalleryItem,
   PaymentMethod,
+  ProductItem,
   ServiceItem,
+  StockMovement,
+  StockMovementType,
 } from './domain'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 import './App.css'
 
-type AdminTab = 'today' | 'agenda' | 'clients' | 'finance' | 'landing' | 'services' | 'photos'
+type AdminTab = 'today' | 'agenda' | 'clients' | 'finance' | 'products' | 'landing'
+type CalendarView = 'day' | 'week' | 'month' | 'list'
 
 type AppointmentDraft = {
   clientName: string
@@ -63,6 +98,15 @@ type AppointmentDraft = {
   chargedAmount: string
   receivedAmount: string
   paymentMethod: PaymentMethod
+  notes: string
+}
+
+type BookingDraft = {
+  serviceId: string
+  date: string
+  time: string
+  clientName: string
+  clientPhone: string
   notes: string
 }
 
@@ -79,6 +123,16 @@ type ServiceDraft = {
   published: boolean
 }
 
+type ProductDraft = {
+  name: string
+  category: string
+  quantity: string
+  unitCost: string
+  salePrice: string
+  minimumQuantity: string
+  notes: string
+}
+
 type GalleryDraft = {
   title: string
   imageUrl: string
@@ -86,20 +140,24 @@ type GalleryDraft = {
   file: File | null
 }
 
+type BookingStatus =
+  | { type: 'idle'; message: string }
+  | { type: 'error'; message: string }
+  | { type: 'success'; message: string; appointment: AppointmentRecord }
+
 const todayIso = () => new Date().toISOString().slice(0, 10)
 
-const adminTabs: Array<{ id: AdminTab; label: string }> = [
-  { id: 'today', label: 'Hoje' },
-  { id: 'agenda', label: 'Agenda' },
-  { id: 'clients', label: 'Clientes' },
-  { id: 'finance', label: 'Financeiro' },
-  { id: 'landing', label: 'Landing' },
-  { id: 'services', label: 'Servicos' },
-  { id: 'photos', label: 'Fotos' },
+const adminTabs: Array<{ id: AdminTab; label: string; icon: typeof CalendarDays }> = [
+  { id: 'today', label: 'Hoje', icon: Home },
+  { id: 'agenda', label: 'Agenda', icon: CalendarDays },
+  { id: 'clients', label: 'Clientes', icon: UsersRound },
+  { id: 'finance', label: 'Financeiro', icon: Banknote },
+  { id: 'products', label: 'Produtos', icon: Boxes },
+  { id: 'landing', label: 'Landing', icon: Camera },
 ]
 
 const statusLabels: Record<AppointmentStatus, string> = {
-  scheduled: 'Marcado',
+  scheduled: 'Agendado',
   confirmed: 'Confirmado',
   completed: 'Concluido',
   no_show: 'Nao compareceu',
@@ -113,6 +171,14 @@ const paymentMethodLabels: Record<PaymentMethod, string> = {
   credit_card: 'Credito',
 }
 
+const movementTypeLabels: Record<StockMovementType, string> = {
+  in: 'Entrada',
+  out: 'Saida',
+  service_use: 'Uso em atendimento',
+  sale: 'Venda para cliente',
+  adjustment: 'Ajuste manual',
+}
+
 const assetMap: Record<string, string> = {
   brandBanner,
   brandLogo,
@@ -120,19 +186,44 @@ const assetMap: Record<string, string> = {
   portrait: portraitImage,
 }
 
-function newAppointmentDraft(services: ServiceItem[]): AppointmentDraft {
+function newAppointmentDraft(services: ServiceItem[], date = todayIso(), time = '09:00'): AppointmentDraft {
   const firstService = services[0] ?? defaultServices[0]
 
   return {
     clientName: '',
     clientPhone: '',
     serviceId: firstService.id,
-    scheduledDate: todayIso(),
-    startTime: '09:00',
+    scheduledDate: date,
+    startTime: time,
     status: 'scheduled',
     chargedAmount: centsToInputValue(firstService.price_cents),
     receivedAmount: '0,00',
     paymentMethod: 'pix',
+    notes: '',
+  }
+}
+
+function newBookingDraft(services: ServiceItem[]): BookingDraft {
+  const firstService = services[0] ?? defaultServices[0]
+
+  return {
+    serviceId: firstService.id,
+    date: todayIso(),
+    time: '09:00',
+    clientName: '',
+    clientPhone: '',
+    notes: '',
+  }
+}
+
+function newProductDraft(): ProductDraft {
+  return {
+    name: '',
+    category: 'Henna',
+    quantity: '0',
+    unitCost: '0,00',
+    salePrice: '0,00',
+    minimumQuantity: '1',
     notes: '',
   }
 }
@@ -153,12 +244,14 @@ function resolveImageUrl(path: string) {
   return brandBanner
 }
 
-function getServiceMessage(service: ServiceItem) {
-  return `Ola Hellen, quero saber sobre ${service.name} (${formatCurrency(service.price_cents)}).`
-}
-
 function getGeneralMessage() {
   return 'Ola Hellen, vim pelo Instagram/site e quero agendar um horario.'
+}
+
+function getBookingMessage(appointment: AppointmentRecord) {
+  return `Ola Hellen, quero confirmar ${appointment.service_name} no dia ${formatDateShort(
+    appointment.scheduled_date,
+  )} as ${appointment.start_time}. Meu nome e ${appointment.client_name}.`
 }
 
 function App() {
@@ -174,11 +267,17 @@ function App() {
   const [gallery, setGallery] = useState<GalleryItem[]>(defaultGallery)
   const [clients, setClients] = useState<ClientRecord[]>(defaultClients)
   const [appointments, setAppointments] = useState<AppointmentRecord[]>(defaultAppointments)
+  const [products, setProducts] = useState<ProductItem[]>(defaultProducts)
+  const [stockMovements, setStockMovements] = useState<StockMovement[]>(defaultStockMovements)
   const [dataStatus, setDataStatus] = useState('')
 
   const [activeTab, setActiveTab] = useState<AdminTab>('today')
+  const [calendarView, setCalendarView] = useState<CalendarView>('day')
+  const [agendaDate, setAgendaDate] = useState(todayIso())
   const [searchTerm, setSearchTerm] = useState('')
   const [appointmentDraft, setAppointmentDraft] = useState<AppointmentDraft>(() => newAppointmentDraft(defaultServices))
+  const [bookingDraft, setBookingDraft] = useState<BookingDraft>(() => newBookingDraft(defaultServices))
+  const [bookingStatus, setBookingStatus] = useState<BookingStatus>({ type: 'idle', message: '' })
   const [newService, setNewService] = useState<ServiceDraft>({
     name: '',
     description: '',
@@ -186,6 +285,7 @@ function App() {
     price: '0,00',
     published: true,
   })
+  const [newProduct, setNewProduct] = useState<ProductDraft>(() => newProductDraft())
   const [galleryDraft, setGalleryDraft] = useState<GalleryDraft>({
     title: '',
     imageUrl: '',
@@ -195,6 +295,7 @@ function App() {
   const [selectedAppointmentId, setSelectedAppointmentId] = useState(defaultAppointments[0]?.id ?? '')
   const [isSaving, setIsSaving] = useState(false)
 
+  const today = todayIso()
   const isAdminRoute = route.startsWith('/admin') || route === '/auth'
   const publishedServices = useMemo(
     () => sortByOrder(services.filter((service) => service.active && service.published)),
@@ -211,18 +312,37 @@ function App() {
       ),
     [appointments],
   )
-  const todaysAppointments = useMemo(
-    () => sortedAppointments.filter((appointment) => appointment.scheduled_date === todayIso()),
-    [sortedAppointments],
+  const agendaAppointments = useMemo(
+    () => sortedAppointments.filter((appointment) => appointment.scheduled_date === agendaDate),
+    [agendaDate, sortedAppointments],
   )
-  const stats = useMemo(() => calculateAdminStats(appointments, todayIso()), [appointments])
-  const selectedAppointment = appointments.find((appointment) => appointment.id === selectedAppointmentId) ?? appointments[0]
+  const stats = useMemo(() => calculateAdminStats(appointments, today, clients, products), [appointments, clients, products, today])
+  const lowStockProducts = useMemo(() => getLowStockProducts(products), [products])
+  const serviceUsage = useMemo(() => getServiceUsage(appointments), [appointments])
+  const availableSlots = useMemo(() => getAvailableSlots(appointments, bookingDraft.date), [appointments, bookingDraft.date])
+  const selectedAppointment = appointments.find((appointment) => appointment.id === selectedAppointmentId) ?? agendaAppointments[0]
   const selectedClient = selectedAppointment
     ? clients.find((client) => client.id === selectedAppointment.client_id || client.phone === selectedAppointment.client_phone)
     : null
   const filteredClients = clients.filter((client) => {
     const search = searchTerm.toLowerCase()
-    return client.full_name.toLowerCase().includes(search) || client.phone.includes(search)
+    return (
+      client.full_name.toLowerCase().includes(search) ||
+      client.phone.includes(search) ||
+      client.notes.toLowerCase().includes(search)
+    )
+  })
+  const filteredAppointments = sortedAppointments.filter((appointment) => {
+    if (calendarView === 'day') {
+      return appointment.scheduled_date === agendaDate
+    }
+    if (calendarView === 'week') {
+      return appointment.scheduled_date >= agendaDate && appointment.scheduled_date <= addDays(agendaDate, 6)
+    }
+    if (calendarView === 'month') {
+      return appointment.scheduled_date.startsWith(agendaDate.slice(0, 7))
+    }
+    return true
   })
 
   function goToPath(path: string) {
@@ -254,6 +374,7 @@ function App() {
     if (serviceResult.data?.length) {
       setServices(serviceResult.data as ServiceItem[])
       setAppointmentDraft(newAppointmentDraft(serviceResult.data as ServiceItem[]))
+      setBookingDraft(newBookingDraft(serviceResult.data as ServiceItem[]))
     }
 
     if (galleryResult.data?.length) {
@@ -284,13 +405,16 @@ function App() {
       return
     }
 
-    const [profileResult, serviceResult, galleryResult, clientResult, appointmentResult] = await Promise.all([
-      supabase.from('business_profile').select('*').eq('id', 'default').maybeSingle(),
-      supabase.from('services').select('*').order('sort_order', { ascending: true }),
-      supabase.from('gallery_items').select('*').order('sort_order', { ascending: true }),
-      supabase.from('clients').select('*').order('full_name', { ascending: true }),
-      supabase.from('appointments').select('*').order('scheduled_date', { ascending: true }),
-    ])
+    const [profileResult, serviceResult, galleryResult, clientResult, appointmentResult, productResult, movementResult] =
+      await Promise.all([
+        supabase.from('business_profile').select('*').eq('id', 'default').maybeSingle(),
+        supabase.from('services').select('*').order('sort_order', { ascending: true }),
+        supabase.from('gallery_items').select('*').order('sort_order', { ascending: true }),
+        supabase.from('clients').select('*').order('full_name', { ascending: true }),
+        supabase.from('appointments').select('*').order('scheduled_date', { ascending: true }),
+        supabase.from('products').select('*').order('name', { ascending: true }),
+        supabase.from('stock_movements').select('*').order('created_at', { ascending: false }).limit(12),
+      ])
 
     if (profileResult.data) {
       setProfile(profileResult.data as BusinessProfile)
@@ -313,12 +437,22 @@ function App() {
       setSelectedAppointmentId((appointmentResult.data[0] as AppointmentRecord | undefined)?.id ?? '')
     }
 
+    if (productResult.data) {
+      setProducts(productResult.data as ProductItem[])
+    }
+
+    if (movementResult.data) {
+      setStockMovements(movementResult.data as StockMovement[])
+    }
+
     if (
       profileResult.error ||
       serviceResult.error ||
       galleryResult.error ||
       clientResult.error ||
-      appointmentResult.error
+      appointmentResult.error ||
+      productResult.error ||
+      movementResult.error
     ) {
       setDataStatus('Alguns dados do admin nao carregaram. Confira schema e permissoes.')
     }
@@ -425,6 +559,75 @@ function App() {
     goToPath('/')
   }
 
+  async function handlePublicBooking(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setBookingStatus({ type: 'idle', message: '' })
+    const service = publishedServices.find((item) => item.id === bookingDraft.serviceId) ?? publishedServices[0]
+
+    if (!service) {
+      setBookingStatus({ type: 'error', message: 'Escolha um servico para agendar.' })
+      return
+    }
+
+    if (!bookingDraft.clientName.trim() || maskBrazilianPhone(bookingDraft.clientPhone).length < 14) {
+      setBookingStatus({ type: 'error', message: 'Informe nome e WhatsApp para confirmar o pedido.' })
+      return
+    }
+
+    if (hasScheduleConflict(appointments, bookingDraft.date, bookingDraft.time) || isUnavailableTime(bookingDraft.time)) {
+      setBookingStatus({ type: 'error', message: 'Esse horario nao esta disponivel. Escolha outro horario.' })
+      return
+    }
+
+    setIsSaving(true)
+    const publicClient: ClientRecord = {
+      id: crypto.randomUUID(),
+      full_name: bookingDraft.clientName.trim(),
+      phone: maskBrazilianPhone(bookingDraft.clientPhone),
+      birth_date: null,
+      notes: bookingDraft.notes.trim(),
+    }
+    const appointment: AppointmentRecord = {
+      id: crypto.randomUUID(),
+      client_id: supabase ? null : publicClient.id,
+      client_name: publicClient.full_name,
+      client_phone: publicClient.phone,
+      service_id: service.id,
+      service_name: service.name,
+      scheduled_date: bookingDraft.date,
+      start_time: bookingDraft.time,
+      status: 'scheduled',
+      charged_amount_cents: service.price_cents,
+      received_amount_cents: 0,
+      payment_method: 'pix',
+      notes: bookingDraft.notes.trim(),
+    }
+
+    if (supabase) {
+      const clientResult = await supabase.from('clients').insert(publicClient)
+      const clientError = clientResult.error
+      if (clientError && !clientError.message.toLowerCase().includes('duplicate')) {
+        setBookingStatus({ type: 'error', message: 'Nao foi possivel registrar seus dados. Chame no WhatsApp.' })
+        setIsSaving(false)
+        return
+      }
+
+      const { error } = await supabase.from('appointments').insert(appointment)
+      if (error) {
+        setBookingStatus({ type: 'error', message: 'Horario ocupado ou indisponivel. Chame a Hellen no WhatsApp.' })
+        setIsSaving(false)
+        return
+      }
+    }
+
+    setClients((current) => (current.some((client) => client.phone === publicClient.phone) ? current : [...current, publicClient]))
+    setAppointments((current) => [...current, appointment])
+    setSelectedAppointmentId(appointment.id)
+    setBookingStatus({ type: 'success', message: 'Pedido de agendamento criado.', appointment })
+    setBookingDraft(newBookingDraft(publishedServices))
+    setIsSaving(false)
+  }
+
   async function handleSaveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setIsSaving(true)
@@ -445,17 +648,24 @@ function App() {
 
   async function handleCreateAppointment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setIsSaving(true)
 
+    if (hasScheduleConflict(appointments, appointmentDraft.scheduledDate, appointmentDraft.startTime)) {
+      setDataStatus('Horario ja ocupado. Escolha outro horario.')
+      return
+    }
+
+    setIsSaving(true)
     const service = services.find((item) => item.id === appointmentDraft.serviceId) ?? services[0]
-    const existingClient = clients.find((client) => client.phone === appointmentDraft.clientPhone.trim())
+    const maskedPhone = maskBrazilianPhone(appointmentDraft.clientPhone)
+    const existingClient = clients.find((client) => client.phone === maskedPhone)
     let nextClient = existingClient
 
     if (!nextClient) {
       nextClient = {
         id: crypto.randomUUID(),
         full_name: appointmentDraft.clientName.trim(),
-        phone: appointmentDraft.clientPhone.trim(),
+        phone: maskedPhone,
+        birth_date: null,
         notes: '',
       }
 
@@ -471,27 +681,14 @@ function App() {
         nextClient = data as ClientRecord
       }
 
-      if (!nextClient) {
-        setDataStatus('Nao foi possivel cadastrar a cliente.')
-        setIsSaving(false)
-        return
-      }
-
-      const createdClient = nextClient
-      setClients((current) => [...current, createdClient])
-    }
-
-    if (!nextClient) {
-      setDataStatus('Nao foi possivel identificar a cliente.')
-      setIsSaving(false)
-      return
+      setClients((current) => [...current, nextClient as ClientRecord])
     }
 
     const nextAppointment: AppointmentRecord = {
       id: crypto.randomUUID(),
       client_id: nextClient.id,
       client_name: appointmentDraft.clientName.trim(),
-      client_phone: appointmentDraft.clientPhone.trim(),
+      client_phone: maskedPhone,
       service_id: service?.id ?? null,
       service_name: service?.name ?? 'Atendimento',
       scheduled_date: appointmentDraft.scheduledDate,
@@ -507,7 +704,7 @@ function App() {
       const { error } = await supabase.from('appointments').insert(nextAppointment)
 
       if (error) {
-        setDataStatus('Nao foi possivel criar o horario.')
+        setDataStatus('Nao foi possivel criar o horario. Verifique conflito de agenda.')
         setIsSaving(false)
         return
       }
@@ -515,12 +712,23 @@ function App() {
 
     setAppointments((current) => [...current, nextAppointment])
     setSelectedAppointmentId(nextAppointment.id)
-    setAppointmentDraft(newAppointmentDraft(services))
+    setAgendaDate(nextAppointment.scheduled_date)
+    setAppointmentDraft(newAppointmentDraft(services, nextAppointment.scheduled_date, '09:00'))
     setDataStatus('Horario criado.')
     setIsSaving(false)
   }
 
   async function updateAppointment(id: string, patch: Partial<AppointmentRecord>) {
+    const currentAppointment = appointments.find((appointment) => appointment.id === id)
+    if (
+      patch.scheduled_date &&
+      patch.start_time &&
+      hasScheduleConflict(appointments, patch.scheduled_date, patch.start_time, id)
+    ) {
+      setDataStatus('Esse novo horario ja esta ocupado.')
+      return
+    }
+
     setAppointments((current) =>
       current.map((appointment) => (appointment.id === id ? { ...appointment, ...patch } : appointment)),
     )
@@ -535,7 +743,7 @@ function App() {
       }
     }
 
-    setDataStatus('Horario atualizado.')
+    setDataStatus(currentAppointment?.client_name ? `Horario de ${currentAppointment.client_name} atualizado.` : 'Horario atualizado.')
   }
 
   async function deleteAppointment(id: string) {
@@ -596,6 +804,76 @@ function App() {
     }
 
     setDataStatus('Servico salvo.')
+  }
+
+  async function handleCreateProduct(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const product: ProductItem = {
+      id: crypto.randomUUID(),
+      name: newProduct.name.trim(),
+      category: newProduct.category.trim(),
+      quantity: Number.parseInt(newProduct.quantity, 10) || 0,
+      unit_cost_cents: parseCurrencyToCents(newProduct.unitCost),
+      sale_price_cents: parseCurrencyToCents(newProduct.salePrice),
+      minimum_quantity: Number.parseInt(newProduct.minimumQuantity, 10) || 0,
+      updated_at: new Date().toISOString(),
+      notes: newProduct.notes.trim(),
+    }
+
+    if (supabase) {
+      const { error } = await supabase.from('products').insert(product)
+
+      if (error) {
+        setDataStatus('Nao foi possivel criar o produto.')
+        return
+      }
+    }
+
+    setProducts((current) => [...current, product].sort((a, b) => a.name.localeCompare(b.name)))
+    setNewProduct(newProductDraft())
+    setDataStatus('Produto criado.')
+  }
+
+  async function updateProduct(product: ProductItem, patch: Partial<ProductItem>) {
+    const updatedProduct = { ...product, ...patch, updated_at: new Date().toISOString() }
+    setProducts((current) => current.map((item) => (item.id === product.id ? updatedProduct : item)))
+
+    if (supabase) {
+      const { error } = await supabase.from('products').update(patch).eq('id', product.id)
+
+      if (error) {
+        setDataStatus('Nao foi possivel salvar o produto.')
+        await loadAdminData()
+        return
+      }
+    }
+
+    setDataStatus('Produto salvo.')
+  }
+
+  async function adjustProductQuantity(product: ProductItem, type: StockMovementType, delta: number) {
+    const nextQuantity = Math.max(product.quantity + delta, 0)
+    const movement: StockMovement = {
+      id: crypto.randomUUID(),
+      product_id: product.id,
+      product_name: product.name,
+      type,
+      quantity: Math.abs(delta),
+      notes: movementTypeLabels[type],
+      created_at: new Date().toISOString(),
+    }
+
+    await updateProduct(product, { quantity: nextQuantity })
+
+    if (supabase) {
+      const { error } = await supabase.from('stock_movements').insert(movement)
+      if (error) {
+        setDataStatus('Produto salvo, mas a movimentacao nao foi registrada.')
+        return
+      }
+    }
+
+    setStockMovements((current) => [movement, ...current].slice(0, 12))
   }
 
   async function handleCreateGalleryItem(event: FormEvent<HTMLFormElement>) {
@@ -684,6 +962,18 @@ function App() {
     setGalleryDraft((current) => ({ ...current, file }))
   }
 
+  async function handleShareAdmin() {
+    const shareText = `Agenda Hellen Designer - ${formatDateShort(agendaDate)}`
+
+    if (navigator.share) {
+      await navigator.share({ title: 'Agenda Hellen Designer', text: shareText, url: window.location.href })
+      return
+    }
+
+    await navigator.clipboard?.writeText(shareText)
+    setDataStatus('Resumo copiado.')
+  }
+
   if (isAdminRoute) {
     return renderAdmin()
   }
@@ -691,6 +981,9 @@ function App() {
   return renderLanding()
 
   function renderLanding() {
+    const selectedService = publishedServices.find((service) => service.id === bookingDraft.serviceId) ?? publishedServices[0]
+    const allBookingSlots = buildTimeSlots('08:00', '18:00', 30)
+
     return (
       <main className="site-shell">
         <header className="landing-nav">
@@ -703,12 +996,10 @@ function App() {
           </button>
           <nav aria-label="Navegacao principal">
             <a href="#servicos">Servicos</a>
+            <a href="#agendamento">Agendamento</a>
             <a href="#galeria">Galeria</a>
             <a href={profile.instagram_url} target="_blank" rel="noreferrer">
               Instagram
-            </a>
-            <a href={buildWhatsAppUrl(profile.whatsapp_number, getGeneralMessage())} target="_blank" rel="noreferrer">
-              WhatsApp
             </a>
           </nav>
           <button className="ghost-action nav-admin" type="button" onClick={() => goToPath('/admin')}>
@@ -718,21 +1009,16 @@ function App() {
 
         <section className="hero-band" aria-label="Hellen Martins Designer">
           <div className="hero-copy">
-            <p className="eyebrow">Hellen Martins</p>
+            <p className="eyebrow">Hellen Martins Brows</p>
             <h1>{profile.brand_name}</h1>
             <p className="hero-subtitle">{profile.subtitle}</p>
             <p className="hero-text">{profile.bio}</p>
             <div className="hero-actions">
-              <a
-                className="primary-action"
-                href={buildWhatsAppUrl(profile.whatsapp_number, getGeneralMessage())}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <MessageCircle size={18} aria-hidden="true" /> Chamar no WhatsApp
+              <a className="primary-action" href="#agendamento">
+                <CalendarCheck2 size={18} aria-hidden="true" /> Agendar horario
               </a>
-              <a className="ghost-action" href="#servicos">
-                Ver servicos
+              <a className="ghost-action" href={buildWhatsAppUrl(profile.whatsapp_number, getGeneralMessage())} target="_blank" rel="noreferrer">
+                <MessageCircle size={18} aria-hidden="true" /> Chamar no WhatsApp
               </a>
             </div>
             <div className="contact-row" aria-label="Canais de contato">
@@ -749,34 +1035,35 @@ function App() {
             <img src={portraitImage} alt="Retrato beauty representando o trabalho de sobrancelhas da Hellen" />
             <div className="floating-note top">
               <Sparkles size={17} aria-hidden="true" />
-              <span>Desenho personalizado</span>
+              <span>Realce sua beleza com naturalidade</span>
             </div>
             <div className="floating-note bottom">
               <Clock3 size={17} aria-hidden="true" />
-              <span>Horario combinado pelo WhatsApp</span>
+              <span>Separe um tempinho para voce</span>
             </div>
           </div>
         </section>
 
         <section className="proof-strip" aria-label="Diferenciais">
           <article>
-            <strong>4</strong>
-            <span>opcoes principais de atendimento</span>
+            <strong>3</strong>
+            <span>procedimentos principais</span>
           </article>
           <article>
             <strong>HM</strong>
-            <span>identidade visual preta e dourada</span>
+            <span>atendimento com hora marcada</span>
           </article>
           <article>
             <strong>Zap</strong>
-            <span>agenda combinada direto com a Hellen</span>
+            <span>confirmacao direta pelo WhatsApp</span>
           </article>
         </section>
 
         <section className="service-band" id="servicos">
           <div className="section-heading">
             <p className="eyebrow">Servicos e precos</p>
-            <h2>Escolha o procedimento e chame a Hellen.</h2>
+            <h2>Escolha o procedimento.</h2>
+            <p>Valores publicados pela Hellen e atualizados pelo painel administrativo.</p>
           </div>
           <div className="service-list">
             {publishedServices.map((service) => (
@@ -788,16 +1075,188 @@ function App() {
                 </div>
                 <div className="price-area">
                   <strong>{formatCurrency(service.price_cents)}</strong>
-                  <a
-                    href={buildWhatsAppUrl(profile.whatsapp_number, getServiceMessage(service))}
-                    target="_blank"
-                    rel="noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBookingDraft((current) => ({ ...current, serviceId: service.id }))
+                      document.getElementById('agendamento')?.scrollIntoView({ behavior: 'smooth' })
+                    }}
                   >
-                    Pedir no WhatsApp
-                  </a>
+                    Escolher horario
+                  </button>
                 </div>
               </article>
             ))}
+          </div>
+        </section>
+
+        <section className="booking-band" id="agendamento">
+          <div className="section-heading">
+            <p className="eyebrow">Agendamento</p>
+            <h2>Agende de forma simples e rapida.</h2>
+            <p>Cada detalhe foi pensado com carinho. Escolha o procedimento, um horario e confirme pelo WhatsApp.</p>
+          </div>
+
+          <div className="booking-layout">
+            <form className="booking-form" onSubmit={handlePublicBooking}>
+              <fieldset>
+                <legend>Servico</legend>
+                <div className="service-picker">
+                  {publishedServices.map((service) => (
+                    <button
+                      className={bookingDraft.serviceId === service.id ? 'selected' : ''}
+                      type="button"
+                      key={service.id}
+                      onClick={() => setBookingDraft((current) => ({ ...current, serviceId: service.id }))}
+                    >
+                      <strong>{service.name}</strong>
+                      <span>{formatCurrency(service.price_cents)} · {service.duration_minutes} min</span>
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+
+              <div className="booking-fields">
+                <label>
+                  Data
+                  <input
+                    required
+                    type="date"
+                    min={today}
+                    value={bookingDraft.date}
+                    onChange={(event) => setBookingDraft((current) => ({ ...current, date: event.target.value }))}
+                  />
+                </label>
+                <label>
+                  Nome
+                  <input
+                    required
+                    value={bookingDraft.clientName}
+                    onChange={(event) => setBookingDraft((current) => ({ ...current, clientName: event.target.value }))}
+                    placeholder="Seu nome"
+                  />
+                </label>
+                <label>
+                  WhatsApp
+                  <input
+                    required
+                    inputMode="tel"
+                    value={bookingDraft.clientPhone}
+                    onChange={(event) =>
+                      setBookingDraft((current) => ({
+                        ...current,
+                        clientPhone: maskBrazilianPhone(event.target.value),
+                      }))
+                    }
+                    placeholder="(16) 99999-9999"
+                  />
+                </label>
+              </div>
+
+              <fieldset>
+                <legend>Horarios</legend>
+                <div className="time-grid" aria-label="Horarios disponiveis">
+                  {allBookingSlots.map((slot) => {
+                    const occupied = hasScheduleConflict(appointments, bookingDraft.date, slot)
+                    const unavailable = isUnavailableTime(slot)
+                    const disabled = occupied || unavailable
+
+                    return (
+                      <button
+                        className={bookingDraft.time === slot ? 'selected' : ''}
+                        disabled={disabled}
+                        key={slot}
+                        type="button"
+                        onClick={() => setBookingDraft((current) => ({ ...current, time: slot }))}
+                      >
+                        {slot}
+                        {disabled ? <span>{unavailable ? 'indisponivel' : 'ocupado'}</span> : null}
+                      </button>
+                    )
+                  })}
+                </div>
+                {availableSlots.length === 0 ? (
+                  <p className="form-status" role="status">
+                    Nenhum horario livre neste dia. Chame a Hellen no WhatsApp.
+                  </p>
+                ) : null}
+              </fieldset>
+
+              <label>
+                Observacoes (opcional)
+                <textarea
+                  rows={3}
+                  value={bookingDraft.notes}
+                  onChange={(event) => setBookingDraft((current) => ({ ...current, notes: event.target.value }))}
+                  placeholder="Ex: primeira vez, alergia relatada ou preferencia"
+                />
+              </label>
+
+              {bookingStatus.type === 'error' ? (
+                <p className="form-status error" role="alert">
+                  {bookingStatus.message}
+                </p>
+              ) : null}
+
+              <button className="primary-action" type="submit" disabled={isSaving}>
+                <Send size={16} aria-hidden="true" /> {isSaving ? 'Confirmando...' : 'Confirmar agendamento'}
+              </button>
+            </form>
+
+            <aside className="booking-preview" aria-live="polite">
+              <p className="eyebrow">Resumo</p>
+              {selectedService ? (
+                <>
+                  <h3>{selectedService.name}</h3>
+                  <dl>
+                    <div>
+                      <dt>Valor</dt>
+                      <dd>{formatCurrency(selectedService.price_cents)}</dd>
+                    </div>
+                    <div>
+                      <dt>Data</dt>
+                      <dd>{formatDateLong(bookingDraft.date)}</dd>
+                    </div>
+                    <div>
+                      <dt>Horario</dt>
+                      <dd>{bookingDraft.time}</dd>
+                    </div>
+                  </dl>
+                  {bookingStatus.type === 'success' ? (
+                    <div className="success-panel">
+                      <CheckCircle2 size={22} aria-hidden="true" />
+                      <strong>{bookingStatus.message}</strong>
+                      <span>
+                        Envie a mensagem para finalizar a confirmacao com a Hellen.
+                      </span>
+                      <a
+                        className="primary-action"
+                        href={buildWhatsAppUrl(profile.whatsapp_number, getBookingMessage(bookingStatus.appointment))}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <MessageCircle size={16} aria-hidden="true" /> Confirmar no WhatsApp
+                      </a>
+                    </div>
+                  ) : (
+                    <p>Ao confirmar, a Hellen recebe nome, WhatsApp, servico, data e horario desejado.</p>
+                  )}
+                </>
+              ) : (
+                <p className="empty-state">Nenhum servico publicado no momento.</p>
+              )}
+            </aside>
+          </div>
+        </section>
+
+        <section className="care-band" aria-label="Apresentacao profissional">
+          <img src={careCardImage} alt="Cada detalhe foi pensado com carinho" />
+          <div>
+            <p className="eyebrow">Atendimento personalizado</p>
+            <h2>Cada detalhe foi pensado com carinho.</h2>
+            <p>
+              O desenho e definido considerando mapeamento, medidas faciais, preferencia da cliente e acabamento natural.
+            </p>
           </div>
         </section>
 
@@ -810,7 +1269,7 @@ function App() {
             <div className="gallery-grid">
               {publishedGallery.map((item) => (
                 <figure key={item.id}>
-                  <img src={resolveImageUrl(item.image_path)} alt={item.alt_text} />
+                  <img src={resolveImageUrl(item.image_path)} alt={item.alt_text} loading="lazy" decoding="async" />
                   <figcaption>{item.title}</figcaption>
                 </figure>
               ))}
@@ -822,9 +1281,9 @@ function App() {
 
         <section className="contact-band" id="contato">
           <div>
-            <p className="eyebrow">Agende agora</p>
+            <p className="eyebrow">Contato</p>
             <h2>Separe um tempinho para voce.</h2>
-            <p>{profile.address}. Para horarios, duvidas e envio de referencias, fale direto pelo WhatsApp.</p>
+            <p>{profile.address}. Para duvidas, referencias e ajustes de horario, fale direto pelo WhatsApp.</p>
           </div>
           <a
             className="primary-action"
@@ -877,7 +1336,7 @@ function App() {
             </button>
             <div>
               <p className="eyebrow">Acesso admin</p>
-              <h1>Entre para organizar agenda, clientes e landing.</h1>
+              <h1>Entre para organizar agenda, clientes e pagamentos.</h1>
             </div>
             <label>
               Email
@@ -923,16 +1382,20 @@ function App() {
             </span>
           </button>
           <nav aria-label="Secoes do admin">
-            {adminTabs.map((tab) => (
-              <button
-                key={tab.id}
-                className={activeTab === tab.id ? 'active' : ''}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-              >
-                {tab.label}
-              </button>
-            ))}
+            {adminTabs.map((tab) => {
+              const Icon = tab.icon
+              return (
+                <button
+                  key={tab.id}
+                  className={activeTab === tab.id ? 'active' : ''}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                >
+                  <Icon size={17} aria-hidden="true" />
+                  {tab.label}
+                </button>
+              )
+            })}
           </nav>
           <button className="ghost-action sidebar-exit" type="button" onClick={handleSignOut}>
             <LogOut size={16} aria-hidden="true" /> Sair
@@ -940,226 +1403,470 @@ function App() {
         </aside>
 
         <section className="admin-main">
-          <header className="admin-topbar">
-            <div>
-              <p className="eyebrow">Painel privado</p>
-              <h1>{adminTabs.find((tab) => tab.id === activeTab)?.label ?? 'Hoje'}</h1>
-            </div>
-            <label className="admin-search">
-              <Search size={16} aria-hidden="true" />
-              <input
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Buscar cliente"
-              />
-            </label>
-            <button className="primary-action" type="button" onClick={() => setActiveTab('agenda')}>
-              <Plus size={17} aria-hidden="true" /> Novo horario
-            </button>
-          </header>
-
+          {renderAdminTopbar()}
           {dataStatus ? <p className="form-status top-status">{dataStatus}</p> : null}
 
-          {(activeTab === 'today' || activeTab === 'agenda' || activeTab === 'finance') && renderOverview()}
+          {(activeTab === 'today' || activeTab === 'agenda') && renderAgendaDashboard()}
           {activeTab === 'clients' && renderClients()}
-          {activeTab === 'landing' && renderLandingEditor()}
-          {activeTab === 'services' && renderServicesEditor()}
-          {activeTab === 'photos' && renderGalleryEditor()}
+          {activeTab === 'finance' && renderFinance()}
+          {activeTab === 'products' && renderProducts()}
+          {activeTab === 'landing' && renderLandingManager()}
         </section>
+
+        <nav className="mobile-bottom-nav" aria-label="Navegacao do admin">
+          {adminTabs.map((tab) => {
+            const Icon = tab.icon
+            return (
+              <button
+                key={tab.id}
+                className={activeTab === tab.id ? 'active' : ''}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+              >
+                <Icon size={18} aria-hidden="true" />
+                <span>{tab.label}</span>
+              </button>
+            )
+          })}
+        </nav>
       </main>
     )
   }
 
-  function renderOverview() {
+  function renderAdminTopbar() {
     return (
-      <div className="admin-grid">
-        <section className="metric-grid" aria-label="Resumo do dia">
+      <header className="admin-appbar">
+        <div className="appbar-main">
+          <button className="icon-button" type="button" aria-label="Abrir menu">
+            <Menu size={22} aria-hidden="true" />
+          </button>
+          <h1>{activeTab === 'today' ? 'Agenda' : adminTabs.find((tab) => tab.id === activeTab)?.label}</h1>
+          <div className="appbar-actions">
+            <button className="icon-button" type="button" aria-label="Compartilhar agenda" onClick={() => void handleShareAdmin()}>
+              <Share2 size={18} aria-hidden="true" />
+            </button>
+            <button className="icon-button" type="button" aria-label="Ver lista" onClick={() => setCalendarView('list')}>
+              <List size={20} aria-hidden="true" />
+            </button>
+            <button className="icon-button" type="button" aria-label="Ajuda">
+              <CircleHelp size={20} aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+        <div className="date-control" aria-label="Controle de data">
+          <button type="button" aria-label="Dia anterior" onClick={() => setAgendaDate((date) => addDays(date, -1))}>
+            <ChevronLeft size={22} aria-hidden="true" />
+          </button>
+          <strong>{formatDateLong(agendaDate)}</strong>
+          <button type="button" aria-label="Proximo dia" onClick={() => setAgendaDate((date) => addDays(date, 1))}>
+            <ChevronRight size={22} aria-hidden="true" />
+          </button>
+        </div>
+      </header>
+    )
+  }
+
+  function renderAgendaDashboard() {
+    return (
+      <div className="admin-workspace">
+        <section className="metric-grid" aria-label="Resumo do negocio">
           <article>
-            <CalendarDays size={19} aria-hidden="true" />
-            <span>Clientes hoje</span>
+            <CalendarDays size={18} aria-hidden="true" />
+            <span>Hoje</span>
             <strong>{stats.todayCount}</strong>
           </article>
           <article>
-            <Wallet size={19} aria-hidden="true" />
-            <span>Recebido</span>
+            <Wallet size={18} aria-hidden="true" />
+            <span>Dia</span>
             <strong>{formatCurrency(stats.receivedCents)}</strong>
           </article>
           <article>
-            <Clock3 size={19} aria-hidden="true" />
+            <BarChart3 size={18} aria-hidden="true" />
+            <span>Semana</span>
+            <strong>{formatCurrency(stats.weekReceivedCents)}</strong>
+          </article>
+          <article>
+            <Banknote size={18} aria-hidden="true" />
+            <span>Mes</span>
+            <strong>{formatCurrency(stats.monthReceivedCents)}</strong>
+          </article>
+          <article>
+            <Clock3 size={18} aria-hidden="true" />
             <span>Pendente</span>
             <strong>{formatCurrency(stats.pendingCents)}</strong>
           </article>
           <article>
-            <XCircle size={19} aria-hidden="true" />
-            <span>Faltas</span>
-            <strong>{stats.noShowCount}</strong>
+            <UsersRound size={18} aria-hidden="true" />
+            <span>Clientes</span>
+            <strong>{stats.clientCount}</strong>
           </article>
         </section>
 
-        <section className="panel agenda-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Agenda</p>
-              <h2>{activeTab === 'agenda' ? 'Todos os horarios' : 'Hoje'}</h2>
-            </div>
-            <span>{todaysAppointments.length} no dia</span>
-          </div>
-
-          <form className="appointment-form" onSubmit={handleCreateAppointment}>
-            <label>
-              Cliente
-              <input
-                required
-                value={appointmentDraft.clientName}
-                onChange={(event) => setAppointmentDraft({ ...appointmentDraft, clientName: event.target.value })}
-                placeholder="Nome da cliente"
-              />
-            </label>
-            <label>
-              WhatsApp
-              <input
-                required
-                value={appointmentDraft.clientPhone}
-                onChange={(event) => setAppointmentDraft({ ...appointmentDraft, clientPhone: event.target.value })}
-                placeholder="(16) 99999-9999"
-              />
-            </label>
-            <label>
-              Servico
-              <select
-                value={appointmentDraft.serviceId}
-                onChange={(event) => {
-                  const service = services.find((item) => item.id === event.target.value)
-                  setAppointmentDraft({
-                    ...appointmentDraft,
-                    serviceId: event.target.value,
-                    chargedAmount: centsToInputValue(service?.price_cents ?? 0),
-                  })
-                }}
-              >
-                {services.map((service) => (
-                  <option key={service.id} value={service.id}>
-                    {service.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Data
-              <input
-                required
-                type="date"
-                value={appointmentDraft.scheduledDate}
-                onChange={(event) => setAppointmentDraft({ ...appointmentDraft, scheduledDate: event.target.value })}
-              />
-            </label>
-            <label>
-              Hora
-              <input
-                required
-                type="time"
-                value={appointmentDraft.startTime}
-                onChange={(event) => setAppointmentDraft({ ...appointmentDraft, startTime: event.target.value })}
-              />
-            </label>
-            <label>
-              Cobrado
-              <input
-                inputMode="decimal"
-                value={appointmentDraft.chargedAmount}
-                onChange={(event) => setAppointmentDraft({ ...appointmentDraft, chargedAmount: event.target.value })}
-              />
-            </label>
-            <label>
-              Recebido
-              <input
-                inputMode="decimal"
-                value={appointmentDraft.receivedAmount}
-                onChange={(event) => setAppointmentDraft({ ...appointmentDraft, receivedAmount: event.target.value })}
-              />
-            </label>
-            <label>
-              Metodo
-              <select
-                value={appointmentDraft.paymentMethod}
-                onChange={(event) =>
-                  setAppointmentDraft({ ...appointmentDraft, paymentMethod: event.target.value as PaymentMethod })
-                }
-              >
-                {Object.entries(paymentMethodLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="wide-field">
-              Observacoes
-              <input
-                value={appointmentDraft.notes}
-                onChange={(event) => setAppointmentDraft({ ...appointmentDraft, notes: event.target.value })}
-                placeholder="Ex: primeira vez, preferencia, alergia"
-              />
-            </label>
-            <button className="primary-action" type="submit" disabled={isSaving}>
-              <Plus size={16} aria-hidden="true" /> Criar horario
-            </button>
-          </form>
-
-          <div className="agenda-list">
-            {(activeTab === 'today' ? todaysAppointments : sortedAppointments).map((appointment) =>
-              renderAppointmentRow(appointment),
-            )}
-            {(activeTab === 'today' ? todaysAppointments : sortedAppointments).length === 0 ? (
-              <p className="empty-state">Nenhum horario cadastrado. Use Novo horario para organizar a agenda.</p>
-            ) : null}
-          </div>
+        <section className="quick-actions" aria-label="Atalhos rapidos">
+          <button type="button" onClick={() => setActiveTab('agenda')}>
+            <Plus size={17} aria-hidden="true" /> Novo horario
+          </button>
+          <button type="button" onClick={() => setActiveTab('clients')}>
+            <UserRound size={17} aria-hidden="true" /> Nova cliente
+          </button>
+          <button type="button" onClick={() => setActiveTab('products')}>
+            <Package size={17} aria-hidden="true" /> Novo produto
+          </button>
+          <button type="button" onClick={() => setActiveTab('finance')}>
+            <CreditCard size={17} aria-hidden="true" /> Novo pagamento
+          </button>
         </section>
 
-        <aside className="panel detail-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Cliente</p>
-              <h2>{selectedAppointment?.client_name ?? 'Selecione um horario'}</h2>
-            </div>
-          </div>
-          {selectedAppointment ? (
-            <>
-              <div className="client-summary">
-                <UserRound size={22} aria-hidden="true" />
-                <span>{selectedAppointment.client_phone}</span>
-                <a
-                  href={buildWhatsAppUrl(selectedAppointment.client_phone, `Ola ${selectedAppointment.client_name}, tudo bem?`)}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Abrir WhatsApp
-                </a>
+        <div className="agenda-columns">
+          <section className="panel agenda-panel">
+            <div className="panel-heading compact-heading">
+              <div>
+                <p className="eyebrow">Agenda da Hellen</p>
+                <h2>{calendarView === 'list' ? 'Lista de horarios' : 'Grade diaria'}</h2>
               </div>
-              <dl className="detail-list">
+              <div className="segmented-control" role="tablist" aria-label="Visualizacao da agenda">
+                {(['day', 'week', 'month', 'list'] as CalendarView[]).map((view) => (
+                  <button
+                    key={view}
+                    className={calendarView === view ? 'active' : ''}
+                    type="button"
+                    onClick={() => setCalendarView(view)}
+                  >
+                    {view === 'day' ? 'Dia' : view === 'week' ? 'Semana' : view === 'month' ? 'Mes' : 'Lista'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {activeTab === 'agenda' ? renderAppointmentForm() : null}
+            {calendarView === 'day' ? renderTimeline() : renderAppointmentList(filteredAppointments)}
+          </section>
+
+          <aside className="side-stack">
+            {renderSelectedAppointment()}
+            <section className="panel stock-preview">
+              <div className="panel-heading compact-heading">
                 <div>
-                  <dt>Servico</dt>
-                  <dd>{selectedAppointment.service_name}</dd>
+                  <p className="eyebrow">Estoque baixo</p>
+                  <h2>Produtos</h2>
                 </div>
-                <div>
-                  <dt>Valor</dt>
-                  <dd>{formatCurrency(selectedAppointment.charged_amount_cents)}</dd>
+                <span>{lowStockProducts.length}</span>
+              </div>
+              {lowStockProducts.length ? (
+                <div className="stock-list">
+                  {lowStockProducts.slice(0, 4).map((product) => (
+                    <article key={product.id}>
+                      <strong>{product.name}</strong>
+                      <span>
+                        {product.quantity} em estoque · minimo {product.minimum_quantity}
+                      </span>
+                    </article>
+                  ))}
                 </div>
-                <div>
-                  <dt>Recebido</dt>
-                  <dd>{formatCurrency(selectedAppointment.received_amount_cents)}</dd>
-                </div>
-                <div>
-                  <dt>Observacoes</dt>
-                  <dd>{selectedAppointment.notes || selectedClient?.notes || 'Sem observacoes.'}</dd>
-                </div>
-              </dl>
-            </>
-          ) : (
-            <p className="empty-state">Selecione um atendimento para ver detalhes.</p>
-          )}
-        </aside>
+              ) : (
+                <p className="empty-state">Nenhum produto abaixo do minimo.</p>
+              )}
+            </section>
+          </aside>
+        </div>
+
+        <button className="fab-button" type="button" aria-label="Criar novo horario" onClick={() => setActiveTab('agenda')}>
+          <Plus size={28} aria-hidden="true" />
+        </button>
       </div>
+    )
+  }
+
+  function renderAppointmentForm() {
+    return (
+      <form className="appointment-form" onSubmit={handleCreateAppointment}>
+        <label>
+          Cliente
+          <input
+            required
+            value={appointmentDraft.clientName}
+            onChange={(event) => setAppointmentDraft({ ...appointmentDraft, clientName: event.target.value })}
+            placeholder="Nome da cliente"
+          />
+        </label>
+        <label>
+          WhatsApp
+          <input
+            required
+            inputMode="tel"
+            value={appointmentDraft.clientPhone}
+            onChange={(event) =>
+              setAppointmentDraft({ ...appointmentDraft, clientPhone: maskBrazilianPhone(event.target.value) })
+            }
+            placeholder="(16) 99999-9999"
+          />
+        </label>
+        <label>
+          Servico
+          <select
+            value={appointmentDraft.serviceId}
+            onChange={(event) => {
+              const service = services.find((item) => item.id === event.target.value)
+              setAppointmentDraft({
+                ...appointmentDraft,
+                serviceId: event.target.value,
+                chargedAmount: centsToInputValue(service?.price_cents ?? 0),
+              })
+            }}
+          >
+            {services.map((service) => (
+              <option key={service.id} value={service.id}>
+                {service.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Data
+          <input
+            required
+            type="date"
+            value={appointmentDraft.scheduledDate}
+            onChange={(event) => setAppointmentDraft({ ...appointmentDraft, scheduledDate: event.target.value })}
+          />
+        </label>
+        <label>
+          Hora
+          <input
+            required
+            type="time"
+            value={appointmentDraft.startTime}
+            onChange={(event) => setAppointmentDraft({ ...appointmentDraft, startTime: event.target.value })}
+          />
+        </label>
+        <label>
+          Cobrado
+          <input
+            inputMode="decimal"
+            value={appointmentDraft.chargedAmount}
+            onChange={(event) => setAppointmentDraft({ ...appointmentDraft, chargedAmount: event.target.value })}
+          />
+        </label>
+        <label>
+          Recebido
+          <input
+            inputMode="decimal"
+            value={appointmentDraft.receivedAmount}
+            onChange={(event) => setAppointmentDraft({ ...appointmentDraft, receivedAmount: event.target.value })}
+          />
+        </label>
+        <label>
+          Metodo
+          <select
+            value={appointmentDraft.paymentMethod}
+            onChange={(event) =>
+              setAppointmentDraft({ ...appointmentDraft, paymentMethod: event.target.value as PaymentMethod })
+            }
+          >
+            {Object.entries(paymentMethodLabels).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="wide-field">
+          Observacoes
+          <input
+            value={appointmentDraft.notes}
+            onChange={(event) => setAppointmentDraft({ ...appointmentDraft, notes: event.target.value })}
+            placeholder="Ex: primeira vez, preferencia, alergia"
+          />
+        </label>
+        <button className="primary-action" type="submit" disabled={isSaving}>
+          <Plus size={16} aria-hidden="true" /> Criar horario
+        </button>
+      </form>
+    )
+  }
+
+  function renderTimeline() {
+    return (
+      <div className="timeline-shell">
+        <div className="timeline-professional">
+          <span />
+          <div>
+            <UserRound size={19} aria-hidden="true" />
+            <strong>Hellen</strong>
+          </div>
+        </div>
+        <div className="timeline-grid">
+          {timelineSlots.map((slot) => {
+            const appointment = agendaAppointments.find((item) => item.start_time === slot)
+            const blocked = defaultUnavailableBlocks.find((block) => isTimeInBlock(slot, block))
+            const isHalfHour = slot.endsWith(':30')
+
+            return (
+              <div className="timeline-row" key={slot}>
+                <time>{isHalfHour ? slot : slot}</time>
+                <div className="timeline-cell">
+                  {appointment ? (
+                    <button
+                      className={`timeline-appointment ${appointment.status}`}
+                      type="button"
+                      onClick={() => setSelectedAppointmentId(appointment.id)}
+                    >
+                      <strong>
+                        {appointment.start_time} · {appointment.client_name}
+                      </strong>
+                      <span>
+                        {appointment.service_name} · {formatCurrency(appointment.charged_amount_cents)}
+                      </span>
+                      <small>
+                        {statusLabels[appointment.status]} · {getPaymentState(appointment) === 'paid' ? 'Pago' : 'Pendente'}
+                      </small>
+                    </button>
+                  ) : blocked ? (
+                    <div className="timeline-blocked">
+                      <Ban size={14} aria-hidden="true" />
+                      <span>{blocked.label}</span>
+                    </div>
+                  ) : (
+                    <button
+                      className="timeline-empty"
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('agenda')
+                        setAppointmentDraft((current) => ({ ...current, scheduledDate: agendaDate, startTime: slot }))
+                      }}
+                    >
+                      Horario livre
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  function renderAppointmentList(items: AppointmentRecord[]) {
+    return (
+      <div className="agenda-list">
+        {items.map((appointment) => renderAppointmentRow(appointment))}
+        {items.length === 0 ? (
+          <p className="empty-state">Nenhum horario neste filtro. Crie um novo atendimento ou altere a data.</p>
+        ) : null}
+      </div>
+    )
+  }
+
+  function renderSelectedAppointment() {
+    const paymentState = selectedAppointment ? getPaymentState(selectedAppointment) : 'pending'
+
+    return (
+      <section className="panel detail-panel">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Detalhe</p>
+            <h2>{selectedAppointment?.client_name ?? 'Selecione um horario'}</h2>
+          </div>
+        </div>
+        {selectedAppointment ? (
+          <>
+            <div className="client-summary">
+              <UserRound size={22} aria-hidden="true" />
+              <span>{selectedAppointment.client_phone}</span>
+              <a
+                href={buildWhatsAppUrl(
+                  selectedAppointment.client_phone,
+                  `Ola ${selectedAppointment.client_name}, tudo bem? Confirmando seu horario de ${selectedAppointment.service_name} as ${selectedAppointment.start_time}.`,
+                )}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Confirmar WhatsApp
+              </a>
+            </div>
+            <div className="status-row">
+              <span className={`status-pill ${selectedAppointment.status}`}>{statusLabels[selectedAppointment.status]}</span>
+              <span className={`status-pill ${paymentState}`}>
+                {paymentState === 'paid' ? 'Pago' : paymentState === 'partial' ? 'Parcial' : 'Pendente'}
+              </span>
+            </div>
+            <dl className="detail-list">
+              <div>
+                <dt>Servico</dt>
+                <dd>{selectedAppointment.service_name}</dd>
+              </div>
+              <div>
+                <dt>Valor</dt>
+                <dd>{formatCurrency(selectedAppointment.charged_amount_cents)}</dd>
+              </div>
+              <div>
+                <dt>Recebido</dt>
+                <dd>{formatCurrency(selectedAppointment.received_amount_cents)}</dd>
+              </div>
+              <div>
+                <dt>Observacoes</dt>
+                <dd>{selectedAppointment.notes || selectedClient?.notes || 'Sem observacoes.'}</dd>
+              </div>
+            </dl>
+            <div className="reschedule-grid">
+              <label>
+                Remarcar data
+                <input
+                  type="date"
+                  value={selectedAppointment.scheduled_date}
+                  onChange={(event) => void updateAppointment(selectedAppointment.id, { scheduled_date: event.target.value })}
+                />
+              </label>
+              <label>
+                Remarcar hora
+                <input
+                  type="time"
+                  value={selectedAppointment.start_time}
+                  onChange={(event) => void updateAppointment(selectedAppointment.id, { start_time: event.target.value })}
+                />
+              </label>
+            </div>
+            <div className="row-actions detail-actions">
+              <button
+                type="button"
+                aria-label={`Marcar ${selectedAppointment.client_name} como confirmado`}
+                onClick={() => void updateAppointment(selectedAppointment.id, { status: 'confirmed' })}
+              >
+                <CalendarCheck2 size={15} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                aria-label={`Marcar ${selectedAppointment.client_name} como concluido`}
+                onClick={() =>
+                  void updateAppointment(selectedAppointment.id, {
+                    status: 'completed',
+                    received_amount_cents: selectedAppointment.charged_amount_cents,
+                  })
+                }
+              >
+                <CheckCircle2 size={15} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                aria-label={`Marcar ${selectedAppointment.client_name} como nao compareceu`}
+                onClick={() => void updateAppointment(selectedAppointment.id, { status: 'no_show' })}
+              >
+                <XCircle size={15} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                aria-label={`Excluir horario de ${selectedAppointment.client_name}`}
+                onClick={() => void deleteAppointment(selectedAppointment.id)}
+              >
+                <Trash2 size={15} aria-hidden="true" />
+              </button>
+            </div>
+          </>
+        ) : (
+          <p className="empty-state">Selecione um atendimento para ver detalhes.</p>
+        )}
+      </section>
     )
   }
 
@@ -1170,15 +1877,16 @@ function App() {
       <article
         className={selectedAppointmentId === appointment.id ? 'agenda-row active' : 'agenda-row'}
         key={appointment.id}
-        onClick={() => setSelectedAppointmentId(appointment.id)}
       >
-        <time dateTime={`${appointment.scheduled_date}T${appointment.start_time}`}>{appointment.start_time}</time>
-        <div className="row-main">
-          <strong>{appointment.client_name}</strong>
-          <span>
-            {appointment.service_name} - {formatCurrency(appointment.charged_amount_cents)}
-          </span>
-        </div>
+        <button type="button" className="row-select" onClick={() => setSelectedAppointmentId(appointment.id)}>
+          <time dateTime={`${appointment.scheduled_date}T${appointment.start_time}`}>{appointment.start_time}</time>
+          <div className="row-main">
+            <strong>{appointment.client_name}</strong>
+            <span>
+              {appointment.service_name} · {formatCurrency(appointment.charged_amount_cents)}
+            </span>
+          </div>
+        </button>
         <span className={`status-pill ${appointment.status}`}>{statusLabels[appointment.status]}</span>
         <span className={`status-pill ${paymentState}`}>
           {paymentState === 'paid' ? 'Pago' : paymentState === 'partial' ? 'Parcial' : 'Pendente'}
@@ -1187,35 +1895,21 @@ function App() {
           <button
             type="button"
             aria-label={`Marcar ${appointment.client_name} como concluido`}
-            onClick={(event) => {
-              event.stopPropagation()
+            onClick={() =>
               void updateAppointment(appointment.id, {
                 status: 'completed',
                 received_amount_cents: appointment.charged_amount_cents,
               })
-            }}
+            }
           >
             <CheckCircle2 size={15} aria-hidden="true" />
           </button>
           <button
             type="button"
-            aria-label={`Marcar ${appointment.client_name} como nao compareceu`}
-            onClick={(event) => {
-              event.stopPropagation()
-              void updateAppointment(appointment.id, { status: 'no_show' })
-            }}
+            aria-label={`Abrir WhatsApp de ${appointment.client_name}`}
+            onClick={() => window.open(buildWhatsAppUrl(appointment.client_phone, `Ola ${appointment.client_name}, tudo bem?`), '_blank')}
           >
-            <XCircle size={15} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            aria-label={`Excluir horario de ${appointment.client_name}`}
-            onClick={(event) => {
-              event.stopPropagation()
-              void deleteAppointment(appointment.id)
-            }}
-          >
-            <Trash2 size={15} aria-hidden="true" />
+            <MessageCircle size={15} aria-hidden="true" />
           </button>
         </div>
       </article>
@@ -1228,9 +1922,16 @@ function App() {
         <div className="panel-heading">
           <div>
             <p className="eyebrow">Clientes</p>
-            <h2>Base privada da Hellen.</h2>
+            <h2>Historico e preferencias.</h2>
           </div>
-          <span>{filteredClients.length} cliente(s)</span>
+          <label className="admin-search slim-search">
+            <Search size={16} aria-hidden="true" />
+            <input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Buscar cliente"
+            />
+          </label>
         </div>
         <div className="client-grid">
           {filteredClients.map((client) => {
@@ -1238,15 +1939,35 @@ function App() {
               (appointment) => appointment.client_id === client.id || appointment.client_phone === client.phone,
             )
             const total = clientAppointments.reduce((sum, appointment) => sum + appointment.received_amount_cents, 0)
+            const sortedClientAppointments = [...clientAppointments].sort((a, b) =>
+              `${b.scheduled_date} ${b.start_time}`.localeCompare(`${a.scheduled_date} ${a.start_time}`),
+            )
+            const lastAppointment = sortedClientAppointments.find((appointment) => appointment.scheduled_date <= today)
+            const nextAppointment = sortedClientAppointments
+              .reverse()
+              .find((appointment) => appointment.scheduled_date >= today && appointment.status !== 'canceled')
 
             return (
               <article className="client-card" key={client.id}>
-                <strong>{client.full_name}</strong>
-                <span>{client.phone}</span>
-                <p>{client.notes || 'Sem observacoes.'}</p>
-                <small>
-                  {clientAppointments.length} atendimento(s) - {formatCurrency(total)}
-                </small>
+                <div>
+                  <strong>{client.full_name}</strong>
+                  <span>{client.phone}</span>
+                </div>
+                <p>{client.notes || 'Sem anotacoes profissionais.'}</p>
+                <dl>
+                  <div>
+                    <dt>Ultimo</dt>
+                    <dd>{lastAppointment ? `${formatDateShort(lastAppointment.scheduled_date)} · ${lastAppointment.service_name}` : 'Sem historico'}</dd>
+                  </div>
+                  <div>
+                    <dt>Proximo</dt>
+                    <dd>{nextAppointment ? `${formatDateShort(nextAppointment.scheduled_date)} as ${nextAppointment.start_time}` : 'Nada marcado'}</dd>
+                  </div>
+                  <div>
+                    <dt>Total recebido</dt>
+                    <dd>{formatCurrency(total)}</dd>
+                  </div>
+                </dl>
                 <a href={buildWhatsAppUrl(client.phone, `Ola ${client.full_name}, tudo bem?`)} target="_blank" rel="noreferrer">
                   WhatsApp
                 </a>
@@ -1254,7 +1975,236 @@ function App() {
             )
           })}
         </div>
+        {filteredClients.length === 0 ? (
+          <p className="empty-state">Nenhuma cliente encontrada. Ajuste a busca ou crie um novo horario.</p>
+        ) : null}
       </section>
+    )
+  }
+
+  function renderFinance() {
+    const pendingAppointments = appointments.filter((appointment) => getPaymentState(appointment) !== 'paid')
+
+    return (
+      <div className="finance-layout">
+        <section className="metric-grid finance-metrics" aria-label="Resumo financeiro">
+          <article>
+            <Wallet size={18} aria-hidden="true" />
+            <span>Recebido hoje</span>
+            <strong>{formatCurrency(stats.receivedCents)}</strong>
+          </article>
+          <article>
+            <BarChart3 size={18} aria-hidden="true" />
+            <span>Semana</span>
+            <strong>{formatCurrency(stats.weekReceivedCents)}</strong>
+          </article>
+          <article>
+            <Banknote size={18} aria-hidden="true" />
+            <span>Mes</span>
+            <strong>{formatCurrency(stats.monthReceivedCents)}</strong>
+          </article>
+          <article>
+            <Clock3 size={18} aria-hidden="true" />
+            <span>Pendente</span>
+            <strong>{formatCurrency(stats.pendingCents)}</strong>
+          </article>
+        </section>
+
+        <section className="panel full-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Pagamentos</p>
+              <h2>Recebimentos por atendimento.</h2>
+            </div>
+            <span>{pendingAppointments.length} pendente(s)</span>
+          </div>
+          <div className="payment-list">
+            {sortedAppointments.map((appointment) => {
+              const paymentState = getPaymentState(appointment)
+              return (
+                <article key={appointment.id}>
+                  <div>
+                    <strong>{appointment.client_name}</strong>
+                    <span>
+                      {formatDateShort(appointment.scheduled_date)} · {appointment.service_name}
+                    </span>
+                  </div>
+                  <span className={`status-pill ${paymentState}`}>
+                    {paymentState === 'paid' ? 'Pago' : paymentState === 'partial' ? 'Parcial' : 'Pendente'}
+                  </span>
+                  <label>
+                    Recebido
+                    <input
+                      inputMode="decimal"
+                      value={centsToInputValue(appointment.received_amount_cents)}
+                      onChange={(event) =>
+                        void updateAppointment(appointment.id, {
+                          received_amount_cents: parseCurrencyToCents(event.target.value),
+                        })
+                      }
+                    />
+                  </label>
+                  <select
+                    aria-label={`Metodo de pagamento de ${appointment.client_name}`}
+                    value={appointment.payment_method}
+                    onChange={(event) =>
+                      void updateAppointment(appointment.id, { payment_method: event.target.value as PaymentMethod })
+                    }
+                  >
+                    {Object.entries(paymentMethodLabels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </article>
+              )
+            })}
+          </div>
+        </section>
+
+        <section className="panel full-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">Relatorio simples</p>
+              <h2>Servicos mais realizados.</h2>
+            </div>
+          </div>
+          <div className="usage-list">
+            {serviceUsage.map((item) => (
+              <article key={item.serviceName}>
+                <strong>{item.serviceName}</strong>
+                <span>{item.count} atendimento(s)</span>
+                <b>{formatCurrency(item.revenueCents)}</b>
+              </article>
+            ))}
+          </div>
+        </section>
+      </div>
+    )
+  }
+
+  function renderProducts() {
+    return (
+      <section className="panel full-panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Produtos e estoque</p>
+            <h2>Controle de materiais.</h2>
+          </div>
+          <span>{stats.lowStockCount} baixo(s)</span>
+        </div>
+
+        <form className="editor-form compact product-form" onSubmit={handleCreateProduct}>
+          <label>
+            Produto
+            <input value={newProduct.name} onChange={(event) => setNewProduct({ ...newProduct, name: event.target.value })} />
+          </label>
+          <label>
+            Categoria
+            <input value={newProduct.category} onChange={(event) => setNewProduct({ ...newProduct, category: event.target.value })} />
+          </label>
+          <label>
+            Estoque
+            <input
+              inputMode="numeric"
+              value={newProduct.quantity}
+              onChange={(event) => setNewProduct({ ...newProduct, quantity: event.target.value })}
+            />
+          </label>
+          <label>
+            Custo
+            <input value={newProduct.unitCost} onChange={(event) => setNewProduct({ ...newProduct, unitCost: event.target.value })} />
+          </label>
+          <label>
+            Venda
+            <input value={newProduct.salePrice} onChange={(event) => setNewProduct({ ...newProduct, salePrice: event.target.value })} />
+          </label>
+          <label>
+            Minimo
+            <input
+              inputMode="numeric"
+              value={newProduct.minimumQuantity}
+              onChange={(event) => setNewProduct({ ...newProduct, minimumQuantity: event.target.value })}
+            />
+          </label>
+          <label className="wide-field">
+            Observacoes
+            <input value={newProduct.notes} onChange={(event) => setNewProduct({ ...newProduct, notes: event.target.value })} />
+          </label>
+          <button className="primary-action" type="submit">
+            <Plus size={16} aria-hidden="true" /> Criar produto
+          </button>
+        </form>
+
+        <div className="product-grid">
+          {products.map((product) => {
+            const low = product.quantity <= product.minimum_quantity
+            return (
+              <article className={low ? 'product-card low' : 'product-card'} key={product.id}>
+                <div>
+                  <strong>{product.name}</strong>
+                  <span>{product.category}</span>
+                </div>
+                <dl>
+                  <div>
+                    <dt>Estoque</dt>
+                    <dd>{product.quantity}</dd>
+                  </div>
+                  <div>
+                    <dt>Minimo</dt>
+                    <dd>{product.minimum_quantity}</dd>
+                  </div>
+                  <div>
+                    <dt>Custo</dt>
+                    <dd>{formatCurrency(product.unit_cost_cents)}</dd>
+                  </div>
+                </dl>
+                {low ? <span className="status-pill pending">Estoque baixo</span> : <span className="status-pill paid">Ok</span>}
+                <div className="product-actions">
+                  <button type="button" onClick={() => void adjustProductQuantity(product, 'in', 1)}>
+                    Entrada
+                  </button>
+                  <button type="button" onClick={() => void adjustProductQuantity(product, 'service_use', -1)}>
+                    Uso
+                  </button>
+                  <button type="button" onClick={() => void adjustProductQuantity(product, 'sale', -1)}>
+                    Venda
+                  </button>
+                </div>
+                <label>
+                  Anotacao
+                  <input value={product.notes} onChange={(event) => void updateProduct(product, { notes: event.target.value })} />
+                </label>
+              </article>
+            )
+          })}
+        </div>
+
+        <section className="movement-panel">
+          <p className="eyebrow">Movimentacoes recentes</p>
+          <div className="movement-list">
+            {stockMovements.map((movement) => (
+              <article key={movement.id}>
+                <strong>{movement.product_name}</strong>
+                <span>
+                  {movementTypeLabels[movement.type]} · {movement.quantity} un.
+                </span>
+              </article>
+            ))}
+          </div>
+        </section>
+      </section>
+    )
+  }
+
+  function renderLandingManager() {
+    return (
+      <div className="landing-manager">
+        {renderLandingEditor()}
+        {renderServicesEditor()}
+        {renderGalleryEditor()}
+      </div>
     )
   }
 
@@ -1338,7 +2288,7 @@ function App() {
         <div className="panel-heading">
           <div>
             <p className="eyebrow">Servicos</p>
-            <h2>Precos que aparecem na landing.</h2>
+            <h2>Precos e publicacao.</h2>
           </div>
           <span>{services.length} cadastrados</span>
         </div>
@@ -1373,12 +2323,14 @@ function App() {
         <div className="service-editor-list">
           {services.map((service) => (
             <article className="service-editor-row" key={service.id}>
-              <input value={service.name} onChange={(event) => void updateService(service, { name: event.target.value })} />
+              <input aria-label="Nome do servico" value={service.name} onChange={(event) => void updateService(service, { name: event.target.value })} />
               <input
+                aria-label="Preco do servico"
                 value={centsToInputValue(service.price_cents)}
                 onChange={(event) => void updateService(service, { price_cents: parseCurrencyToCents(event.target.value) })}
               />
               <input
+                aria-label="Duracao do servico"
                 inputMode="numeric"
                 value={service.duration_minutes}
                 onChange={(event) =>
@@ -1457,10 +2409,14 @@ function App() {
                 <strong>{item.title}</strong>
                 <span>{item.published ? 'Visivel na landing' : 'Oculta'}</span>
               </div>
-              <button type="button" onClick={() => void updateGalleryItem(item, { published: !item.published })}>
+              <button
+                type="button"
+                aria-label={item.published ? `Ocultar ${item.title}` : `Publicar ${item.title}`}
+                onClick={() => void updateGalleryItem(item, { published: !item.published })}
+              >
                 {item.published ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
               </button>
-              <button type="button" onClick={() => void deleteGalleryItem(item.id)}>
+              <button type="button" aria-label={`Excluir ${item.title}`} onClick={() => void deleteGalleryItem(item.id)}>
                 <Trash2 size={16} aria-hidden="true" />
               </button>
             </article>

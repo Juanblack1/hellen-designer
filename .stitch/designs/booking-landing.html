@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Hellen Designer | Luxury Brow Specialist</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&amp;family=Montserrat:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "on-error": "#690005",
+                "on-error-container": "#ffdad6",
+                "on-secondary-fixed": "#251a00",
+                "surface-dim": "#151311",
+                "background": "#151311",
+                "on-tertiary": "#462a00",
+                "text-muted": "#C6B696",
+                "surface-container-high": "#2c2927",
+                "success": "#63D697",
+                "on-surface": "#e8e1dd",
+                "warning": "#F4C873",
+                "secondary-fixed-dim": "#dfc484",
+                "error": "#ffb4ab",
+                "surface-container-highest": "#373432",
+                "tertiary-fixed": "#ffddb7",
+                "surface-bright": "#3c3936",
+                "primary-fixed": "#ffdeaa",
+                "primary": "#f7bf59",
+                "on-secondary": "#3e2e00",
+                "on-primary-fixed": "#271900",
+                "on-primary": "#422c00",
+                "surface-variant": "#373432",
+                "surface-container-lowest": "#100e0c",
+                "surface-raised": "#17110B",
+                "on-tertiary-fixed": "#2a1700",
+                "danger": "#FF7E61",
+                "on-tertiary-fixed-variant": "#643e00",
+                "outline-variant": "#4f4536",
+                "primary-container": "#d9a441",
+                "surface-tint": "#f5bd58",
+                "inverse-on-surface": "#33302d",
+                "text-primary": "#F8EAD0",
+                "surface": "#100C08",
+                "on-background": "#e8e1dd",
+                "on-surface-variant": "#d3c4b1",
+                "tertiary-fixed-dim": "#fabb68",
+                "outline": "#9c8f7d",
+                "on-tertiary-container": "#5c3900",
+                "error-container": "#93000a",
+                "secondary-fixed": "#fce09e",
+                "surface-container-low": "#1d1b19",
+                "on-secondary-container": "#cdb275",
+                "tertiary-container": "#dda152",
+                "surface-container": "#221f1d",
+                "on-primary-container": "#573c00",
+                "surface-soft": "#21170D",
+                "secondary-container": "#574411",
+                "secondary": "#dfc484",
+                "inverse-primary": "#7d5700",
+                "tertiary": "#fcbc6a",
+                "on-primary-fixed-variant": "#5f4100",
+                "primary-fixed-dim": "#f5bd58",
+                "inverse-surface": "#e8e1dd",
+                "line": "#4D3517",
+                "on-secondary-fixed-variant": "#574411"
+            },
+            "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+            },
+            "spacing": {
+                "base": "8px",
+                "gutter": "16px",
+                "section-gap": "80px",
+                "admin-normal": "12px",
+                "container-padding": "24px",
+                "admin-tight": "4px"
+            },
+            "fontFamily": {
+                "headline-md": ["Playfair Display"],
+                "body-md": ["Montserrat"],
+                "label-md": ["Montserrat"],
+                "tabular-nums": ["Montserrat"],
+                "headline-lg-mobile": ["Playfair Display"],
+                "body-lg": ["Montserrat"],
+                "headline-lg": ["Playfair Display"],
+                "label-sm": ["Montserrat"],
+                "display-lg": ["Playfair Display"]
+            },
+            "fontSize": {
+                "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                "label-md": ["14px", {"lineHeight": "1.2", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                "tabular-nums": ["14px", {"fontWeight": "400"}],
+                "headline-lg-mobile": ["32px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                "headline-lg": ["40px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                "label-sm": ["12px", {"lineHeight": "1.2", "fontWeight": "500"}],
+                "display-lg": ["56px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #100C08;
+            color: #F8EAD0;
+            -webkit-font-smoothing: antialiased;
+        }
+        .shimmer {
+            background: linear-gradient(90deg, transparent, rgba(247, 191, 89, 0.2), transparent);
+            background-size: 200% 100%;
+            animation: shimmer 3s infinite linear;
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        .gold-glow:focus-within {
+            box-shadow: 0 0 15px rgba(247, 191, 89, 0.4);
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .step-transition {
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s;
+        }
+    </style>
+</head>
+<body class="font-body-md overflow-x-hidden">
+<!-- Top Navigation Shell -->
+<header class="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-md border-b border-line">
+<div class="flex justify-between items-center h-16 px-gutter max-w-7xl mx-auto">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-primary cursor-pointer">menu</span>
+<span class="font-headline-md text-headline-md font-semibold tracking-tight text-primary">HM</span>
+</div>
+<div class="flex items-center gap-6">
+<a class="text-on-surface-variant hover:text-primary transition-colors" href="#"><span class="material-symbols-outlined text-[20px]">photo_camera</span></a>
+<a class="text-on-surface-variant hover:text-primary transition-colors" href="#"><span class="material-symbols-outlined text-[20px]">chat_bubble</span></a>
+<a class="font-label-md text-label-md text-primary uppercase tracking-widest border border-primary/30 px-3 py-1 rounded-full" href="#">Admin</a>
+</div>
+</div>
+</header>
+<!-- Hero Section -->
+<section class="relative min-h-[90vh] flex flex-col justify-end pt-24 pb-12 px-gutter overflow-hidden">
+<div class="absolute inset-0 z-0">
+<img alt="Portrait of Hellen Martins" class="w-full h-full object-cover opacity-60" src="https://lh3.googleusercontent.com/aida/ADBb0uiJM_o5mVwTOGpMzfbWKkdPez5fSazQrfuWR2LgvpNgGTV9j69BhKNh-PxmXYhrOeKWpNEWfC_ivpqtDd6ug1auQrDMSxk9UgtY3lTRnU4Gwpal3d8e3qJYwdnD7ehSY_lTY0u3SqIuuS2-FgBdt7IFJe29Oovk3MyR2sjsQz6Jg_2_V7hJgOB3ahCJt2EyomesuarQdM2zfFKK8gD_q8pqYRI2aYPhjfiEEkQ65W7I6O0tDvI"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface via-surface/40 to-transparent"></div>
+</div>
+<div class="relative z-10 space-y-6 max-w-xl">
+<div class="space-y-1">
+<h2 class="font-label-md text-label-md text-primary uppercase tracking-[0.3em] opacity-80">Hellen Martins</h2>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile text-text-primary leading-tight">Designer de Sobrancelhas</h1>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant leading-relaxed italic">"Realce sua beleza com naturalidade e sofisticação."</p>
+<div class="flex flex-col gap-4 sm:flex-row pt-4">
+<button class="bg-primary text-on-primary font-label-md text-label-md py-4 px-8 rounded-full flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform" onclick="scrollToBooking()">
+<span class="material-symbols-outlined">event</span>
+                    Agendar horário
+                </button>
+<button class="border border-line text-primary font-label-md text-label-md py-4 px-8 rounded-full flex items-center justify-center gap-2 hover:bg-surface-soft active:scale-95 transition-transform">
+                    Ver serviços
+                </button>
+</div>
+</div>
+</section>
+<!-- Services Selection -->
+<section class="py-section-gap px-gutter bg-surface" id="services">
+<div class="text-center mb-10">
+<h3 class="font-headline-md text-headline-md text-primary mb-2">Serviços Exclusivos</h3>
+<p class="font-body-md text-body-md text-text-muted">Escolha o procedimento ideal para você</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+<!-- Service Card 1 -->
+<div class="service-card group cursor-pointer p-6 rounded-xl border border-line bg-surface-soft transition-all hover:border-primary/50 relative overflow-hidden" onclick="selectService(this, 'Design Reconstrutivo', 20)">
+<div class="flex justify-between items-start mb-4">
+<span class="material-symbols-outlined text-primary text-3xl group-hover:scale-110 transition-transform">brush</span>
+<span class="font-tabular-nums text-primary font-semibold">R$ 20</span>
+</div>
+<h4 class="font-headline-md text-headline-md mb-2">Design Reconstrutivo</h4>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">Recuperação e alinhamento do formato natural dos fios.</p>
+<div class="absolute bottom-0 left-0 w-full h-1 bg-primary scale-x-0 group-[.selected]:scale-x-100 transition-transform origin-left"></div>
+</div>
+<!-- Service Card 2 -->
+<div class="service-card group cursor-pointer p-6 rounded-xl border border-line bg-surface-soft transition-all hover:border-primary/50 relative overflow-hidden" onclick="selectService(this, 'Design com Henna', 30)">
+<div class="flex justify-between items-start mb-4">
+<span class="material-symbols-outlined text-primary text-3xl group-hover:scale-110 transition-transform">ink_pen</span>
+<span class="font-tabular-nums text-primary font-semibold">R$ 30</span>
+</div>
+<h4 class="font-headline-md text-headline-md mb-2">Design com Henna</h4>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">Preenchimento temporário com pigmento para maior definição.</p>
+<div class="absolute bottom-0 left-0 w-full h-1 bg-primary scale-x-0 group-[.selected]:scale-x-100 transition-transform origin-left"></div>
+</div>
+<!-- Service Card 3 -->
+<div class="service-card group cursor-pointer p-6 rounded-xl border border-line bg-surface-soft transition-all hover:border-primary/50 relative overflow-hidden" onclick="selectService(this, 'Design com Coloração', 40)">
+<div class="flex justify-between items-start mb-4">
+<span class="material-symbols-outlined text-primary text-3xl group-hover:scale-110 transition-transform">palette</span>
+<span class="font-tabular-nums text-primary font-semibold">R$ 40</span>
+</div>
+<h4 class="font-headline-md text-headline-md mb-2">Design com Coloração</h4>
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">Pintura delicada dos fios para um olhar marcante e natural.</p>
+<div class="absolute bottom-0 left-0 w-full h-1 bg-primary scale-x-0 group-[.selected]:scale-x-100 transition-transform origin-left"></div>
+</div>
+</div>
+</section>
+<!-- Dynamic Booking Flow -->
+<section class="py-section-gap px-gutter bg-surface-container-low relative" id="booking-section">
+<div class="max-w-2xl mx-auto">
+<div class="text-center mb-10">
+<p class="font-label-md text-label-md text-primary uppercase mb-2">Reserva Online</p>
+<h3 class="font-headline-md text-headline-md text-text-primary">Separe um tempinho para você</h3>
+</div>
+<div class="bg-surface p-6 rounded-2xl border border-line shadow-2xl relative overflow-hidden" id="booking-container">
+<!-- Step 1: Date & Time -->
+<div class="step-transition space-y-8" id="step-1">
+<div class="space-y-4">
+<label class="font-label-md text-label-md text-on-surface-variant block uppercase tracking-wide">1. Selecione a Data</label>
+<div class="flex gap-4 overflow-x-auto pb-4 hide-scrollbar">
+<button class="date-chip flex-shrink-0 w-20 py-4 rounded-xl border border-line bg-surface-soft flex flex-col items-center gap-1 group active:scale-95 transition-all" onclick="selectDate(this, 'Ter, 14 Nov')">
+<span class="font-label-sm text-label-sm text-text-muted group-[.selected]:text-primary">Ter</span>
+<span class="font-headline-md text-headline-md text-on-surface group-[.selected]:text-primary">14</span>
+</button>
+<button class="date-chip flex-shrink-0 w-20 py-4 rounded-xl border border-line bg-surface-soft flex flex-col items-center gap-1 group active:scale-95 transition-all" onclick="selectDate(this, 'Qua, 15 Nov')">
+<span class="font-label-sm text-label-sm text-text-muted group-[.selected]:text-primary">Qua</span>
+<span class="font-headline-md text-headline-md text-on-surface group-[.selected]:text-primary">15</span>
+</button>
+<button class="date-chip flex-shrink-0 w-20 py-4 rounded-xl border border-line bg-surface-soft flex flex-col items-center gap-1 group active:scale-95 transition-all" onclick="selectDate(this, 'Qui, 16 Nov')">
+<span class="font-label-sm text-label-sm text-text-muted group-[.selected]:text-primary">Qui</span>
+<span class="font-headline-md text-headline-md text-on-surface group-[.selected]:text-primary">16</span>
+</button>
+<button class="date-chip flex-shrink-0 w-20 py-4 rounded-xl border border-line bg-surface-soft flex flex-col items-center gap-1 group active:scale-95 transition-all" onclick="selectDate(this, 'Sex, 17 Nov')">
+<span class="font-label-sm text-label-sm text-text-muted group-[.selected]:text-primary">Sex</span>
+<span class="font-headline-md text-headline-md text-on-surface group-[.selected]:text-primary">17</span>
+</button>
+</div>
+</div>
+<div class="space-y-4">
+<label class="font-label-md text-label-md text-on-surface-variant block uppercase tracking-wide">2. Horários Disponíveis</label>
+<div class="grid grid-cols-3 gap-3">
+<button class="time-chip py-3 rounded-lg border border-line bg-surface-soft font-tabular-nums text-on-surface hover:border-primary active:scale-95 transition-all" onclick="selectTime(this, '09:00')">09:00</button>
+<button class="time-chip py-3 rounded-lg border border-line bg-surface-soft font-tabular-nums text-on-surface hover:border-primary active:scale-95 transition-all" onclick="selectTime(this, '10:30')">10:30</button>
+<button class="time-chip py-3 rounded-lg border border-line bg-surface-soft font-tabular-nums text-on-surface hover:border-primary active:scale-95 transition-all" onclick="selectTime(this, '14:00')">14:00</button>
+<button class="time-chip py-3 rounded-lg border border-line bg-surface-soft font-tabular-nums text-on-surface hover:border-primary active:scale-95 transition-all" onclick="selectTime(this, '15:30')">15:30</button>
+<button class="time-chip py-3 rounded-lg border border-line bg-surface-soft font-tabular-nums text-on-surface hover:border-primary active:scale-95 transition-all" onclick="selectTime(this, '17:00')">17:00</button>
+<button class="time-chip py-3 rounded-lg border border-line bg-surface-soft font-tabular-nums text-on-surface hover:border-primary active:scale-95 transition-all" onclick="selectTime(this, '18:30')">18:30</button>
+</div>
+</div>
+<button class="w-full bg-primary/20 text-on-primary-container/40 font-label-md text-label-md py-4 rounded-full transition-all cursor-not-allowed" disabled="" id="next-btn" onclick="nextStep()">
+                        Próximo Passo
+                    </button>
+</div>
+<!-- Step 2: Customer Info -->
+<div class="step-transition hidden space-y-6" id="step-2">
+<div class="flex items-center gap-4 mb-6">
+<button class="material-symbols-outlined text-primary" onclick="prevStep()">arrow_back</button>
+<span class="font-headline-md text-headline-md">Seus Dados</span>
+</div>
+<div class="space-y-4">
+<div class="space-y-2 gold-glow">
+<label class="font-label-sm text-label-sm text-on-surface-variant px-2">Nome Completo</label>
+<input class="w-full bg-surface-soft border border-line rounded-xl px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary outline-none text-text-primary placeholder:text-text-muted/40" id="cust-name" placeholder="Como podemos te chamar?" type="text"/>
+</div>
+<div class="space-y-2 gold-glow">
+<label class="font-label-sm text-label-sm text-on-surface-variant px-2">WhatsApp</label>
+<input class="w-full bg-surface-soft border border-line rounded-xl px-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary outline-none text-text-primary placeholder:text-text-muted/40" id="cust-phone" placeholder="(00) 00000-0000" type="tel"/>
+</div>
+</div>
+<div class="p-4 bg-surface-soft rounded-xl border border-line border-dashed">
+<div class="flex justify-between items-center mb-2">
+<span class="text-label-sm text-text-muted">Resumo:</span>
+<span class="text-label-md text-primary" id="summary-service">-</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-label-sm text-text-primary" id="summary-datetime">-</span>
+<span class="text-label-md font-bold text-primary" id="summary-price">-</span>
+</div>
+</div>
+<button class="w-full bg-primary text-on-primary font-label-md text-label-md py-4 rounded-full shadow-lg hover:shadow-primary/20 transition-all" onclick="completeBooking()">
+                        Confirmar Agendamento
+                    </button>
+</div>
+<!-- Success State -->
+<div class="step-transition hidden text-center py-10 space-y-6" id="success-state">
+<div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-success/20 text-success mb-4">
+<span class="material-symbols-outlined text-5xl" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-success mb-2">Tudo certo!</h3>
+<p class="font-body-md text-body-md text-on-surface-variant px-4">Seu agendamento foi pré-confirmado. Cada detalhe foi pensado com carinho para você.</p>
+</div>
+<div class="bg-surface-soft p-4 rounded-xl border border-line text-left space-y-2">
+<p class="font-label-sm text-text-muted uppercase">Sua reserva:</p>
+<p class="font-body-md text-text-primary" id="final-details"></p>
+</div>
+<a class="flex items-center justify-center gap-2 w-full bg-[#25D366] text-white font-label-md text-label-md py-4 rounded-full shadow-lg active:scale-95 transition-transform" href="https://wa.me/5500000000000">
+<span class="material-symbols-outlined">chat</span>
+                        Chamar no WhatsApp
+                    </a>
+</div>
+</div>
+</div>
+</section>
+<!-- Gallery Section -->
+<section class="py-section-gap px-gutter bg-surface">
+<div class="max-w-4xl mx-auto space-y-8">
+<div class="text-center">
+<h3 class="font-headline-md text-headline-md text-primary">Nossa Galeria</h3>
+<p class="font-body-md text-body-md text-text-muted mt-2">Trabalhos que realçam a expressão</p>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="rounded-2xl overflow-hidden aspect-square relative group">
+<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" data-alt="Close up macro shot of perfectly shaped eyebrows with natural tint on a woman with warm skin tones. The lighting is soft and cinematic, highlighting every hair detail in a high-end luxury beauty studio setting. Dark, moody background complements the elegant aesthetic of Hellen Designer studio." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCnyBPQLmtFdytTQdCAYpSTdT_k2kJYxYUu_-UMyy3XCyZ5nDpr3Ak1ZSkLWr0tTtnFbdQ15uqD0YECTH5l99LGLPMRrd-MFAUjtfsXVAJYpy_akTgskxeDALLTIww6122RbHbXmkDIPDVd5iQCOaJq0_A686IoIkSllgWllgFV9sw5iWWr1uxk041TGACz1ki6KVCMHalZ9NKjIL2_mKZmOhxWgWBV-gsN14VJW2UOkePmn5UTP-vfH8G1LnLtMBBpYPRrtJt7mok"/>
+</div>
+<div class="rounded-2xl overflow-hidden aspect-square relative group">
+<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" data-alt="A portrait of a professional beauty tools kit including precision tweezers and brow brushes laid out on a dark marble surface with gold accents. Soft amber lighting creates a premium and sophisticated atmosphere. The image is part of a high-contrast luxury beauty brand identity for a professional brow designer." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDGR1KHORS0g_xy4ZGkrr7cw4KLcfKV7w1AGq9w-n40GQS3hKdD8xRk_OBoZuFn_gNGQ2vI-Yl9gNLnPRAniWG6SKGbzc9qO9FTx8gHxo7YUw_Vzw0BRQHFDkXv73MmMblfTnIdxPOeIUvZYO8YNtha6e9u4vZO0yWML94w7N6N-w4MyXIyv84wzebkI8gyptEL64WsQEdIVAU1u_QAqmyRiviB54fcJROZFFNJ_pJ5ON71eExR_tSEYM6rb_YFCRA63xu_xCRkxx4"/>
+</div>
+<div class="rounded-2xl overflow-hidden aspect-square relative group">
+<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" data-alt="Extreme close-up of an eye with thick, curled eyelashes and a defined eyebrow arch after a professional lamination procedure. The skin texture is flawless and dewy under high-key professional studio lighting. The color palette features deep blacks and golden highlights, embodying an exclusive beauty experience." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD6SvNTSjV8ZwchLErUT0hrHu8KdXVsCBwgfcf0io9R6NrCDcYSF31KQ7HUlOUzM457t9CE5Ya6Pl_gZ93tc5Y6_bBk1ax4kxVVRpyjHPNN_SdEqBNImgphCb6ONXxe1XomQW4VWTpyHxHF1nSxwwmcRc9qJbZwK1jZD54U_EXgqeoad1PDPF0gYfERMpUTirE1DLyEwufoVLIxN6oje1Y-eo0Nh7A7nkX02sFtDWkaZSYTXvglOsW3W73XulikOTerEnCU8SgkKYQ"/>
+</div>
+<div class="rounded-2xl overflow-hidden aspect-square relative group">
+<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" data-alt="Luxurious interior of a beauty studio with a minimalist design. A black velvet chair sits under a warm ring light, surrounded by golden décor elements and deep brown mahogany accents. The mood is intimate and exclusive, inviting clients to a premium session of personalized facial design and self-care." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDKqvhYCnpnh-gH6FUayrQiI1pWo7_V-JGmeRdSEgUqyMsroiC1s9Gc3sMYH80q0irceMXYtKMtJrpgElxTOxorcKn8GgQ1g86P9ry5HYTNzcJokq0VaiynpekTFJ7qPXNuhJgBK35AEzrtXcddm0a090bYicN6bjxzR1p3H3sTtSU68Awts_NQVmW-b-Wbn_6lekaDIFqwaN4by9aDU-wb7DISdvZeQcq2170A036TGpe0zxuzFQVaBGLyc5pL8DLVQWUN4Suhui0"/>
+</div>
+</div>
+</div>
+</section>
+<!-- Professionalism Quote -->
+<section class="py-24 bg-surface-soft border-y border-line text-center px-gutter">
+<p class="font-headline-md text-headline-md text-primary italic max-w-lg mx-auto">"Cada detalhe foi pensado com carinho para realçar o que há de melhor em você."</p>
+</section>
+<!-- Footer Shell -->
+<footer class="bg-surface-container-lowest py-section-gap px-container-padding text-center">
+<div class="max-w-7xl mx-auto flex flex-col items-center gap-8">
+<div class="space-y-4">
+<h4 class="font-headline-md text-headline-md text-primary">HM</h4>
+<div class="flex gap-6 justify-center">
+<a class="text-on-surface-variant hover:text-primary transition-colors" href="#"><span class="material-symbols-outlined">photo_camera</span></a>
+<a class="text-on-surface-variant hover:text-primary transition-colors" href="#"><span class="material-symbols-outlined">chat_bubble</span></a>
+</div>
+</div>
+<div class="space-y-2">
+<p class="font-label-md text-label-md text-text-primary">Atendimento com hora marcada</p>
+<p class="font-body-md text-body-md text-text-muted">Rua das Flores, 123 - Centro, SP</p>
+<p class="font-body-md text-body-md text-text-muted">WhatsApp: (11) 98765-4321</p>
+</div>
+<div class="pt-8 border-t border-line w-full">
+<p class="font-label-sm text-label-sm text-text-muted">© 2024 Hellen Designer Studio. Luxury redefined.</p>
+<div class="flex gap-4 justify-center mt-4">
+<a class="font-label-sm text-label-sm text-text-muted hover:text-primary underline" href="#">Privacy Policy</a>
+<a class="font-label-sm text-label-sm text-text-muted hover:text-primary underline" href="#">Terms of Service</a>
+</div>
+</div>
+</div>
+</footer>
+<!-- Mobile Bottom Nav -->
+<nav class="md:hidden fixed bottom-0 w-full z-50 bg-surface-container border-t border-line shadow-lg flex justify-around items-center h-16 px-4 py-2">
+<a class="flex flex-col items-center justify-center text-primary font-bold active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">auto_awesome</span>
+<span class="font-label-sm text-label-sm">Studio</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-secondary transition-colors active:scale-95 transition-transform" href="#services">
+<span class="material-symbols-outlined">content_cut</span>
+<span class="font-label-sm text-label-sm">Services</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-secondary transition-colors active:scale-95 transition-transform" href="#booking-section">
+<span class="material-symbols-outlined">event</span>
+<span class="font-label-sm text-label-sm">Agenda</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-secondary transition-colors active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">chat_bubble</span>
+<span class="font-label-sm text-label-sm">Contact</span>
+</a>
+</nav>
+<script>
+        let selectedService = null;
+        let selectedPrice = 0;
+        let selectedDateText = null;
+        let selectedTimeText = null;
+
+        function scrollToBooking() {
+            document.getElementById('services').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function selectService(el, name, price) {
+            document.querySelectorAll('.service-card').forEach(c => c.classList.remove('selected', 'border-primary', 'bg-primary/5'));
+            el.classList.add('selected', 'border-primary', 'bg-primary/5');
+            selectedService = name;
+            selectedPrice = price;
+            checkStep1();
+            
+            // Auto scroll to booking after selecting service
+            setTimeout(() => {
+                document.getElementById('booking-section').scrollIntoView({ behavior: 'smooth' });
+            }, 300);
+        }
+
+        function selectDate(el, date) {
+            document.querySelectorAll('.date-chip').forEach(c => c.classList.remove('selected', 'border-primary', 'bg-primary/5'));
+            el.classList.add('selected', 'border-primary', 'bg-primary/5');
+            selectedDateText = date;
+            checkStep1();
+        }
+
+        function selectTime(el, time) {
+            document.querySelectorAll('.time-chip').forEach(c => c.classList.remove('selected', 'border-primary', 'bg-primary/5', 'text-primary'));
+            el.classList.add('selected', 'border-primary', 'bg-primary/5', 'text-primary');
+            selectedTimeText = time;
+            checkStep1();
+        }
+
+        function checkStep1() {
+            const btn = document.getElementById('next-btn');
+            if (selectedService && selectedDateText && selectedTimeText) {
+                btn.disabled = false;
+                btn.classList.remove('bg-primary/20', 'text-on-primary-container/40', 'cursor-not-allowed');
+                btn.classList.add('bg-primary', 'text-on-primary', 'cursor-pointer');
+            }
+        }
+
+        function nextStep() {
+            document.getElementById('step-1').classList.add('hidden');
+            document.getElementById('step-2').classList.remove('hidden');
+            
+            document.getElementById('summary-service').innerText = selectedService;
+            document.getElementById('summary-datetime').innerText = `${selectedDateText} às ${selectedTimeText}`;
+            document.getElementById('summary-price').innerText = `R$ ${selectedPrice}`;
+        }
+
+        function prevStep() {
+            document.getElementById('step-2').classList.add('hidden');
+            document.getElementById('step-1').classList.remove('hidden');
+        }
+
+        function completeBooking() {
+            const name = document.getElementById('cust-name').value;
+            if(!name) {
+                alert('Por favor, informe seu nome.');
+                return;
+            }
+            
+            document.getElementById('step-2').classList.add('hidden');
+            document.getElementById('success-state').classList.remove('hidden');
+            
+            document.getElementById('final-details').innerText = `${selectedService} - ${selectedDateText} às ${selectedTimeText}`;
+            
+            // Atmospheric confetti-like effect or similar micro-interaction could go here
+        }
+    </script>
+</body></html>

@@ -121,10 +121,13 @@ create table if not exists public.clients (
   id text primary key default gen_random_uuid()::text,
   full_name text not null check (char_length(full_name) between 2 and 140),
   phone text not null unique check (char_length(phone) between 8 and 40),
+  birth_date date,
   notes text not null default '' check (char_length(notes) <= 2000),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.clients add column if not exists birth_date date;
 
 create table if not exists public.appointments (
   id text primary key default gen_random_uuid()::text,
@@ -148,6 +151,51 @@ create table if not exists public.appointments (
 create index if not exists appointments_date_time_idx on public.appointments (scheduled_date, start_time);
 create index if not exists appointments_client_id_idx on public.appointments (client_id);
 create index if not exists appointments_status_idx on public.appointments (status);
+create unique index if not exists appointments_unique_active_slot_idx
+on public.appointments (scheduled_date, start_time)
+where status in ('scheduled', 'confirmed', 'completed');
+
+create table if not exists public.products (
+  id text primary key default gen_random_uuid()::text,
+  name text not null check (char_length(name) between 2 and 140),
+  category text not null check (char_length(category) between 2 and 80),
+  quantity integer not null default 0 check (quantity >= 0),
+  unit_cost_cents integer not null default 0 check (unit_cost_cents >= 0),
+  sale_price_cents integer not null default 0 check (sale_price_cents >= 0),
+  minimum_quantity integer not null default 0 check (minimum_quantity >= 0),
+  notes text not null default '' check (char_length(notes) <= 2000),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.stock_movements (
+  id text primary key default gen_random_uuid()::text,
+  product_id text references public.products(id) on delete cascade,
+  product_name text not null check (char_length(product_name) between 2 and 140),
+  type text not null check (type in ('in', 'out', 'service_use', 'sale', 'adjustment')),
+  quantity integer not null check (quantity > 0),
+  notes text not null default '' check (char_length(notes) <= 1000),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists products_category_idx on public.products (category);
+create index if not exists stock_movements_product_id_idx on public.stock_movements (product_id);
+
+insert into public.products (
+  id,
+  name,
+  category,
+  quantity,
+  unit_cost_cents,
+  sale_price_cents,
+  minimum_quantity,
+  notes
+)
+values
+  ('henna-castanho', 'Henna castanho medio', 'Henna', 2, 1800, 0, 3, 'Repor antes do fim de semana.'),
+  ('algodao', 'Algodao', 'Consumo', 6, 700, 0, 4, ''),
+  ('pinca-dourada', 'Pinca dourada', 'Instrumento', 1, 3500, 0, 2, 'Separar uma reserva para atendimentos.')
+on conflict (id) do nothing;
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
@@ -197,11 +245,20 @@ create trigger appointments_touch_updated_at
 before update on public.appointments
 for each row execute function public.touch_updated_at();
 
+drop trigger if exists products_touch_updated_at on public.products;
+create trigger products_touch_updated_at
+before update on public.products
+for each row execute function public.touch_updated_at();
+
 grant select on public.business_profile to anon, authenticated;
 grant select on public.services to anon, authenticated;
 grant select on public.gallery_items to anon, authenticated;
+grant insert on public.clients to anon;
+grant insert on public.appointments to anon;
 grant select, insert, update, delete on public.clients to authenticated, service_role;
 grant select, insert, update, delete on public.appointments to authenticated, service_role;
+grant select, insert, update, delete on public.products to authenticated, service_role;
+grant select, insert, update, delete on public.stock_movements to authenticated, service_role;
 grant insert, update, delete on public.business_profile to authenticated, service_role;
 grant insert, update, delete on public.services to authenticated, service_role;
 grant insert, update, delete on public.gallery_items to authenticated, service_role;
@@ -212,6 +269,8 @@ alter table public.services enable row level security;
 alter table public.gallery_items enable row level security;
 alter table public.clients enable row level security;
 alter table public.appointments enable row level security;
+alter table public.products enable row level security;
+alter table public.stock_movements enable row level security;
 
 drop policy if exists "Admins can read admin profiles" on public.admin_profiles;
 create policy "Admins can read admin profiles"
@@ -287,9 +346,48 @@ to authenticated
 using (app_private.is_admin())
 with check (app_private.is_admin());
 
+drop policy if exists "Visitors can request client booking contact" on public.clients;
+create policy "Visitors can request client booking contact"
+on public.clients
+for insert
+to anon
+with check (
+  char_length(full_name) between 2 and 140
+  and char_length(phone) between 8 and 40
+);
+
 drop policy if exists "Admins can manage appointments" on public.appointments;
 create policy "Admins can manage appointments"
 on public.appointments
+for all
+to authenticated
+using (app_private.is_admin())
+with check (app_private.is_admin());
+
+drop policy if exists "Visitors can request appointments" on public.appointments;
+create policy "Visitors can request appointments"
+on public.appointments
+for insert
+to anon
+with check (
+  status = 'scheduled'
+  and received_amount_cents = 0
+  and charged_amount_cents >= 0
+  and char_length(client_name) between 2 and 140
+  and char_length(client_phone) between 8 and 40
+);
+
+drop policy if exists "Admins can manage products" on public.products;
+create policy "Admins can manage products"
+on public.products
+for all
+to authenticated
+using (app_private.is_admin())
+with check (app_private.is_admin());
+
+drop policy if exists "Admins can manage stock movements" on public.stock_movements;
+create policy "Admins can manage stock movements"
+on public.stock_movements
 for all
 to authenticated
 using (app_private.is_admin())
