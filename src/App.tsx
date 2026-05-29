@@ -11,8 +11,10 @@ import {
   CalendarRange,
   Camera,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   CircleHelp,
   ClipboardList,
   Clock3,
@@ -105,7 +107,7 @@ import type {
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 import './App.css'
 
-type AdminTab = 'today' | 'agenda' | 'clients' | 'finance' | 'products' | 'settings' | 'landing'
+type AdminTab = 'today' | 'agenda' | 'clients' | 'finance' | 'services' | 'products' | 'settings' | 'landing'
 type CalendarView = 'day' | 'week' | 'month' | 'list'
 type PaymentFilter = 'all' | PaymentStatus | 'open'
 type AppointmentDrawerMode = 'create' | 'edit'
@@ -207,6 +209,7 @@ const adminTabs: Array<{ id: AdminTab; label: string; icon: typeof CalendarDays 
   { id: 'agenda', label: 'Agenda', icon: CalendarDays },
   { id: 'finance', label: 'Financeiro', icon: Banknote },
   { id: 'clients', label: 'Clientes', icon: UsersRound },
+  { id: 'services', label: 'Servicos', icon: Sparkles },
   { id: 'settings', label: 'Horarios', icon: Settings },
   { id: 'products', label: 'Produtos', icon: Boxes },
   { id: 'landing', label: 'Landing', icon: Camera },
@@ -404,6 +407,9 @@ function App() {
   const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>('open')
   const [appointmentDraft, setAppointmentDraft] = useState<AppointmentDraft>(() => newAppointmentDraft(defaultServices))
   const [clientPickerSearch, setClientPickerSearch] = useState('')
+  const [isClientPickerExpanded, setIsClientPickerExpanded] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const [appointmentDrawer, setAppointmentDrawer] = useState<AppointmentDrawerState>({
     open: false,
     mode: 'create',
@@ -597,6 +603,20 @@ function App() {
     window.history.pushState(null, '', path)
     setRoute(path)
     window.scrollTo({ top: 0 })
+  }
+
+  function selectAdminTab(tab: AdminTab) {
+    setActiveTab(tab)
+    setIsMobileSidebarOpen(false)
+  }
+
+  function toggleAdminMenu() {
+    if (window.matchMedia('(max-width: 860px)').matches) {
+      setIsMobileSidebarOpen((current) => !current)
+      return
+    }
+
+    setIsSidebarCollapsed((current) => !current)
   }
 
   function openPublicLanding() {
@@ -946,12 +966,14 @@ function App() {
       clientPhone: client.phone,
     }))
     setClientPickerSearch(client.full_name)
+    setIsClientPickerExpanded(false)
   }
 
   function openNewAppointmentDrawer(date = agendaDate, time = '09:00') {
     const draft = newAppointmentDraft(services, date, time)
     setAppointmentDraft(draft)
     setClientPickerSearch('')
+    setIsClientPickerExpanded(false)
     setAppointmentDrawer({ open: true, mode: 'create', appointmentId: '' })
     setActiveTab('agenda')
   }
@@ -976,6 +998,7 @@ function App() {
     setSelectedAppointmentId(appointment.id)
     setAppointmentDraft(appointmentToDraft(appointment, services))
     setClientPickerSearch(appointment.client_name)
+    setIsClientPickerExpanded(false)
     setAppointmentDrawer({ open: true, mode: 'edit', appointmentId: appointment.id })
     setActiveTab('agenda')
   }
@@ -1444,6 +1467,11 @@ function App() {
 
   async function handleCreateService(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (newService.name.trim().length < 2) {
+      setDataStatus('Informe o nome do servico.')
+      return
+    }
+
     const service: ServiceItem = {
       id: crypto.randomUUID(),
       name: newService.name.trim(),
@@ -1484,6 +1512,30 @@ function App() {
     }
 
     setDataStatus('Servico salvo.')
+  }
+
+  async function deleteService(service: ServiceItem) {
+    const serviceHasHistory = appointments.some((appointment) => appointment.service_id === service.id)
+
+    if (serviceHasHistory) {
+      await updateService(service, { active: false, published: false })
+      setDataStatus('Servico possui historico; foi desativado sem apagar atendimentos antigos.')
+      return
+    }
+
+    setServices((current) => current.filter((item) => item.id !== service.id))
+
+    if (supabase) {
+      const { error } = await supabase.from('services').delete().eq('id', service.id)
+
+      if (error) {
+        setDataStatus('Nao foi possivel excluir o servico.')
+        await loadAdminData()
+        return
+      }
+    }
+
+    setDataStatus('Servico excluido.')
   }
 
   async function handleCreateProduct(event: FormEvent<HTMLFormElement>) {
@@ -1982,15 +2034,33 @@ function App() {
     }
 
     return (
-      <main className="admin-shell">
+      <main
+        className={[
+          'admin-shell',
+          isSidebarCollapsed ? 'sidebar-collapsed' : '',
+          isMobileSidebarOpen ? 'mobile-sidebar-open' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
         <aside className="admin-sidebar">
-          <button className="brand-link" type="button" onClick={() => goToPath('/')}>
-            <img src={brandLogo} alt="" />
-            <span>
-              <strong>Hellen Designer</strong>
-              <small>Admin privado</small>
-            </span>
-          </button>
+          <div className="sidebar-header">
+            <button className="brand-link" type="button" onClick={() => goToPath('/')}>
+              <img src={brandLogo} alt="" />
+              <span>
+                <strong>Hellen Designer</strong>
+                <small>Admin privado</small>
+              </span>
+            </button>
+            <button
+              className="icon-button sidebar-toggle"
+              type="button"
+              aria-label={isSidebarCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+              onClick={toggleAdminMenu}
+            >
+              <Menu size={18} aria-hidden="true" />
+            </button>
+          </div>
           <nav aria-label="Secoes do admin">
             {adminTabs.map((tab) => {
               const Icon = tab.icon
@@ -1999,18 +2069,26 @@ function App() {
                   key={tab.id}
                   className={activeTab === tab.id ? 'active' : ''}
                   type="button"
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => selectAdminTab(tab.id)}
                 >
                   <Icon size={17} aria-hidden="true" />
-                  {tab.label}
+                  <span>{tab.label}</span>
                 </button>
               )
             })}
           </nav>
           <button className="ghost-action sidebar-exit" type="button" onClick={handleSignOut}>
-            <LogOut size={16} aria-hidden="true" /> Sair
+            <LogOut size={16} aria-hidden="true" /> <span>Sair</span>
           </button>
         </aside>
+        {isMobileSidebarOpen ? (
+          <button
+            className="sidebar-scrim"
+            type="button"
+            aria-label="Fechar menu lateral"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
+        ) : null}
 
         <section className="admin-main">
           {renderAdminTopbar()}
@@ -2019,6 +2097,7 @@ function App() {
           {(activeTab === 'today' || activeTab === 'agenda') && renderAgendaDashboard()}
           {activeTab === 'clients' && renderClients()}
           {activeTab === 'finance' && renderFinance()}
+          {activeTab === 'services' && renderServicesEditor()}
           {activeTab === 'products' && renderProducts()}
           {activeTab === 'settings' && renderScheduleSettings()}
           {activeTab === 'landing' && renderLandingManager()}
@@ -2032,7 +2111,7 @@ function App() {
                 key={tab.id}
                 className={activeTab === tab.id ? 'active' : ''}
                 type="button"
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => selectAdminTab(tab.id)}
               >
                 <Icon size={18} aria-hidden="true" />
                 <span>{tab.label}</span>
@@ -2054,7 +2133,7 @@ function App() {
     return (
       <header className="admin-appbar">
         <div className="appbar-main">
-          <button className="icon-button" type="button" aria-label="Abrir menu">
+          <button className="icon-button" type="button" aria-label="Alternar menu" onClick={toggleAdminMenu}>
             <Menu size={22} aria-hidden="true" />
           </button>
           <h1>{activeTab === 'today' ? 'Agenda' : adminTabs.find((tab) => tab.id === activeTab)?.label}</h1>
@@ -2163,6 +2242,7 @@ function App() {
 
           <aside className="side-stack">
             {renderSelectedAppointment()}
+            {renderAutomationPanel()}
             <section className="panel stock-preview">
               <div className="panel-heading compact-heading">
                 <div>
@@ -2201,6 +2281,89 @@ function App() {
     )
   }
 
+  function renderAutomationPanel() {
+    const openPayments = appointments.filter((appointment) => {
+      const paymentState = getPaymentState(appointment)
+      return paymentState === 'pending' || paymentState === 'partial'
+    })
+    const nextReminderAppointment = sortedAppointments.find(
+      (appointment) =>
+        appointment.scheduled_date >= today &&
+        (appointment.status === 'scheduled' || appointment.status === 'confirmed'),
+    )
+    const quickSlot = getFirstAvailableSlot(agendaDate)
+
+    return (
+      <section className="panel automation-panel">
+        <div className="panel-heading compact-heading">
+          <div>
+            <p className="eyebrow">Automacoes</p>
+            <h2>Acoes rapidas.</h2>
+          </div>
+          <SlidersHorizontal size={18} aria-hidden="true" />
+        </div>
+        <div className="automation-list">
+          <button type="button" onClick={() => openNewAppointmentDrawer(agendaDate, quickSlot)}>
+            <CalendarCheck2 size={16} aria-hidden="true" />
+            <span>
+              <strong>Encaixe rapido</strong>
+              <small>{formatDateShort(agendaDate)} as {quickSlot}</small>
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setExceptionDraft({
+                date: agendaDate,
+                type: 'blocked',
+                startTime: quickSlot,
+                endTime: addMinutesToTime(quickSlot, scheduleSettings.slot_interval_minutes),
+                reason: 'Bloqueio manual',
+              })
+              selectAdminTab('settings')
+            }}
+          >
+            <Ban size={16} aria-hidden="true" />
+            <span>
+              <strong>Bloquear horario</strong>
+              <small>Abre configuracoes com a data atual</small>
+            </span>
+          </button>
+          <button type="button" onClick={() => setIsPaymentLauncherOpen(true)}>
+            <Wallet size={16} aria-hidden="true" />
+            <span>
+              <strong>Receber pendentes</strong>
+              <small>{openPayments.length} pagamento(s) em aberto</small>
+            </span>
+          </button>
+          <button
+            type="button"
+            disabled={!nextReminderAppointment}
+            onClick={() => {
+              if (!nextReminderAppointment) {
+                return
+              }
+
+              window.open(
+                buildWhatsAppUrl(
+                  nextReminderAppointment.client_phone,
+                  `Ola ${nextReminderAppointment.client_name}, tudo bem? Confirmando seu horario de ${nextReminderAppointment.service_name} em ${formatDateShort(nextReminderAppointment.scheduled_date)} as ${nextReminderAppointment.start_time}.`,
+                ),
+                '_blank',
+              )
+            }}
+          >
+            <MessageCircle size={16} aria-hidden="true" />
+            <span>
+              <strong>Lembrete WhatsApp</strong>
+              <small>{nextReminderAppointment ? nextReminderAppointment.client_name : 'Nenhum horario futuro'}</small>
+            </span>
+          </button>
+        </div>
+      </section>
+    )
+  }
+
   function renderAppointmentDrawer() {
     if (!appointmentDrawer.open) {
       return null
@@ -2208,8 +2371,7 @@ function App() {
 
     const clientPickerTerm = clientPickerSearch.trim().toLowerCase()
     const selectedClientForDraft = clients.find((client) => client.id === appointmentDraft.clientId)
-    const clientMatches = clientsByRecent
-      .filter((client) => {
+    const clientCandidates = clientsByRecent.filter((client) => {
         if (!clientPickerTerm) {
           return true
         }
@@ -2220,7 +2382,8 @@ function App() {
           client.notes.toLowerCase().includes(clientPickerTerm)
         )
       })
-      .slice(0, 6)
+    const visibleClientCount = isClientPickerExpanded || clientPickerTerm ? 12 : 4
+    const clientMatches = clientCandidates.slice(0, visibleClientCount)
     const draftEndTime = addMinutesToTime(appointmentDraft.startTime, getDraftService()?.duration_minutes ?? 60)
 
     return (
@@ -2251,11 +2414,33 @@ function App() {
                 Buscar cliente cadastrada
                 <input
                   value={clientPickerSearch}
-                  onChange={(event) => setClientPickerSearch(event.target.value)}
+                  onChange={(event) => {
+                    setClientPickerSearch(event.target.value)
+                    setIsClientPickerExpanded(Boolean(event.target.value.trim()))
+                  }}
                   placeholder="Digite nome, telefone ou observacao"
                 />
               </label>
-              <div className="client-suggestions">
+              <div className="client-picker-toolbar">
+                <span>
+                  {clientCandidates.length
+                    ? `${clientCandidates.length} cliente(s) encontrada(s)`
+                    : 'Nenhuma cliente encontrada'}
+                </span>
+                {clientCandidates.length > 4 ? (
+                  <button
+                    className="client-list-toggle"
+                    type="button"
+                    aria-expanded={isClientPickerExpanded}
+                    aria-controls="client-picker-results"
+                    onClick={() => setIsClientPickerExpanded((current) => !current)}
+                  >
+                    {isClientPickerExpanded ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
+                    {isClientPickerExpanded ? 'Recolher' : 'Expandir'}
+                  </button>
+                ) : null}
+              </div>
+              <div className={isClientPickerExpanded ? 'client-suggestions expanded' : 'client-suggestions'} id="client-picker-results">
                 {clientMatches.map((client) => (
                   <button
                     key={client.id}
@@ -3802,7 +3987,6 @@ function App() {
     return (
       <div className="landing-manager">
         {renderLandingEditor()}
-        {renderServicesEditor()}
         {renderGalleryEditor()}
       </div>
     )
@@ -3883,14 +4067,19 @@ function App() {
   }
 
   function renderServicesEditor() {
+    const publishedCount = services.filter((service) => service.active && service.published).length
+
     return (
       <section className="panel full-panel">
         <div className="panel-heading">
           <div>
             <p className="eyebrow">Servicos</p>
-            <h2>Precos e publicacao.</h2>
+            <h2>Procedimentos, precos e publicacao.</h2>
           </div>
-          <span>{services.length} cadastrados</span>
+          <div className="heading-actions">
+            <span>{publishedCount} visivel(is) na landing</span>
+            <span>{services.length} cadastrados</span>
+          </div>
         </div>
         <form className="editor-form compact" onSubmit={handleCreateService}>
           <label>
@@ -3925,6 +4114,11 @@ function App() {
             <article className="service-editor-row" key={service.id}>
               <input aria-label="Nome do servico" value={service.name} onChange={(event) => void updateService(service, { name: event.target.value })} />
               <input
+                aria-label="Descricao do servico"
+                value={service.description}
+                onChange={(event) => void updateService(service, { description: event.target.value })}
+              />
+              <input
                 aria-label="Preco do servico"
                 value={centsToInputValue(service.price_cents)}
                 onChange={(event) => void updateService(service, { price_cents: parseCurrencyToCents(event.target.value) })}
@@ -3953,6 +4147,14 @@ function App() {
                 />
                 Ativo
               </label>
+              <button
+                className="icon-button service-delete"
+                type="button"
+                aria-label={`Excluir ou desativar ${service.name}`}
+                onClick={() => void deleteService(service)}
+              >
+                <Trash2 size={15} aria-hidden="true" />
+              </button>
             </article>
           ))}
         </div>
