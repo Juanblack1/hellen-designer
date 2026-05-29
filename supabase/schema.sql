@@ -118,7 +118,7 @@ values
 on conflict (id) do nothing;
 
 create table if not exists public.clients (
-  id text primary key default gen_random_uuid()::text,
+  id uuid primary key default gen_random_uuid(),
   full_name text not null check (char_length(full_name) between 2 and 140),
   phone text not null unique check (char_length(phone) between 8 and 40),
   birth_date date,
@@ -130,8 +130,8 @@ create table if not exists public.clients (
 alter table public.clients add column if not exists birth_date date;
 
 create table if not exists public.appointments (
-  id text primary key default gen_random_uuid()::text,
-  client_id text references public.clients(id) on delete set null,
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid references public.clients(id) on delete set null,
   client_name text not null check (char_length(client_name) between 2 and 140),
   client_phone text not null check (char_length(client_phone) between 8 and 40),
   service_id text references public.services(id) on update cascade on delete set null,
@@ -177,8 +177,8 @@ on public.appointments (scheduled_date, start_time)
 where status in ('scheduled', 'confirmed', 'completed');
 
 create table if not exists public.payment_transactions (
-  id text primary key default gen_random_uuid()::text,
-  appointment_id text not null references public.appointments(id) on delete cascade,
+  id uuid primary key default gen_random_uuid(),
+  appointment_id uuid not null references public.appointments(id) on delete cascade,
   amount_cents integer not null check (amount_cents > 0),
   method text not null check (method in ('pix', 'cash', 'debit_card', 'credit_card', 'transfer', 'other')),
   paid_at timestamptz not null default now(),
@@ -288,7 +288,7 @@ insert into public.schedule_settings (
 on conflict (id) do nothing;
 
 create table if not exists public.products (
-  id text primary key default gen_random_uuid()::text,
+  id uuid primary key default gen_random_uuid(),
   name text not null check (char_length(name) between 2 and 140),
   category text not null check (char_length(category) between 2 and 80),
   quantity integer not null default 0 check (quantity >= 0),
@@ -301,8 +301,8 @@ create table if not exists public.products (
 );
 
 create table if not exists public.stock_movements (
-  id text primary key default gen_random_uuid()::text,
-  product_id text references public.products(id) on delete cascade,
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid references public.products(id) on delete cascade,
   product_name text not null check (char_length(product_name) between 2 and 140),
   type text not null check (type in ('in', 'out', 'service_use', 'sale', 'adjustment')),
   quantity integer not null check (quantity > 0),
@@ -313,8 +313,72 @@ create table if not exists public.stock_movements (
 create index if not exists products_category_idx on public.products (category);
 create index if not exists stock_movements_product_id_idx on public.stock_movements (product_id);
 
+alter table public.products add column if not exists quantity integer not null default 0;
+alter table public.products add column if not exists unit_cost_cents integer not null default 0;
+alter table public.products add column if not exists minimum_quantity integer not null default 0;
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'products'
+      and column_name = 'stock_quantity'
+  ) then
+    update public.products
+    set quantity = coalesce(quantity, stock_quantity::integer, 0);
+  end if;
+
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'products'
+      and column_name = 'cost_cents'
+  ) then
+    update public.products
+    set unit_cost_cents = coalesce(unit_cost_cents, cost_cents, 0);
+  end if;
+
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'products'
+      and column_name = 'minimum_stock'
+  ) then
+    update public.products
+    set minimum_quantity = coalesce(minimum_quantity, minimum_stock::integer, 0);
+  end if;
+end $$;
+
+alter table public.stock_movements add column if not exists product_name text not null default '';
+alter table public.stock_movements add column if not exists type text not null default 'adjustment';
+alter table public.stock_movements add column if not exists quantity integer not null default 0;
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'stock_movements'
+      and column_name = 'movement_type'
+  ) then
+    alter table public.stock_movements alter column movement_type set default 'adjustment';
+  end if;
+
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'stock_movements'
+      and column_name = 'quantity_delta'
+  ) then
+    alter table public.stock_movements alter column quantity_delta set default 0;
+  end if;
+end $$;
+
 insert into public.products (
-  id,
   name,
   category,
   quantity,
@@ -323,11 +387,16 @@ insert into public.products (
   minimum_quantity,
   notes
 )
-values
-  ('henna-castanho', 'Henna castanho medio', 'Henna', 2, 1800, 0, 3, 'Repor antes do fim de semana.'),
-  ('algodao', 'Algodao', 'Consumo', 6, 700, 0, 4, ''),
-  ('pinca-dourada', 'Pinca dourada', 'Instrumento', 1, 3500, 0, 2, 'Separar uma reserva para atendimentos.')
-on conflict (id) do nothing;
+select seed.name, seed.category, seed.quantity, seed.unit_cost_cents, seed.sale_price_cents, seed.minimum_quantity, seed.notes
+from (
+  values
+    ('Henna castanho medio', 'Henna', 2, 1800, 0, 3, 'Repor antes do fim de semana.'),
+    ('Algodao', 'Consumo', 6, 700, 0, 4, ''),
+    ('Pinca dourada', 'Instrumento', 1, 3500, 0, 2, 'Separar uma reserva para atendimentos.')
+) as seed(name, category, quantity, unit_cost_cents, sale_price_cents, minimum_quantity, notes)
+where not exists (
+  select 1 from public.products where public.products.name = seed.name
+);
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
