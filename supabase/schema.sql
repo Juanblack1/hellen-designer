@@ -39,7 +39,7 @@ create table if not exists public.business_profile (
   whatsapp_number text not null check (char_length(whatsapp_number) between 10 and 24),
   instagram_handle text not null check (char_length(instagram_handle) between 2 and 80),
   instagram_url text not null check (char_length(instagram_url) between 8 and 300),
-  address text not null default 'Atendimento por agendamento',
+  address text not null default 'Atendimento com horario combinado pelo WhatsApp',
   published boolean not null default true,
   updated_at timestamptz not null default now()
 );
@@ -59,12 +59,12 @@ insert into public.business_profile (
   'default',
   'Hellen Martins',
   'Designer de Sobrancelhas',
-  'Atendimento com hora marcada para realcar a beleza natural das sobrancelhas com desenho personalizado, henna, coloracao e acabamento delicado.',
+  'Design de sobrancelhas para realcar a beleza natural com desenho personalizado, henna, coloracao e acabamento delicado.',
   '(16) 98875-8633',
   '5516988758633',
   '@hellenmartins.designer',
   'https://www.instagram.com/hellenmartins.designer/',
-  'Atendimento por agendamento',
+  'Atendimento com horario combinado pelo WhatsApp',
   true
 )
 on conflict (id) do nothing;
@@ -253,8 +253,8 @@ for each row execute function public.touch_updated_at();
 grant select on public.business_profile to anon, authenticated;
 grant select on public.services to anon, authenticated;
 grant select on public.gallery_items to anon, authenticated;
-grant insert on public.clients to anon;
-grant insert on public.appointments to anon;
+revoke insert on public.clients from anon;
+revoke insert on public.appointments from anon;
 grant select, insert, update, delete on public.clients to authenticated, service_role;
 grant select, insert, update, delete on public.appointments to authenticated, service_role;
 grant select, insert, update, delete on public.products to authenticated, service_role;
@@ -347,14 +347,6 @@ using (app_private.is_admin())
 with check (app_private.is_admin());
 
 drop policy if exists "Visitors can request client booking contact" on public.clients;
-create policy "Visitors can request client booking contact"
-on public.clients
-for insert
-to anon
-with check (
-  char_length(full_name) between 2 and 140
-  and char_length(phone) between 8 and 40
-);
 
 drop policy if exists "Admins can manage appointments" on public.appointments;
 create policy "Admins can manage appointments"
@@ -365,17 +357,6 @@ using (app_private.is_admin())
 with check (app_private.is_admin());
 
 drop policy if exists "Visitors can request appointments" on public.appointments;
-create policy "Visitors can request appointments"
-on public.appointments
-for insert
-to anon
-with check (
-  status = 'scheduled'
-  and received_amount_cents = 0
-  and charged_amount_cents >= 0
-  and char_length(client_name) between 2 and 140
-  and char_length(client_phone) between 8 and 40
-);
 
 drop policy if exists "Admins can manage products" on public.products;
 create policy "Admins can manage products"

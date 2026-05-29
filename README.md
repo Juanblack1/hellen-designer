@@ -5,9 +5,9 @@ Landing publica e painel privado para Hellen Martins, designer de sobrancelhas.
 O produto tem apenas duas telas reais:
 
 - `/`: landing com marca, WhatsApp, Instagram, servicos, precos e fotos/artes publicadas.
-- `/admin`: painel privado para Hellen gerir agenda, clientes, valores recebidos, servicos/precos e fotos da landing.
+- `https://hellen-designer-admin.vercel.app`: painel privado para Hellen gerir agenda, clientes, valores recebidos, servicos/precos e fotos da landing.
 
-Nao existe mais area da cliente, checkout, sinal Asaas ou agendamento automatico publico. A cliente chama a Hellen pelo WhatsApp; a Hellen organiza tudo no admin.
+Nao existe mais area da cliente, checkout, sinal Asaas ou agendamento automatico publico. A cliente chama a Hellen pelo WhatsApp; a Hellen organiza tudo no admin. A landing publica nao mostra link para login administrativo.
 
 ## Stack
 
@@ -33,7 +33,7 @@ Crie `.env.local` a partir de `.env.example`.
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-public-anon-key
 VITE_PUBLIC_SITE_URL=https://hellen-designer.vercel.app
-VITE_BOOKING_WHATSAPP=5516988758633
+VITE_ADMIN_SITE_URL=https://hellen-designer-admin.vercel.app
 SUPABASE_DB_URL=<postgres-connection-string>
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=<server-only-service-role-key>
@@ -86,5 +86,5 @@ npm run build
 ## Rotas
 
 - `/`: landing publica.
-- `/admin`: painel privado.
-- `/auth`: renderiza o mesmo acesso admin, sem criar uma terceira experiencia.
+- `https://hellen-designer-admin.vercel.app`: painel privado em URL separada.
+- `/admin` e `/auth`: atalhos locais de desenvolvimento; em producao devem redirecionar para a URL admin.

@@ -105,12 +105,12 @@ export const defaultProfile: BusinessProfile = {
   id: 'default',
   brand_name: 'Hellen Martins',
   subtitle: 'Designer de Sobrancelhas',
-  bio: 'Atendimento com hora marcada para realcar a beleza natural das sobrancelhas com desenho personalizado, henna, coloracao e acabamento delicado.',
+  bio: 'Design de sobrancelhas para realcar a beleza natural com desenho personalizado, henna, coloracao e acabamento delicado.',
   phone: '(16) 98875-8633',
   whatsapp_number: '5516988758633',
   instagram_handle: '@hellenmartins.designer',
   instagram_url: 'https://www.instagram.com/hellenmartins.designer/',
-  address: 'Atendimento por agendamento',
+  address: 'Atendimento com horario combinado pelo WhatsApp',
   published: true,
 }
 

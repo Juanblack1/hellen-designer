@@ -27,7 +27,6 @@ import {
   Plus,
   Save,
   Search,
-  Send,
   Share2,
   ShieldCheck,
   Sparkles,
@@ -43,7 +42,6 @@ import careCardImage from './assets/hellen-care-card.svg'
 import brandLogo from './assets/hellen-martins-logo.svg'
 import {
   addDays,
-  buildTimeSlots,
   buildWhatsAppUrl,
   calculateAdminStats,
   centsToInputValue,
@@ -58,13 +56,11 @@ import {
   formatCurrency,
   formatDateLong,
   formatDateShort,
-  getAvailableSlots,
   getLowStockProducts,
   getPaymentState,
   getServiceUsage,
   hasScheduleConflict,
   isTimeInBlock,
-  isUnavailableTime,
   maskBrazilianPhone,
   parseCurrencyToCents,
   sortByOrder,
@@ -101,15 +97,6 @@ type AppointmentDraft = {
   notes: string
 }
 
-type BookingDraft = {
-  serviceId: string
-  date: string
-  time: string
-  clientName: string
-  clientPhone: string
-  notes: string
-}
-
 type AuthDraft = {
   email: string
   password: string
@@ -140,12 +127,10 @@ type GalleryDraft = {
   file: File | null
 }
 
-type BookingStatus =
-  | { type: 'idle'; message: string }
-  | { type: 'error'; message: string }
-  | { type: 'success'; message: string; appointment: AppointmentRecord }
-
 const todayIso = () => new Date().toISOString().slice(0, 10)
+const canonicalPublicUrl = import.meta.env.VITE_PUBLIC_SITE_URL?.trim() || 'https://hellen-designer.vercel.app'
+const canonicalAdminUrl = import.meta.env.VITE_ADMIN_SITE_URL?.trim() || 'https://hellen-designer-admin.vercel.app'
+const localHostnames = new Set(['localhost', '127.0.0.1', '::1'])
 
 const adminTabs: Array<{ id: AdminTab; label: string; icon: typeof CalendarDays }> = [
   { id: 'today', label: 'Hoje', icon: Home },
@@ -203,19 +188,6 @@ function newAppointmentDraft(services: ServiceItem[], date = todayIso(), time = 
   }
 }
 
-function newBookingDraft(services: ServiceItem[]): BookingDraft {
-  const firstService = services[0] ?? defaultServices[0]
-
-  return {
-    serviceId: firstService.id,
-    date: todayIso(),
-    time: '09:00',
-    clientName: '',
-    clientPhone: '',
-    notes: '',
-  }
-}
-
 function newProductDraft(): ProductDraft {
   return {
     name: '',
@@ -245,13 +217,26 @@ function resolveImageUrl(path: string) {
 }
 
 function getGeneralMessage() {
-  return 'Ola Hellen, vim pelo Instagram/site e quero agendar um horario.'
+  return 'Ola Hellen, vim pelo Instagram/site e quero saber sobre os procedimentos.'
 }
 
-function getBookingMessage(appointment: AppointmentRecord) {
-  return `Ola Hellen, quero confirmar ${appointment.service_name} no dia ${formatDateShort(
-    appointment.scheduled_date,
-  )} as ${appointment.start_time}. Meu nome e ${appointment.client_name}.`
+function getServiceMessage(service: ServiceItem) {
+  return `Ola Hellen, vim pelo site e quero saber sobre ${service.name} (${formatCurrency(service.price_cents)}).`
+}
+
+function isLocalHost(hostname: string) {
+  return localHostnames.has(hostname) || hostname.endsWith('.local')
+}
+
+function isAdminHost(hostname: string) {
+  const normalized = hostname.toLowerCase()
+  return (
+    normalized.startsWith('admin.') ||
+    normalized.startsWith('admin-') ||
+    normalized.startsWith('hellen-admin') ||
+    normalized.startsWith('hellen-designer-admin') ||
+    normalized.startsWith('hellenmartins-admin')
+  )
 }
 
 function App() {
@@ -276,8 +261,6 @@ function App() {
   const [agendaDate, setAgendaDate] = useState(todayIso())
   const [searchTerm, setSearchTerm] = useState('')
   const [appointmentDraft, setAppointmentDraft] = useState<AppointmentDraft>(() => newAppointmentDraft(defaultServices))
-  const [bookingDraft, setBookingDraft] = useState<BookingDraft>(() => newBookingDraft(defaultServices))
-  const [bookingStatus, setBookingStatus] = useState<BookingStatus>({ type: 'idle', message: '' })
   const [newService, setNewService] = useState<ServiceDraft>({
     name: '',
     description: '',
@@ -296,7 +279,12 @@ function App() {
   const [isSaving, setIsSaving] = useState(false)
 
   const today = todayIso()
-  const isAdminRoute = route.startsWith('/admin') || route === '/auth'
+  const hostname = window.location.hostname
+  const adminHost = isAdminHost(hostname)
+  const localHost = isLocalHost(hostname)
+  const adminPath = route.startsWith('/admin') || route === '/auth'
+  const redirectToAdminHost = adminPath && !adminHost && !localHost
+  const isAdminRoute = adminHost || (adminPath && localHost)
   const publishedServices = useMemo(
     () => sortByOrder(services.filter((service) => service.active && service.published)),
     [services],
@@ -319,7 +307,6 @@ function App() {
   const stats = useMemo(() => calculateAdminStats(appointments, today, clients, products), [appointments, clients, products, today])
   const lowStockProducts = useMemo(() => getLowStockProducts(products), [products])
   const serviceUsage = useMemo(() => getServiceUsage(appointments), [appointments])
-  const availableSlots = useMemo(() => getAvailableSlots(appointments, bookingDraft.date), [appointments, bookingDraft.date])
   const selectedAppointment = appointments.find((appointment) => appointment.id === selectedAppointmentId) ?? agendaAppointments[0]
   const selectedClient = selectedAppointment
     ? clients.find((client) => client.id === selectedAppointment.client_id || client.phone === selectedAppointment.client_phone)
@@ -351,6 +338,15 @@ function App() {
     window.scrollTo({ top: 0 })
   }
 
+  function openPublicLanding() {
+    if (adminHost && !localHost) {
+      window.location.href = canonicalPublicUrl
+      return
+    }
+
+    goToPath('/')
+  }
+
   async function loadPublicData() {
     if (!supabase) {
       return
@@ -374,7 +370,6 @@ function App() {
     if (serviceResult.data?.length) {
       setServices(serviceResult.data as ServiceItem[])
       setAppointmentDraft(newAppointmentDraft(serviceResult.data as ServiceItem[]))
-      setBookingDraft(newBookingDraft(serviceResult.data as ServiceItem[]))
     }
 
     if (galleryResult.data?.length) {
@@ -513,6 +508,11 @@ function App() {
   }, [isAdminRoute, isAdmin])
 
   useEffect(() => {
+    if (redirectToAdminHost) {
+      window.location.replace(canonicalAdminUrl)
+      return undefined
+    }
+
     if (isAdminRoute || route === '/') {
       return undefined
     }
@@ -523,7 +523,7 @@ function App() {
     }, 0)
 
     return () => window.clearTimeout(redirectTimer)
-  }, [isAdminRoute, route])
+  }, [isAdminRoute, redirectToAdminHost, route])
 
   async function handleSignIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -554,76 +554,9 @@ function App() {
 
     setSession(null)
     setIsAdmin(false)
-    goToPath('/')
-  }
-
-  async function handlePublicBooking(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setBookingStatus({ type: 'idle', message: '' })
-    const service = publishedServices.find((item) => item.id === bookingDraft.serviceId) ?? publishedServices[0]
-
-    if (!service) {
-      setBookingStatus({ type: 'error', message: 'Escolha um servico para agendar.' })
-      return
+    if (!adminHost) {
+      goToPath('/')
     }
-
-    if (!bookingDraft.clientName.trim() || maskBrazilianPhone(bookingDraft.clientPhone).length < 14) {
-      setBookingStatus({ type: 'error', message: 'Informe nome e WhatsApp para confirmar o pedido.' })
-      return
-    }
-
-    if (hasScheduleConflict(appointments, bookingDraft.date, bookingDraft.time) || isUnavailableTime(bookingDraft.time)) {
-      setBookingStatus({ type: 'error', message: 'Esse horario nao esta disponivel. Escolha outro horario.' })
-      return
-    }
-
-    setIsSaving(true)
-    const publicClient: ClientRecord = {
-      id: crypto.randomUUID(),
-      full_name: bookingDraft.clientName.trim(),
-      phone: maskBrazilianPhone(bookingDraft.clientPhone),
-      birth_date: null,
-      notes: bookingDraft.notes.trim(),
-    }
-    const appointment: AppointmentRecord = {
-      id: crypto.randomUUID(),
-      client_id: supabase ? null : publicClient.id,
-      client_name: publicClient.full_name,
-      client_phone: publicClient.phone,
-      service_id: service.id,
-      service_name: service.name,
-      scheduled_date: bookingDraft.date,
-      start_time: bookingDraft.time,
-      status: 'scheduled',
-      charged_amount_cents: service.price_cents,
-      received_amount_cents: 0,
-      payment_method: 'pix',
-      notes: bookingDraft.notes.trim(),
-    }
-
-    if (supabase) {
-      const clientResult = await supabase.from('clients').insert(publicClient)
-      const clientError = clientResult.error
-      if (clientError && !clientError.message.toLowerCase().includes('duplicate')) {
-        setBookingStatus({ type: 'error', message: 'Nao foi possivel registrar seus dados. Chame no WhatsApp.' })
-        setIsSaving(false)
-        return
-      }
-
-      const { error } = await supabase.from('appointments').insert(appointment)
-      if (error) {
-        setBookingStatus({ type: 'error', message: 'Horario ocupado ou indisponivel. Chame a Hellen no WhatsApp.' })
-        setIsSaving(false)
-        return
-      }
-    }
-
-    setClients((current) => (current.some((client) => client.phone === publicClient.phone) ? current : [...current, publicClient]))
-    setAppointments((current) => [...current, appointment])
-    setSelectedAppointmentId(appointment.id)
-    setBookingStatus({ type: 'success', message: 'Pedido de agendamento criado.', appointment })
-    setBookingDraft(newBookingDraft(publishedServices))
-    setIsSaving(false)
   }
 
   async function handleSaveProfile(event: FormEvent<HTMLFormElement>) {
@@ -972,6 +905,10 @@ function App() {
     setDataStatus('Resumo copiado.')
   }
 
+  if (redirectToAdminHost) {
+    return null
+  }
+
   if (isAdminRoute) {
     return renderAdmin()
   }
@@ -979,9 +916,6 @@ function App() {
   return renderLanding()
 
   function renderLanding() {
-    const selectedService = publishedServices.find((service) => service.id === bookingDraft.serviceId) ?? publishedServices[0]
-    const allBookingSlots = buildTimeSlots('08:00', '18:00', 30)
-
     return (
       <main className="site-shell">
         <header className="landing-nav">
@@ -994,15 +928,15 @@ function App() {
           </button>
           <nav aria-label="Navegacao principal">
             <a href="#servicos">Servicos</a>
-            <a href="#agendamento">Agendamento</a>
             <a href="#galeria">Galeria</a>
+            <a href="#contato">Contato</a>
+            <a href={buildWhatsAppUrl(profile.whatsapp_number, getGeneralMessage())} target="_blank" rel="noreferrer">
+              WhatsApp
+            </a>
             <a href={profile.instagram_url} target="_blank" rel="noreferrer">
               Instagram
             </a>
           </nav>
-          <button className="ghost-action nav-admin" type="button" onClick={() => goToPath('/admin')}>
-            Admin
-          </button>
         </header>
 
         <section className="hero-band" aria-label="Hellen Martins Designer">
@@ -1012,11 +946,11 @@ function App() {
             <p className="hero-subtitle">{profile.subtitle}</p>
             <p className="hero-text">{profile.bio}</p>
             <div className="hero-actions">
-              <a className="primary-action" href="#agendamento">
-                <CalendarCheck2 size={18} aria-hidden="true" /> Agendar horario
-              </a>
-              <a className="ghost-action" href={buildWhatsAppUrl(profile.whatsapp_number, getGeneralMessage())} target="_blank" rel="noreferrer">
+              <a className="primary-action" href={buildWhatsAppUrl(profile.whatsapp_number, getGeneralMessage())} target="_blank" rel="noreferrer">
                 <MessageCircle size={18} aria-hidden="true" /> Chamar no WhatsApp
+              </a>
+              <a className="ghost-action" href="#servicos">
+                <Sparkles size={18} aria-hidden="true" /> Ver servicos
               </a>
             </div>
             <div className="contact-row" aria-label="Canais de contato">
@@ -1049,19 +983,19 @@ function App() {
           </article>
           <article>
             <strong>HM</strong>
-            <span>atendimento com hora marcada</span>
+            <span>horario combinado pelo WhatsApp</span>
           </article>
           <article>
-            <strong>Zap</strong>
-            <span>confirmacao direta pelo WhatsApp</span>
+            <strong>IG</strong>
+            <span>artes e referencias atualizadas</span>
           </article>
         </section>
 
         <section className="service-band" id="servicos">
           <div className="section-heading">
             <p className="eyebrow">Servicos e precos</p>
-            <h2>Escolha o procedimento.</h2>
-            <p>Valores publicados pela Hellen e atualizados pelo painel administrativo.</p>
+            <h2>Procedimentos publicados.</h2>
+            <p>Veja valores, duracao media e fale com a Hellen para combinar seu atendimento.</p>
           </div>
           <div className="service-list">
             {publishedServices.map((service) => (
@@ -1073,177 +1007,16 @@ function App() {
                 </div>
                 <div className="price-area">
                   <strong>{formatCurrency(service.price_cents)}</strong>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setBookingDraft((current) => ({ ...current, serviceId: service.id }))
-                      document.getElementById('agendamento')?.scrollIntoView({ behavior: 'smooth' })
-                    }}
+                  <a
+                    href={buildWhatsAppUrl(profile.whatsapp_number, getServiceMessage(service))}
+                    target="_blank"
+                    rel="noreferrer"
                   >
-                    Escolher horario
-                  </button>
+                    Chamar no WhatsApp
+                  </a>
                 </div>
               </article>
             ))}
-          </div>
-        </section>
-
-        <section className="booking-band" id="agendamento">
-          <div className="section-heading">
-            <p className="eyebrow">Agendamento</p>
-            <h2>Agende de forma simples e rapida.</h2>
-            <p>Cada detalhe foi pensado com carinho. Escolha o procedimento, um horario e confirme pelo WhatsApp.</p>
-          </div>
-
-          <div className="booking-layout">
-            <form className="booking-form" onSubmit={handlePublicBooking}>
-              <fieldset>
-                <legend>Servico</legend>
-                <div className="service-picker">
-                  {publishedServices.map((service) => (
-                    <button
-                      className={bookingDraft.serviceId === service.id ? 'selected' : ''}
-                      type="button"
-                      key={service.id}
-                      onClick={() => setBookingDraft((current) => ({ ...current, serviceId: service.id }))}
-                    >
-                      <strong>{service.name}</strong>
-                      <span>{formatCurrency(service.price_cents)} · {service.duration_minutes} min</span>
-                    </button>
-                  ))}
-                </div>
-              </fieldset>
-
-              <div className="booking-fields">
-                <label>
-                  Data
-                  <input
-                    required
-                    type="date"
-                    min={today}
-                    value={bookingDraft.date}
-                    onChange={(event) => setBookingDraft((current) => ({ ...current, date: event.target.value }))}
-                  />
-                </label>
-                <label>
-                  Nome
-                  <input
-                    required
-                    value={bookingDraft.clientName}
-                    onChange={(event) => setBookingDraft((current) => ({ ...current, clientName: event.target.value }))}
-                    placeholder="Seu nome"
-                  />
-                </label>
-                <label>
-                  WhatsApp
-                  <input
-                    required
-                    inputMode="tel"
-                    value={bookingDraft.clientPhone}
-                    onChange={(event) =>
-                      setBookingDraft((current) => ({
-                        ...current,
-                        clientPhone: maskBrazilianPhone(event.target.value),
-                      }))
-                    }
-                    placeholder="(16) 99999-9999"
-                  />
-                </label>
-              </div>
-
-              <fieldset>
-                <legend>Horarios</legend>
-                <div className="time-grid" aria-label="Horarios disponiveis">
-                  {allBookingSlots.map((slot) => {
-                    const occupied = hasScheduleConflict(appointments, bookingDraft.date, slot)
-                    const unavailable = isUnavailableTime(slot)
-                    const disabled = occupied || unavailable
-
-                    return (
-                      <button
-                        className={bookingDraft.time === slot ? 'selected' : ''}
-                        disabled={disabled}
-                        key={slot}
-                        type="button"
-                        onClick={() => setBookingDraft((current) => ({ ...current, time: slot }))}
-                      >
-                        {slot}
-                        {disabled ? <span>{unavailable ? 'indisponivel' : 'ocupado'}</span> : null}
-                      </button>
-                    )
-                  })}
-                </div>
-                {availableSlots.length === 0 ? (
-                  <p className="form-status" role="status">
-                    Nenhum horario livre neste dia. Chame a Hellen no WhatsApp.
-                  </p>
-                ) : null}
-              </fieldset>
-
-              <label>
-                Observacoes (opcional)
-                <textarea
-                  rows={3}
-                  value={bookingDraft.notes}
-                  onChange={(event) => setBookingDraft((current) => ({ ...current, notes: event.target.value }))}
-                  placeholder="Ex: primeira vez, alergia relatada ou preferencia"
-                />
-              </label>
-
-              {bookingStatus.type === 'error' ? (
-                <p className="form-status error" role="alert">
-                  {bookingStatus.message}
-                </p>
-              ) : null}
-
-              <button className="primary-action" type="submit" disabled={isSaving}>
-                <Send size={16} aria-hidden="true" /> {isSaving ? 'Confirmando...' : 'Confirmar agendamento'}
-              </button>
-            </form>
-
-            <aside className="booking-preview" aria-live="polite">
-              <p className="eyebrow">Resumo</p>
-              {selectedService ? (
-                <>
-                  <h3>{selectedService.name}</h3>
-                  <dl>
-                    <div>
-                      <dt>Valor</dt>
-                      <dd>{formatCurrency(selectedService.price_cents)}</dd>
-                    </div>
-                    <div>
-                      <dt>Data</dt>
-                      <dd>{formatDateLong(bookingDraft.date)}</dd>
-                    </div>
-                    <div>
-                      <dt>Horario</dt>
-                      <dd>{bookingDraft.time}</dd>
-                    </div>
-                  </dl>
-                  {bookingStatus.type === 'success' ? (
-                    <div className="success-panel">
-                      <CheckCircle2 size={22} aria-hidden="true" />
-                      <strong>{bookingStatus.message}</strong>
-                      <span>
-                        Envie a mensagem para finalizar a confirmacao com a Hellen.
-                      </span>
-                      <a
-                        className="primary-action"
-                        href={buildWhatsAppUrl(profile.whatsapp_number, getBookingMessage(bookingStatus.appointment))}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        <MessageCircle size={16} aria-hidden="true" /> Confirmar no WhatsApp
-                      </a>
-                    </div>
-                  ) : (
-                    <p>Ao confirmar, a Hellen recebe nome, WhatsApp, servico, data e horario desejado.</p>
-                  )}
-                </>
-              ) : (
-                <p className="empty-state">Nenhum servico publicado no momento.</p>
-              )}
-            </aside>
           </div>
         </section>
 
@@ -1281,7 +1054,7 @@ function App() {
           <div>
             <p className="eyebrow">Contato</p>
             <h2>Separe um tempinho para voce.</h2>
-            <p>{profile.address}. Para duvidas, referencias e ajustes de horario, fale direto pelo WhatsApp.</p>
+            <p>{profile.address}. Para duvidas, referencias e disponibilidade, fale direto pelo WhatsApp.</p>
           </div>
           <a
             className="primary-action"
@@ -1298,9 +1071,9 @@ function App() {
           <a href={profile.instagram_url} target="_blank" rel="noreferrer">
             {profile.instagram_handle}
           </a>
-          <button type="button" onClick={() => goToPath('/admin')}>
-            Admin
-          </button>
+          <a href={buildWhatsAppUrl(profile.whatsapp_number, getGeneralMessage())} target="_blank" rel="noreferrer">
+            WhatsApp
+          </a>
         </footer>
 
       </main>
@@ -1324,7 +1097,7 @@ function App() {
       return (
         <main className="admin-auth-page">
           <form className="auth-card" onSubmit={handleSignIn}>
-            <button className="brand-link auth-brand" type="button" onClick={() => goToPath('/')}>
+            <button className="brand-link auth-brand" type="button" onClick={openPublicLanding}>
               <img src={brandLogo} alt="" />
               <span>
                 <strong>Hellen Designer</strong>
@@ -1357,7 +1130,7 @@ function App() {
             <button className="primary-action" type="submit" disabled={isSaving}>
               {isSaving ? 'Entrando...' : 'Entrar no admin'}
             </button>
-            <button className="ghost-action" type="button" onClick={() => goToPath('/')}>
+            <button className="ghost-action" type="button" onClick={openPublicLanding}>
               Voltar para landing
             </button>
             <p className="form-status" role="status">
@@ -1555,7 +1328,7 @@ function App() {
                     <article key={product.id}>
                       <strong>{product.name}</strong>
                       <span>
-                        {product.quantity} em estoque · minimo {product.minimum_quantity}
+                        {product.quantity} em estoque - minimo {product.minimum_quantity}
                       </span>
                     </article>
                   ))}
@@ -1709,13 +1482,13 @@ function App() {
                       onClick={() => setSelectedAppointmentId(appointment.id)}
                     >
                       <strong>
-                        {appointment.start_time} · {appointment.client_name}
+                        {appointment.start_time} - {appointment.client_name}
                       </strong>
                       <span>
-                        {appointment.service_name} · {formatCurrency(appointment.charged_amount_cents)}
+                        {appointment.service_name} - {formatCurrency(appointment.charged_amount_cents)}
                       </span>
                       <small>
-                        {statusLabels[appointment.status]} · {getPaymentState(appointment) === 'paid' ? 'Pago' : 'Pendente'}
+                        {statusLabels[appointment.status]} - {getPaymentState(appointment) === 'paid' ? 'Pago' : 'Pendente'}
                       </small>
                     </button>
                   ) : blocked ? (
@@ -1880,7 +1653,7 @@ function App() {
           <div className="row-main">
             <strong>{appointment.client_name}</strong>
             <span>
-              {appointment.service_name} · {formatCurrency(appointment.charged_amount_cents)}
+              {appointment.service_name} - {formatCurrency(appointment.charged_amount_cents)}
             </span>
           </div>
         </button>
@@ -1954,7 +1727,7 @@ function App() {
                 <dl>
                   <div>
                     <dt>Ultimo</dt>
-                    <dd>{lastAppointment ? `${formatDateShort(lastAppointment.scheduled_date)} · ${lastAppointment.service_name}` : 'Sem historico'}</dd>
+                    <dd>{lastAppointment ? `${formatDateShort(lastAppointment.scheduled_date)} - ${lastAppointment.service_name}` : 'Sem historico'}</dd>
                   </div>
                   <div>
                     <dt>Proximo</dt>
@@ -2023,7 +1796,7 @@ function App() {
                   <div>
                     <strong>{appointment.client_name}</strong>
                     <span>
-                      {formatDateShort(appointment.scheduled_date)} · {appointment.service_name}
+                      {formatDateShort(appointment.scheduled_date)} - {appointment.service_name}
                     </span>
                   </div>
                   <span className={`status-pill ${paymentState}`}>
@@ -2185,7 +1958,7 @@ function App() {
               <article key={movement.id}>
                 <strong>{movement.product_name}</strong>
                 <span>
-                  {movementTypeLabels[movement.type]} · {movement.quantity} un.
+                  {movementTypeLabels[movement.type]} - {movement.quantity} un.
                 </span>
               </article>
             ))}

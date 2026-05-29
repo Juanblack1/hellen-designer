@@ -41,13 +41,13 @@ Landing pages use Brand register. Admin screens use Product register.
 
 ## Layout
 
-- Landing: first viewport must immediately show Hellen Designer, a real brand/portrait signal, prices or service anchor, and WhatsApp access.
+- Landing: first viewport must immediately show Hellen Designer, a real brand/portrait signal, prices or service anchor, and WhatsApp access. It must not show admin/login access.
 - Admin: fixed or sticky navigation, dense metrics, day agenda, client/payment status and inline editing.
 - Avoid nested cards. Sections are full-width bands or unframed layouts.
 
 ## Components
 
-- Navigation bar with brand mark, WhatsApp, Instagram and admin access.
+- Navigation bar with brand mark, WhatsApp and Instagram access.
 - Service price list with active/published state.
 - Gallery grid for photos and social art.
 - Agenda rows with status, time, client, service, amount and quick actions.
