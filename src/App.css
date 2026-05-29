@@ -1076,6 +1076,7 @@ textarea {
 .timeline-appointment,
 .timeline-occupied,
 .timeline-empty,
+.timeline-block-action,
 .timeline-blocked {
   border-radius: 8px;
   min-height: 54px;
@@ -1120,8 +1121,31 @@ textarea {
 .timeline-empty {
   background: transparent;
   border: 1px dashed rgba(23, 17, 11, 0.12);
-  color: rgba(23, 17, 11, 0.32);
-  padding: 0;
+  color: #6d655d;
+  padding: 0 10px;
+}
+
+.timeline-free-actions {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.timeline-empty,
+.timeline-block-action {
+  align-items: center;
+  display: inline-flex;
+  font-size: 0.82rem;
+  font-weight: 900;
+  gap: 6px;
+  justify-content: center;
+}
+
+.timeline-block-action {
+  background: rgba(226, 82, 54, 0.08);
+  border: 1px solid rgba(226, 82, 54, 0.18);
+  color: #8d3b2d;
+  padding: 0 12px;
 }
 
 .timeline-occupied {
@@ -1204,6 +1228,7 @@ textarea {
 
 .week-appointment,
 .week-empty,
+.week-block-action,
 .week-blocked {
   border-radius: 8px;
   min-height: 58px;
@@ -1225,6 +1250,23 @@ textarea {
   border: 1px dashed rgba(23, 17, 11, 0.14);
   color: rgba(23, 17, 11, 0.32);
   font-size: 1.1rem;
+  padding: 0;
+}
+
+.week-free-actions {
+  display: grid;
+  gap: 5px;
+  grid-template-columns: minmax(0, 1fr) 34px;
+}
+
+.week-block-action {
+  align-items: center;
+  background: rgba(226, 82, 54, 0.08);
+  border: 1px solid rgba(226, 82, 54, 0.14);
+  color: #8d3b2d;
+  display: inline-flex;
+  justify-content: center;
+  min-height: 58px;
   padding: 0;
 }
 
@@ -1985,6 +2027,83 @@ textarea {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
+.service-duration-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.service-duration-grid article {
+  background: rgba(33, 23, 13, 0.42);
+  border: 1px solid rgba(217, 164, 65, 0.16);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.service-duration-grid article > div:first-child {
+  align-items: start;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.service-duration-grid strong {
+  overflow-wrap: anywhere;
+}
+
+.service-duration-grid span {
+  color: var(--gold-bright);
+  font-size: 0.82rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.duration-preset-row,
+.quick-block-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.duration-preset-row button,
+.quick-block-grid button {
+  background: rgba(217, 164, 65, 0.08);
+  border: 1px solid rgba(217, 164, 65, 0.2);
+  border-radius: 8px;
+  color: var(--gold-bright);
+  font-weight: 900;
+  min-height: 34px;
+  padding: 0 10px;
+}
+
+.duration-preset-row button.active {
+  background: rgba(217, 164, 65, 0.2);
+  border-color: rgba(255, 226, 160, 0.42);
+}
+
+.new-service-duration {
+  grid-column: 1 / -1;
+}
+
+.service-row-presets {
+  min-width: 148px;
+}
+
+.service-row-presets button {
+  min-height: 30px;
+  padding: 0 8px;
+}
+
+.settings-quick-blocks {
+  background: rgba(33, 23, 13, 0.28);
+  border: 1px solid rgba(217, 164, 65, 0.14);
+  border-radius: 8px;
+  margin-top: -4px;
+  padding: 10px;
+}
+
 .settings-toggle {
   align-items: center;
   background: rgba(33, 23, 13, 0.42);
@@ -2045,7 +2164,7 @@ textarea {
   border-radius: 8px;
   display: grid;
   gap: 10px;
-  grid-template-columns: minmax(150px, 0.85fr) minmax(190px, 1.1fr) 110px 90px auto auto auto;
+  grid-template-columns: minmax(140px, 0.85fr) minmax(180px, 1.1fr) 110px 90px minmax(146px, auto) auto auto auto;
   padding: 10px;
 }
 

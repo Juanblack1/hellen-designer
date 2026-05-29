@@ -249,6 +249,8 @@ const movementTypeLabels: Record<StockMovementType, string> = {
   adjustment: 'Ajuste manual',
 }
 
+const durationPresetMinutes = [20, 30, 40, 45, 60, 75, 90, 120]
+
 const assetMap: Record<string, string> = {
   brandBanner,
   brandLogo,
@@ -420,6 +422,7 @@ function App() {
   const [isClientModalOpen, setIsClientModalOpen] = useState(false)
   const [isProductModalOpen, setIsProductModalOpen] = useState(false)
   const [isPaymentLauncherOpen, setIsPaymentLauncherOpen] = useState(false)
+  const [isBlockModalOpen, setIsBlockModalOpen] = useState(false)
   const [newClient, setNewClient] = useState<ClientDraft>(() => newClientDraft())
   const [paymentLauncher, setPaymentLauncher] = useState<PaymentLauncherDraft>({ search: '' })
   const [exceptionDraft, setExceptionDraft] = useState<ExceptionDraft>({
@@ -1005,6 +1008,17 @@ function App() {
 
   function closeAppointmentDrawer() {
     setAppointmentDrawer({ open: false, mode: 'create', appointmentId: '' })
+  }
+
+  function openBlockModal(date = agendaDate, startTime = getFirstAvailableSlot(date), minutes = scheduleSettings.slot_interval_minutes) {
+    setExceptionDraft({
+      date,
+      type: 'blocked',
+      startTime,
+      endTime: addMinutesToTime(startTime, minutes),
+      reason: 'Indisponivel',
+    })
+    setIsBlockModalOpen(true)
   }
 
   function patchDraftService(serviceId: string) {
@@ -1641,16 +1655,20 @@ function App() {
     setDataStatus('Disponibilidade salva.')
   }
 
-  async function addAvailabilityException(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+  async function saveAvailabilityException(draft = exceptionDraft) {
+    const isFullDay = draft.type === 'holiday' || draft.type === 'vacation'
+    if (!isFullDay && draft.endTime <= draft.startTime) {
+      setDataStatus('O fim do bloqueio precisa ser depois do inicio.')
+      return
+    }
+
     const exception: AvailabilityException = {
       id: crypto.randomUUID(),
-      date: exceptionDraft.date,
-      type: exceptionDraft.type,
-      start_time:
-        exceptionDraft.type === 'holiday' || exceptionDraft.type === 'vacation' ? null : exceptionDraft.startTime,
-      end_time: exceptionDraft.type === 'holiday' || exceptionDraft.type === 'vacation' ? null : exceptionDraft.endTime,
-      reason: exceptionDraft.reason.trim() || 'Bloqueio manual',
+      date: draft.date,
+      type: draft.type,
+      start_time: isFullDay ? null : draft.startTime,
+      end_time: isFullDay ? null : draft.endTime,
+      reason: draft.reason.trim() || 'Bloqueio manual',
     }
 
     setAvailabilityExceptions((current) => [...current, exception].sort((a, b) => a.date.localeCompare(b.date)))
@@ -1666,6 +1684,12 @@ function App() {
 
     setExceptionDraft({ date: agendaDate, type: 'blocked', startTime: '12:00', endTime: '13:30', reason: '' })
     setDataStatus('Bloqueio salvo.')
+  }
+
+  async function addAvailabilityException(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    await saveAvailabilityException()
+    setIsBlockModalOpen(false)
   }
 
   async function deleteAvailabilityException(exceptionId: string) {
@@ -2123,6 +2147,7 @@ function App() {
         {renderClientModal()}
         {renderProductModal()}
         {renderPaymentLauncherModal()}
+        {renderBlockModal()}
         {renderPartialPaymentModal()}
         {renderCancelPaymentModal()}
       </main>
@@ -2313,14 +2338,7 @@ function App() {
           <button
             type="button"
             onClick={() => {
-              setExceptionDraft({
-                date: agendaDate,
-                type: 'blocked',
-                startTime: quickSlot,
-                endTime: addMinutesToTime(quickSlot, scheduleSettings.slot_interval_minutes),
-                reason: 'Bloqueio manual',
-              })
-              selectAdminTab('settings')
+              openBlockModal(agendaDate, quickSlot)
             }}
           >
             <Ban size={16} aria-hidden="true" />
@@ -2508,7 +2526,7 @@ function App() {
                     .filter((service) => service.active)
                     .map((service) => (
                       <option key={service.id} value={service.id}>
-                        {service.name}
+                        {service.name} - {service.duration_minutes} min - {formatCurrency(service.price_cents)}
                       </option>
                     ))}
                 </select>
@@ -2696,13 +2714,24 @@ function App() {
                       <span>Indisponivel</span>
                     </div>
                   ) : (
-                    <button
-                      className="timeline-empty"
-                      type="button"
-                      onClick={() => openNewAppointmentDrawer(agendaDate, slot)}
-                    >
-                      Livre
-                    </button>
+                    <div className="timeline-free-actions">
+                      <button
+                        className="timeline-empty"
+                        type="button"
+                        onClick={() => openNewAppointmentDrawer(agendaDate, slot)}
+                      >
+                        <Plus size={14} aria-hidden="true" />
+                        Agendar
+                      </button>
+                      <button
+                        className="timeline-block-action"
+                        type="button"
+                        onClick={() => openBlockModal(agendaDate, slot)}
+                      >
+                        <Ban size={14} aria-hidden="true" />
+                        Bloquear
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -2761,9 +2790,19 @@ function App() {
                     ) : blocked || !insideAvailability ? (
                       <span className="week-blocked">{blocked ? 'Bloqueado' : 'Indisponivel'}</span>
                     ) : (
-                      <button className="week-empty" type="button" onClick={() => openNewAppointmentDrawer(date, slot)}>
-                        +
-                      </button>
+                      <div className="week-free-actions">
+                        <button className="week-empty" type="button" onClick={() => openNewAppointmentDrawer(date, slot)}>
+                          +
+                        </button>
+                        <button
+                          className="week-block-action"
+                          type="button"
+                          aria-label={`Bloquear ${formatDateShort(date)} as ${slot}`}
+                          onClick={() => openBlockModal(date, slot)}
+                        >
+                          <Ban size={13} aria-hidden="true" />
+                        </button>
+                      </div>
                     )}
                   </div>
                 )
@@ -3509,6 +3548,148 @@ function App() {
     )
   }
 
+  function renderBlockModal() {
+    if (!isBlockModalOpen) {
+      return null
+    }
+
+    const isFullDay = exceptionDraft.type === 'holiday' || exceptionDraft.type === 'vacation'
+
+    return (
+      <div className="modal-backdrop" role="presentation" onMouseDown={() => setIsBlockModalOpen(false)}>
+        <form
+          className="payment-modal entity-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="block-modal-title"
+          onSubmit={addAvailabilityException}
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <div className="drawer-heading">
+            <div>
+              <p className="eyebrow">Indisponibilidade</p>
+              <h2 id="block-modal-title">Bloquear periodo.</h2>
+            </div>
+            <button className="icon-button" type="button" aria-label="Fechar" onClick={() => setIsBlockModalOpen(false)}>
+              <XCircle size={18} aria-hidden="true" />
+            </button>
+          </div>
+          <div className="modal-grid">
+            <label>
+              Data
+              <input
+                required
+                type="date"
+                value={exceptionDraft.date}
+                onChange={(event) => setExceptionDraft({ ...exceptionDraft, date: event.target.value })}
+              />
+            </label>
+            <label>
+              Tipo
+              <select
+                value={exceptionDraft.type}
+                onChange={(event) =>
+                  setExceptionDraft({ ...exceptionDraft, type: event.target.value as AvailabilityExceptionType })
+                }
+              >
+                <option value="blocked">Periodo indisponivel</option>
+                <option value="holiday">Dia fechado</option>
+                <option value="vacation">Ferias</option>
+                <option value="custom_available">Horario extra</option>
+              </select>
+            </label>
+            <label>
+              Inicio
+              <input
+                required={!isFullDay}
+                disabled={isFullDay}
+                type="time"
+                value={exceptionDraft.startTime}
+                onChange={(event) => setExceptionDraft({ ...exceptionDraft, startTime: event.target.value })}
+              />
+            </label>
+            <label>
+              Fim
+              <input
+                required={!isFullDay}
+                disabled={isFullDay}
+                type="time"
+                value={exceptionDraft.endTime}
+                onChange={(event) => setExceptionDraft({ ...exceptionDraft, endTime: event.target.value })}
+              />
+            </label>
+          </div>
+          <div className="quick-block-grid" aria-label="Atalhos de periodo">
+            <button
+              type="button"
+              onClick={() =>
+                setExceptionDraft({
+                  ...exceptionDraft,
+                  type: 'blocked',
+                  startTime: '12:00',
+                  endTime: '13:30',
+                  reason: 'Almoco',
+                })
+              }
+            >
+              Almoco
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setExceptionDraft({
+                  ...exceptionDraft,
+                  type: 'blocked',
+                  startTime: '09:00',
+                  endTime: '12:00',
+                  reason: 'Manha indisponivel',
+                })
+              }
+            >
+              Manha
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setExceptionDraft({
+                  ...exceptionDraft,
+                  type: 'blocked',
+                  startTime: '13:00',
+                  endTime: '18:00',
+                  reason: 'Tarde indisponivel',
+                })
+              }
+            >
+              Tarde
+            </button>
+            <button
+              type="button"
+              onClick={() => setExceptionDraft({ ...exceptionDraft, type: 'holiday', reason: 'Dia fechado' })}
+            >
+              Dia todo
+            </button>
+          </div>
+          <label>
+            Motivo
+            <input
+              value={exceptionDraft.reason}
+              onChange={(event) => setExceptionDraft({ ...exceptionDraft, reason: event.target.value })}
+              placeholder="Almoco, compromisso, curso..."
+            />
+          </label>
+          <div className="drawer-actions">
+            <button className="ghost-action" type="button" onClick={() => setIsBlockModalOpen(false)}>
+              Cancelar
+            </button>
+            <button className="primary-action" type="submit">
+              <Ban size={16} aria-hidden="true" /> Salvar bloqueio
+            </button>
+          </div>
+        </form>
+      </div>
+    )
+  }
+
   function renderPartialPaymentModal() {
     if (!partialPaymentDraft) {
       return null
@@ -3734,6 +3915,8 @@ function App() {
   function renderScheduleSettings() {
     return (
       <div className="settings-layout">
+        {renderServiceDurationPanel()}
+
         <section className="panel full-panel">
           <div className="panel-heading">
             <div>
@@ -3877,6 +4060,64 @@ function App() {
               <Plus size={16} aria-hidden="true" /> Salvar bloqueio
             </button>
           </form>
+          <div className="quick-block-grid settings-quick-blocks" aria-label="Bloqueios rapidos">
+            <button
+              type="button"
+              onClick={() =>
+                void saveAvailabilityException({
+                  date: agendaDate,
+                  type: 'blocked',
+                  startTime: '12:00',
+                  endTime: '13:30',
+                  reason: 'Almoco',
+                })
+              }
+            >
+              Almoco hoje
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                void saveAvailabilityException({
+                  date: agendaDate,
+                  type: 'blocked',
+                  startTime: '09:00',
+                  endTime: '12:00',
+                  reason: 'Manha indisponivel',
+                })
+              }
+            >
+              Manha hoje
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                void saveAvailabilityException({
+                  date: agendaDate,
+                  type: 'blocked',
+                  startTime: '13:00',
+                  endTime: '18:00',
+                  reason: 'Tarde indisponivel',
+                })
+              }
+            >
+              Tarde hoje
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                void saveAvailabilityException({
+                  date: agendaDate,
+                  type: 'holiday',
+                  startTime: '00:00',
+                  endTime: '23:59',
+                  reason: 'Dia fechado',
+                })
+              }
+            >
+              Dia todo
+            </button>
+          </div>
           <div className="exception-list">
             {availabilityExceptions.map((exception) => (
               <article key={exception.id}>
@@ -3980,6 +4221,56 @@ function App() {
           </div>
         </section>
       </div>
+    )
+  }
+
+  function renderServiceDurationPanel() {
+    return (
+      <section className="panel full-panel service-duration-panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Duracao dos servicos</p>
+            <h2>Periodos usados na agenda.</h2>
+          </div>
+          <button className="ghost-action compact-action" type="button" onClick={() => selectAdminTab('services')}>
+            <Sparkles size={16} aria-hidden="true" /> Editar servicos
+          </button>
+        </div>
+        <div className="service-duration-grid">
+          {services
+            .filter((service) => service.active)
+            .map((service) => (
+              <article key={service.id}>
+                <div>
+                  <strong>{service.name}</strong>
+                  <span>{formatCurrency(service.price_cents)}</span>
+                </div>
+                <label>
+                  Duracao
+                  <input
+                    inputMode="numeric"
+                    value={service.duration_minutes}
+                    onChange={(event) =>
+                      void updateService(service, { duration_minutes: Number.parseInt(event.target.value, 10) || 0 })
+                    }
+                  />
+                </label>
+                <div className="duration-preset-row" aria-label={`Duracoes rapidas para ${service.name}`}>
+                  {durationPresetMinutes.slice(0, 6).map((minutes) => (
+                    <button
+                      key={minutes}
+                      className={service.duration_minutes === minutes ? 'active' : ''}
+                      type="button"
+                      onClick={() => void updateService(service, { duration_minutes: minutes })}
+                    >
+                      {minutes} min
+                    </button>
+                  ))}
+                </div>
+              </article>
+            ))}
+        </div>
+      </section>
     )
   }
 
@@ -4098,6 +4389,18 @@ function App() {
               onChange={(event) => setNewService({ ...newService, durationMinutes: event.target.value })}
             />
           </label>
+          <div className="duration-preset-row new-service-duration" aria-label="Duracao rapida do novo servico">
+            {durationPresetMinutes.slice(0, 6).map((minutes) => (
+              <button
+                key={minutes}
+                className={newService.durationMinutes === String(minutes) ? 'active' : ''}
+                type="button"
+                onClick={() => setNewService({ ...newService, durationMinutes: String(minutes) })}
+              >
+                {minutes} min
+              </button>
+            ))}
+          </div>
           <label className="wide-field">
             Descricao
             <input
@@ -4131,6 +4434,18 @@ function App() {
                   void updateService(service, { duration_minutes: Number.parseInt(event.target.value, 10) || 0 })
                 }
               />
+              <div className="duration-preset-row service-row-presets" aria-label={`Duracoes rapidas para ${service.name}`}>
+                {durationPresetMinutes.slice(0, 4).map((minutes) => (
+                  <button
+                    key={minutes}
+                    className={service.duration_minutes === minutes ? 'active' : ''}
+                    type="button"
+                    onClick={() => void updateService(service, { duration_minutes: minutes })}
+                  >
+                    {minutes}
+                  </button>
+                ))}
+              </div>
               <label className="toggle-label">
                 <input
                   type="checkbox"
