@@ -809,16 +809,22 @@ textarea {
   display: grid;
   gap: 12px;
   grid-template-columns: auto 1fr auto;
+  min-width: 0;
 }
 
 .admin-appbar h1 {
   font-size: 2.25rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
   text-align: center;
 }
 
 .appbar-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
+  justify-content: flex-end;
+  min-width: 0;
 }
 
 .icon-button,
@@ -874,6 +880,7 @@ textarea {
   border-radius: 8px;
   display: grid;
   gap: 7px;
+  min-width: 0;
   padding: 14px;
 }
 
@@ -892,6 +899,7 @@ textarea {
   font-family: var(--display);
   font-size: 1.65rem;
   line-height: 1;
+  overflow-wrap: anywhere;
 }
 
 .quick-actions {
@@ -914,9 +922,11 @@ textarea {
   flex-wrap: wrap;
   gap: 10px;
   justify-content: flex-end;
+  min-width: 0;
 }
 
 .compact-action {
+  max-width: 100%;
   min-height: 38px;
   padding: 0 12px;
   white-space: nowrap;
@@ -945,6 +955,11 @@ textarea {
   gap: 14px;
   justify-content: space-between;
   margin-bottom: 16px;
+  min-width: 0;
+}
+
+.panel-heading > div {
+  min-width: 0;
 }
 
 .compact-heading {
@@ -960,6 +975,7 @@ textarea {
 
 .panel-heading h2 {
   font-size: 2.1rem;
+  overflow-wrap: anywhere;
 }
 
 .segmented-control {
@@ -1576,7 +1592,9 @@ textarea {
 }
 
 .slim-search {
+  flex: 1 1 280px;
   max-width: 360px;
+  min-width: 0;
   width: 100%;
 }
 
@@ -1588,11 +1606,13 @@ textarea {
   color: var(--muted);
   display: flex;
   gap: 8px;
+  min-width: 0;
   padding-left: 10px;
 }
 
 .admin-search input {
   border: 0;
+  min-width: 0;
 }
 
 .finance-metrics {
@@ -1602,16 +1622,34 @@ textarea {
 .finance-toolbar {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   justify-content: space-between;
   margin-bottom: 14px;
+  min-width: 0;
 }
 
 .filter-chips {
   display: flex;
+  flex: 1 1 320px;
   gap: 8px;
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
   padding-bottom: 2px;
+  width: 100%;
+}
+
+.filter-chips,
+.quick-actions,
+.mobile-bottom-nav {
+  scrollbar-width: none;
+}
+
+.filter-chips::-webkit-scrollbar,
+.quick-actions::-webkit-scrollbar,
+.mobile-bottom-nav::-webkit-scrollbar {
+  display: none;
 }
 
 .filter-chips button {
@@ -1654,6 +1692,7 @@ textarea {
   border-radius: 8px;
   display: grid;
   gap: 12px;
+  min-width: 0;
   padding: 14px;
 }
 
@@ -1690,6 +1729,7 @@ textarea {
   background: rgba(16, 12, 8, 0.44);
   border: 1px solid rgba(217, 164, 65, 0.12);
   border-radius: 8px;
+  min-width: 0;
   padding: 10px;
 }
 
@@ -1711,6 +1751,7 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  min-width: 0;
 }
 
 .payment-actions button {
@@ -1718,6 +1759,7 @@ textarea {
   border: 1px solid rgba(217, 164, 65, 0.22);
   color: var(--gold-bright);
   min-height: 38px;
+  min-width: 0;
   padding: 0 12px;
 }
 
@@ -2129,6 +2171,7 @@ textarea {
   display: grid;
   gap: 10px;
   grid-template-columns: minmax(0, 1fr) auto auto;
+  min-width: 0;
   padding: 12px;
 }
 
@@ -2165,7 +2208,12 @@ textarea {
   display: grid;
   gap: 10px;
   grid-template-columns: minmax(140px, 0.85fr) minmax(180px, 1.1fr) 110px 90px minmax(146px, auto) auto auto auto;
+  min-width: 0;
   padding: 10px;
+}
+
+.service-editor-row > * {
+  min-width: 0;
 }
 
 .service-delete {
@@ -2181,6 +2229,7 @@ textarea {
   display: grid;
   gap: 12px;
   grid-template-columns: 82px minmax(0, 1fr) auto auto;
+  min-width: 0;
   padding: 10px;
 }
 
@@ -2251,6 +2300,23 @@ textarea {
 
   .payment-list label,
   .payment-list select {
+    grid-column: 1 / -1;
+  }
+
+  .finance-toolbar {
+    align-items: stretch;
+  }
+
+  .finance-toolbar .slim-search {
+    max-width: none;
+  }
+
+  .service-editor-row {
+    align-items: stretch;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .service-row-presets {
     grid-column: 1 / -1;
   }
 }
@@ -2535,7 +2601,15 @@ textarea {
   }
 
   .finance-metrics {
-    grid-template-columns: 1fr;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 0;
+    overflow: visible;
+    padding: 0;
+  }
+
+  .finance-metrics article {
+    flex: initial;
   }
 
   .finance-toolbar,
@@ -2544,6 +2618,15 @@ textarea {
   .drawer-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .filter-chips,
+  .slim-search {
+    flex: 0 1 auto;
+  }
+
+  .slim-search {
+    max-width: none;
   }
 
   .payment-summary-grid,
@@ -2561,7 +2644,7 @@ textarea {
 
   .payment-actions {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
   }
 
   .payment-actions button {
@@ -2608,6 +2691,12 @@ textarea {
     display: grid;
     padding-left: 18px;
     padding-right: 18px;
+  }
+}
+
+@media (max-width: 380px) {
+  .finance-metrics {
+    grid-template-columns: 1fr;
   }
 }
 
