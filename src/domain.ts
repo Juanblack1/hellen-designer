@@ -37,6 +37,8 @@ export type ClientRecord = {
   phone: string
   birth_date?: string | null
   notes: string
+  created_at?: string | null
+  updated_at?: string | null
 }
 
 export type AppointmentStatus = 'scheduled' | 'confirmed' | 'completed' | 'no_show' | 'canceled'
@@ -61,6 +63,8 @@ export type AppointmentRecord = {
   payment_status?: PaymentStatus | null
   payment_canceled_reason?: string | null
   notes: string
+  created_at?: string | null
+  updated_at?: string | null
 }
 
 export type PaymentTransaction = {

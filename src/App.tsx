@@ -179,6 +179,17 @@ type ProductDraft = {
   notes: string
 }
 
+type ClientDraft = {
+  fullName: string
+  phone: string
+  birthDate: string
+  notes: string
+}
+
+type PaymentLauncherDraft = {
+  search: string
+}
+
 type GalleryDraft = {
   title: string
   imageUrl: string
@@ -297,6 +308,15 @@ function newProductDraft(): ProductDraft {
   }
 }
 
+function newClientDraft(): ClientDraft {
+  return {
+    fullName: '',
+    phone: '',
+    birthDate: '',
+    notes: '',
+  }
+}
+
 function resolveImageUrl(path: string) {
   if (assetMap[path]) {
     return assetMap[path]
@@ -336,6 +356,23 @@ function isAdminHost(hostname: string) {
   )
 }
 
+function dateStamp(value?: string | null) {
+  if (!value) {
+    return 0
+  }
+
+  const stamp = new Date(value).getTime()
+  return Number.isFinite(stamp) ? stamp : 0
+}
+
+function appointmentDateStamp(appointment: AppointmentRecord) {
+  return Math.max(
+    dateStamp(appointment.updated_at),
+    dateStamp(appointment.created_at),
+    dateStamp(`${appointment.scheduled_date}T${appointment.start_time}:00`),
+  )
+}
+
 function App() {
   const [route, setRoute] = useState(() => window.location.pathname)
   const [session, setSession] = useState<Session | null>(null)
@@ -366,6 +403,7 @@ function App() {
   const [financeSearch, setFinanceSearch] = useState('')
   const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>('open')
   const [appointmentDraft, setAppointmentDraft] = useState<AppointmentDraft>(() => newAppointmentDraft(defaultServices))
+  const [clientPickerSearch, setClientPickerSearch] = useState('')
   const [appointmentDrawer, setAppointmentDrawer] = useState<AppointmentDrawerState>({
     open: false,
     mode: 'create',
@@ -373,6 +411,11 @@ function App() {
   })
   const [partialPaymentDraft, setPartialPaymentDraft] = useState<PartialPaymentDraft | null>(null)
   const [cancelPaymentDraft, setCancelPaymentDraft] = useState<CancelPaymentDraft | null>(null)
+  const [isClientModalOpen, setIsClientModalOpen] = useState(false)
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false)
+  const [isPaymentLauncherOpen, setIsPaymentLauncherOpen] = useState(false)
+  const [newClient, setNewClient] = useState<ClientDraft>(() => newClientDraft())
+  const [paymentLauncher, setPaymentLauncher] = useState<PaymentLauncherDraft>({ search: '' })
   const [exceptionDraft, setExceptionDraft] = useState<ExceptionDraft>({
     date: todayIso(),
     type: 'blocked',
@@ -430,6 +473,53 @@ function App() {
   const selectedClient = selectedAppointment
     ? clients.find((client) => client.id === selectedAppointment.client_id || client.phone === selectedAppointment.client_phone)
     : null
+  const clientsByRecent = useMemo(
+    () =>
+      [...clients].sort((a, b) => {
+        const latestAppointmentA = Math.max(
+          0,
+          ...appointments
+            .filter((appointment) => appointment.client_id === a.id || appointment.client_phone === a.phone)
+            .map(appointmentDateStamp),
+        )
+        const latestAppointmentB = Math.max(
+          0,
+          ...appointments
+            .filter((appointment) => appointment.client_id === b.id || appointment.client_phone === b.phone)
+            .map(appointmentDateStamp),
+        )
+
+        return (
+          Math.max(dateStamp(b.updated_at), dateStamp(b.created_at), latestAppointmentB) -
+          Math.max(dateStamp(a.updated_at), dateStamp(a.created_at), latestAppointmentA)
+        )
+      }),
+    [appointments, clients],
+  )
+  const productsByRecent = useMemo(
+    () => [...products].sort((a, b) => dateStamp(b.updated_at) - dateStamp(a.updated_at) || a.name.localeCompare(b.name)),
+    [products],
+  )
+  const paymentAppointmentsByRecent = useMemo(
+    () =>
+      [...appointments].sort((a, b) => {
+        const latestTransactionA = Math.max(
+          0,
+          ...paymentTransactions
+            .filter((transaction) => transaction.appointment_id === a.id)
+            .map((transaction) => Math.max(dateStamp(transaction.paid_at), dateStamp(transaction.created_at))),
+        )
+        const latestTransactionB = Math.max(
+          0,
+          ...paymentTransactions
+            .filter((transaction) => transaction.appointment_id === b.id)
+            .map((transaction) => Math.max(dateStamp(transaction.paid_at), dateStamp(transaction.created_at))),
+        )
+
+        return Math.max(appointmentDateStamp(b), latestTransactionB) - Math.max(appointmentDateStamp(a), latestTransactionA)
+      }),
+    [appointments, paymentTransactions],
+  )
   const selectedDraftService = services.find((service) => service.id === appointmentDraft.serviceId) ?? services[0]
   const agendaSlots = useMemo(
     () => buildAgendaSlotsForDate(agendaDate, businessHours, scheduleSettings),
@@ -459,7 +549,7 @@ function App() {
       selectedDraftService,
     ],
   )
-  const filteredClients = clients.filter((client) => {
+  const filteredClients = clientsByRecent.filter((client) => {
     const search = searchTerm.toLowerCase()
     return (
       client.full_name.toLowerCase().includes(search) ||
@@ -479,7 +569,7 @@ function App() {
     }
     return true
   })
-  const financeAppointments = sortedAppointments.filter((appointment) => {
+  const financeAppointments = paymentAppointmentsByRecent.filter((appointment) => {
     const paymentState = getPaymentState(appointment)
     const term = financeSearch.trim().toLowerCase()
     const matchesTerm =
@@ -795,6 +885,55 @@ function App() {
     setIsSaving(false)
   }
 
+  async function handleCreateClient(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const maskedPhone = maskBrazilianPhone(newClient.phone)
+
+    if (newClient.fullName.trim().length < 2 || maskedPhone.length < 8) {
+      setDataStatus('Informe nome e WhatsApp da cliente.')
+      return
+    }
+
+    if (clients.some((client) => client.phone === maskedPhone)) {
+      setDataStatus('Ja existe uma cliente com esse WhatsApp.')
+      return
+    }
+
+    const now = new Date().toISOString()
+    const client: ClientRecord = {
+      id: crypto.randomUUID(),
+      full_name: newClient.fullName.trim(),
+      phone: maskedPhone,
+      birth_date: newClient.birthDate || null,
+      notes: newClient.notes.trim(),
+      created_at: now,
+      updated_at: now,
+    }
+
+    let savedClient = client
+
+    if (supabase) {
+      const { data, error } = await supabase.from('clients').insert(client).select('*').single()
+      if (error) {
+        setDataStatus('Nao foi possivel cadastrar a cliente.')
+        return
+      }
+
+      savedClient = data as ClientRecord
+      setClients((current) => [savedClient, ...current])
+    } else {
+      setClients((current) => [client, ...current])
+    }
+
+    if (appointmentDrawer.open) {
+      selectClientForDraft(savedClient)
+    }
+
+    setNewClient(newClientDraft())
+    setIsClientModalOpen(false)
+    setDataStatus('Cliente cadastrada.')
+  }
+
   function getDraftService(draft = appointmentDraft) {
     return services.find((item) => item.id === draft.serviceId) ?? services[0]
   }
@@ -806,11 +945,13 @@ function App() {
       clientName: client.full_name,
       clientPhone: client.phone,
     }))
+    setClientPickerSearch(client.full_name)
   }
 
   function openNewAppointmentDrawer(date = agendaDate, time = '09:00') {
     const draft = newAppointmentDraft(services, date, time)
     setAppointmentDraft(draft)
+    setClientPickerSearch('')
     setAppointmentDrawer({ open: true, mode: 'create', appointmentId: '' })
     setActiveTab('agenda')
   }
@@ -834,6 +975,7 @@ function App() {
   function openEditAppointmentDrawer(appointment: AppointmentRecord) {
     setSelectedAppointmentId(appointment.id)
     setAppointmentDraft(appointmentToDraft(appointment, services))
+    setClientPickerSearch(appointment.client_name)
     setAppointmentDrawer({ open: true, mode: 'edit', appointmentId: appointment.id })
     setActiveTab('agenda')
   }
@@ -996,6 +1138,8 @@ function App() {
         phone: maskedPhone,
         birth_date: null,
         notes: '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       }
 
       if (supabase) {
@@ -1019,6 +1163,7 @@ function App() {
         ...nextClient,
         full_name: appointmentDraft.clientName.trim(),
         phone: maskedPhone,
+        updated_at: new Date().toISOString(),
       }
       setClients((current) => current.map((client) => (client.id === updatedClient.id ? updatedClient : client)))
 
@@ -1037,6 +1182,7 @@ function App() {
       received_amount_cents: receivedAmount,
       payment_status: appointmentDraft.paymentStatus === 'canceled' ? 'canceled' : null,
     })
+    const now = new Date().toISOString()
     const nextAppointment: AppointmentRecord = {
       id: appointmentDrawer.mode === 'edit' ? appointmentDrawer.appointmentId : crypto.randomUUID(),
       client_id: nextClient.id,
@@ -1054,11 +1200,16 @@ function App() {
       payment_status: paymentStatus,
       payment_canceled_reason: paymentStatus === 'canceled' ? 'Lancamento cancelado' : null,
       notes: appointmentDraft.notes.trim(),
+      created_at: appointmentDrawer.mode === 'edit' ? undefined : now,
+      updated_at: now,
     }
 
     if (appointmentDrawer.mode === 'edit') {
       const appointmentPatch: Partial<AppointmentRecord> = { ...nextAppointment }
       delete appointmentPatch.id
+      if (!appointmentPatch.created_at) {
+        delete appointmentPatch.created_at
+      }
       await updateAppointment(nextAppointment.id, appointmentPatch)
       setIsSaving(false)
       closeAppointmentDrawer()
@@ -1128,7 +1279,9 @@ function App() {
     }
 
     setAppointments((current) =>
-      current.map((appointment) => (appointment.id === id ? nextAppointment : appointment)),
+      current.map((appointment) =>
+        appointment.id === id ? { ...nextAppointment, updated_at: new Date().toISOString() } : appointment,
+      ),
     )
 
     if (supabase) {
@@ -1356,8 +1509,9 @@ function App() {
       }
     }
 
-    setProducts((current) => [...current, product].sort((a, b) => a.name.localeCompare(b.name)))
+    setProducts((current) => [product, ...current])
     setNewProduct(newProductDraft())
+    setIsProductModalOpen(false)
     setDataStatus('Produto criado.')
   }
 
@@ -1887,6 +2041,9 @@ function App() {
           })}
         </nav>
         {renderAppointmentDrawer()}
+        {renderClientModal()}
+        {renderProductModal()}
+        {renderPaymentLauncherModal()}
         {renderPartialPaymentModal()}
         {renderCancelPaymentModal()}
       </main>
@@ -1966,13 +2123,13 @@ function App() {
           <button type="button" onClick={() => openNewAppointmentDrawer(agendaDate, getFirstAvailableSlot(agendaDate))}>
             <Plus size={17} aria-hidden="true" /> Novo horario
           </button>
-          <button type="button" onClick={() => setActiveTab('clients')}>
+          <button type="button" onClick={() => setIsClientModalOpen(true)}>
             <UserRound size={17} aria-hidden="true" /> Nova cliente
           </button>
-          <button type="button" onClick={() => setActiveTab('products')}>
+          <button type="button" onClick={() => setIsProductModalOpen(true)}>
             <Package size={17} aria-hidden="true" /> Novo produto
           </button>
-          <button type="button" onClick={() => setActiveTab('finance')}>
+          <button type="button" onClick={() => setIsPaymentLauncherOpen(true)}>
             <CreditCard size={17} aria-hidden="true" /> Novo pagamento
           </button>
         </section>
@@ -2049,15 +2206,21 @@ function App() {
       return null
     }
 
-    const clientMatches = clients
+    const clientPickerTerm = clientPickerSearch.trim().toLowerCase()
+    const selectedClientForDraft = clients.find((client) => client.id === appointmentDraft.clientId)
+    const clientMatches = clientsByRecent
       .filter((client) => {
-        const term = appointmentDraft.clientName.trim().toLowerCase()
-        if (!term) {
-          return false
+        if (!clientPickerTerm) {
+          return true
         }
-        return client.full_name.toLowerCase().includes(term) || client.phone.includes(term)
+
+        return (
+          client.full_name.toLowerCase().includes(clientPickerTerm) ||
+          client.phone.includes(clientPickerTerm) ||
+          client.notes.toLowerCase().includes(clientPickerTerm)
+        )
       })
-      .slice(0, 4)
+      .slice(0, 6)
     const draftEndTime = addMinutesToTime(appointmentDraft.startTime, getDraftService()?.duration_minutes ?? 60)
 
     return (
@@ -2085,7 +2248,49 @@ function App() {
             <section className="drawer-section">
               <h3>Cliente</h3>
               <label>
-                Buscar ou criar
+                Buscar cliente cadastrada
+                <input
+                  value={clientPickerSearch}
+                  onChange={(event) => setClientPickerSearch(event.target.value)}
+                  placeholder="Digite nome, telefone ou observacao"
+                />
+              </label>
+              <div className="client-suggestions">
+                {clientMatches.map((client) => (
+                  <button
+                    key={client.id}
+                    className={client.id === appointmentDraft.clientId ? 'selected' : ''}
+                    type="button"
+                    onClick={() => selectClientForDraft(client)}
+                  >
+                    <UserRound size={14} aria-hidden="true" />
+                    <span>{client.full_name}</span>
+                    <small>{client.phone}</small>
+                  </button>
+                ))}
+                <button
+                  className="create-inline-client"
+                  type="button"
+                  onClick={() => {
+                    setNewClient({
+                      fullName: appointmentDraft.clientName,
+                      phone: appointmentDraft.clientPhone,
+                      birthDate: '',
+                      notes: '',
+                    })
+                    setIsClientModalOpen(true)
+                  }}
+                >
+                  <Plus size={14} aria-hidden="true" />
+                  <span>Cadastrar nova</span>
+                  <small>Abre formulario rapido</small>
+                </button>
+              </div>
+              {selectedClientForDraft ? (
+                <p className="selected-client-note">Selecionada: {selectedClientForDraft.full_name}</p>
+              ) : null}
+              <label>
+                Nome no atendimento
                 <input
                   required
                   value={appointmentDraft.clientName}
@@ -2095,17 +2300,6 @@ function App() {
                   placeholder="Nome da cliente"
                 />
               </label>
-              {clientMatches.length ? (
-                <div className="client-suggestions">
-                  {clientMatches.map((client) => (
-                    <button key={client.id} type="button" onClick={() => selectClientForDraft(client)}>
-                      <UserRound size={14} aria-hidden="true" />
-                      <span>{client.full_name}</span>
-                      <small>{client.phone}</small>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
               <label>
                 WhatsApp
                 <input
@@ -2648,14 +2842,19 @@ function App() {
             <p className="eyebrow">Clientes</p>
             <h2>Historico e preferencias.</h2>
           </div>
-          <label className="admin-search slim-search">
-            <Search size={16} aria-hidden="true" />
-            <input
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Buscar cliente"
-            />
-          </label>
+          <div className="heading-actions">
+            <label className="admin-search slim-search">
+              <Search size={16} aria-hidden="true" />
+              <input
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Buscar cliente"
+              />
+            </label>
+            <button className="primary-action compact-action" type="button" onClick={() => setIsClientModalOpen(true)}>
+              <Plus size={16} aria-hidden="true" /> Nova cliente
+            </button>
+          </div>
         </div>
         <div className="client-grid">
           {filteredClients.map((client) => {
@@ -2748,7 +2947,12 @@ function App() {
               <p className="eyebrow">Pagamentos</p>
               <h2>Recebimentos por atendimento.</h2>
             </div>
-            <span>{pendingAppointments.length} pendente(s)</span>
+            <div className="heading-actions">
+              <span>{pendingAppointments.length} pendente(s)</span>
+              <button className="primary-action compact-action" type="button" onClick={() => setIsPaymentLauncherOpen(true)}>
+                <Plus size={16} aria-hidden="true" /> Novo pagamento
+              </button>
+            </div>
           </div>
           <div className="finance-toolbar">
             <label className="admin-search slim-search">
@@ -2876,6 +3080,244 @@ function App() {
                 <b>{formatCurrency(item.revenueCents)}</b>
               </article>
             ))}
+          </div>
+        </section>
+      </div>
+    )
+  }
+
+  function renderClientModal() {
+    if (!isClientModalOpen) {
+      return null
+    }
+
+    return (
+      <div className="modal-backdrop" role="presentation" onMouseDown={() => setIsClientModalOpen(false)}>
+        <form
+          className="payment-modal entity-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="client-modal-title"
+          onSubmit={handleCreateClient}
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <div className="drawer-heading">
+            <div>
+              <p className="eyebrow">Nova cliente</p>
+              <h2 id="client-modal-title">Cadastro rapido.</h2>
+            </div>
+            <button className="icon-button" type="button" aria-label="Fechar" onClick={() => setIsClientModalOpen(false)}>
+              <XCircle size={18} aria-hidden="true" />
+            </button>
+          </div>
+          <label>
+            Nome completo
+            <input
+              required
+              value={newClient.fullName}
+              onChange={(event) => setNewClient({ ...newClient, fullName: event.target.value })}
+              placeholder="Nome da cliente"
+            />
+          </label>
+          <label>
+            WhatsApp
+            <input
+              required
+              inputMode="tel"
+              value={newClient.phone}
+              onChange={(event) => setNewClient({ ...newClient, phone: maskBrazilianPhone(event.target.value) })}
+              placeholder="(16) 99999-9999"
+            />
+          </label>
+          <label>
+            Nascimento
+            <input
+              type="date"
+              value={newClient.birthDate}
+              onChange={(event) => setNewClient({ ...newClient, birthDate: event.target.value })}
+            />
+          </label>
+          <label>
+            Anotacoes profissionais
+            <textarea
+              rows={3}
+              value={newClient.notes}
+              onChange={(event) => setNewClient({ ...newClient, notes: event.target.value })}
+              placeholder="Preferencia, sensibilidade, alergias relatadas..."
+            />
+          </label>
+          <div className="drawer-actions">
+            <button className="ghost-action" type="button" onClick={() => setIsClientModalOpen(false)}>
+              Cancelar
+            </button>
+            <button className="primary-action" type="submit">
+              Salvar cliente
+            </button>
+          </div>
+        </form>
+      </div>
+    )
+  }
+
+  function renderProductModal() {
+    if (!isProductModalOpen) {
+      return null
+    }
+
+    return (
+      <div className="modal-backdrop" role="presentation" onMouseDown={() => setIsProductModalOpen(false)}>
+        <form
+          className="payment-modal entity-modal wide-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="product-modal-title"
+          onSubmit={handleCreateProduct}
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <div className="drawer-heading">
+            <div>
+              <p className="eyebrow">Novo produto</p>
+              <h2 id="product-modal-title">Estoque e materiais.</h2>
+            </div>
+            <button className="icon-button" type="button" aria-label="Fechar" onClick={() => setIsProductModalOpen(false)}>
+              <XCircle size={18} aria-hidden="true" />
+            </button>
+          </div>
+          <div className="modal-grid">
+            <label>
+              Produto
+              <input value={newProduct.name} onChange={(event) => setNewProduct({ ...newProduct, name: event.target.value })} />
+            </label>
+            <label>
+              Categoria
+              <input value={newProduct.category} onChange={(event) => setNewProduct({ ...newProduct, category: event.target.value })} />
+            </label>
+            <label>
+              Estoque
+              <input
+                inputMode="numeric"
+                value={newProduct.quantity}
+                onChange={(event) => setNewProduct({ ...newProduct, quantity: event.target.value })}
+              />
+            </label>
+            <label>
+              Estoque minimo
+              <input
+                inputMode="numeric"
+                value={newProduct.minimumQuantity}
+                onChange={(event) => setNewProduct({ ...newProduct, minimumQuantity: event.target.value })}
+              />
+            </label>
+            <label>
+              Custo
+              <input value={newProduct.unitCost} onChange={(event) => setNewProduct({ ...newProduct, unitCost: event.target.value })} />
+            </label>
+            <label>
+              Venda
+              <input value={newProduct.salePrice} onChange={(event) => setNewProduct({ ...newProduct, salePrice: event.target.value })} />
+            </label>
+            <label className="wide-field">
+              Observacoes
+              <textarea
+                rows={3}
+                value={newProduct.notes}
+                onChange={(event) => setNewProduct({ ...newProduct, notes: event.target.value })}
+              />
+            </label>
+          </div>
+          <div className="drawer-actions">
+            <button className="ghost-action" type="button" onClick={() => setIsProductModalOpen(false)}>
+              Cancelar
+            </button>
+            <button className="primary-action" type="submit">
+              Salvar produto
+            </button>
+          </div>
+        </form>
+      </div>
+    )
+  }
+
+  function renderPaymentLauncherModal() {
+    if (!isPaymentLauncherOpen) {
+      return null
+    }
+
+    const search = paymentLauncher.search.trim().toLowerCase()
+    const appointmentsToReceive = paymentAppointmentsByRecent
+      .filter((appointment) => {
+        const paymentState = getPaymentState(appointment)
+        const matchesSearch =
+          !search ||
+          appointment.client_name.toLowerCase().includes(search) ||
+          appointment.client_phone.includes(search) ||
+          appointment.service_name.toLowerCase().includes(search)
+
+        return matchesSearch && paymentState !== 'paid' && paymentState !== 'canceled'
+      })
+      .slice(0, 8)
+
+    return (
+      <div className="modal-backdrop" role="presentation" onMouseDown={() => setIsPaymentLauncherOpen(false)}>
+        <section
+          className="payment-modal entity-modal wide-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="payment-launcher-title"
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <div className="drawer-heading">
+            <div>
+              <p className="eyebrow">Novo pagamento</p>
+              <h2 id="payment-launcher-title">Selecione o atendimento.</h2>
+            </div>
+            <button className="icon-button" type="button" aria-label="Fechar" onClick={() => setIsPaymentLauncherOpen(false)}>
+              <XCircle size={18} aria-hidden="true" />
+            </button>
+          </div>
+          <label className="admin-search modal-search">
+            <Search size={16} aria-hidden="true" />
+            <input
+              value={paymentLauncher.search}
+              onChange={(event) => setPaymentLauncher({ search: event.target.value })}
+              placeholder="Buscar por cliente, telefone ou servico"
+            />
+          </label>
+          <div className="payment-picker-list">
+            {appointmentsToReceive.map((appointment) => {
+              const remainingAmount = Math.max(appointment.charged_amount_cents - appointment.received_amount_cents, 0)
+
+              return (
+                <article key={appointment.id}>
+                  <div>
+                    <strong>{appointment.client_name}</strong>
+                    <span>
+                      {formatDateShort(appointment.scheduled_date)} as {appointment.start_time} - {appointment.service_name}
+                    </span>
+                    <small>Saldo {formatCurrency(remainingAmount)}</small>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsPaymentLauncherOpen(false)
+                      openPartialPayment(appointment)
+                    }}
+                  >
+                    Parcial
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsPaymentLauncherOpen(false)
+                      void markAppointmentPaid(appointment)
+                    }}
+                  >
+                    Pago
+                  </button>
+                </article>
+              )
+            })}
+            {appointmentsToReceive.length === 0 ? <p className="empty-state">Nenhum atendimento em aberto encontrado.</p> : null}
           </div>
         </section>
       </div>
@@ -3035,53 +3477,16 @@ function App() {
             <p className="eyebrow">Produtos e estoque</p>
             <h2>Controle de materiais.</h2>
           </div>
-          <span>{stats.lowStockCount} baixo(s)</span>
+          <div className="heading-actions">
+            <span>{stats.lowStockCount} baixo(s)</span>
+            <button className="primary-action compact-action" type="button" onClick={() => setIsProductModalOpen(true)}>
+              <Plus size={16} aria-hidden="true" /> Novo produto
+            </button>
+          </div>
         </div>
 
-        <form className="editor-form compact product-form" onSubmit={handleCreateProduct}>
-          <label>
-            Produto
-            <input value={newProduct.name} onChange={(event) => setNewProduct({ ...newProduct, name: event.target.value })} />
-          </label>
-          <label>
-            Categoria
-            <input value={newProduct.category} onChange={(event) => setNewProduct({ ...newProduct, category: event.target.value })} />
-          </label>
-          <label>
-            Estoque
-            <input
-              inputMode="numeric"
-              value={newProduct.quantity}
-              onChange={(event) => setNewProduct({ ...newProduct, quantity: event.target.value })}
-            />
-          </label>
-          <label>
-            Custo
-            <input value={newProduct.unitCost} onChange={(event) => setNewProduct({ ...newProduct, unitCost: event.target.value })} />
-          </label>
-          <label>
-            Venda
-            <input value={newProduct.salePrice} onChange={(event) => setNewProduct({ ...newProduct, salePrice: event.target.value })} />
-          </label>
-          <label>
-            Minimo
-            <input
-              inputMode="numeric"
-              value={newProduct.minimumQuantity}
-              onChange={(event) => setNewProduct({ ...newProduct, minimumQuantity: event.target.value })}
-            />
-          </label>
-          <label className="wide-field">
-            Observacoes
-            <input value={newProduct.notes} onChange={(event) => setNewProduct({ ...newProduct, notes: event.target.value })} />
-          </label>
-          <button className="primary-action" type="submit">
-            <Plus size={16} aria-hidden="true" /> Criar produto
-          </button>
-        </form>
-
         <div className="product-grid">
-          {products.map((product) => {
+          {productsByRecent.map((product) => {
             const low = product.quantity <= product.minimum_quantity
             return (
               <article className={low ? 'product-card low' : 'product-card'} key={product.id}>

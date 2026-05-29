@@ -98,6 +98,7 @@ textarea:focus-visible {
 
 .primary-action,
 .ghost-action,
+.compact-action,
 .quick-actions button,
 .filter-chips button,
 .payment-actions button,
@@ -854,6 +855,22 @@ textarea {
   background: rgba(217, 164, 65, 0.08);
   border: 1px solid rgba(217, 164, 65, 0.22);
   color: var(--gold-bright);
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.heading-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.compact-action {
+  min-height: 38px;
+  padding: 0 12px;
+  white-space: nowrap;
 }
 
 .agenda-columns {
@@ -1605,6 +1622,42 @@ textarea {
   padding: 10px;
 }
 
+.payment-picker-list {
+  display: grid;
+  gap: 10px;
+}
+
+.payment-picker-list article {
+  align-items: center;
+  background: rgba(33, 23, 13, 0.42);
+  border: 1px solid rgba(217, 164, 65, 0.16);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  padding: 12px;
+}
+
+.payment-picker-list article div {
+  display: grid;
+  gap: 4px;
+}
+
+.payment-picker-list span,
+.payment-picker-list small {
+  color: var(--muted);
+}
+
+.payment-picker-list button {
+  background: rgba(217, 164, 65, 0.08);
+  border: 1px solid rgba(217, 164, 65, 0.22);
+  border-radius: 8px;
+  color: var(--gold-bright);
+  font-weight: 900;
+  min-height: 38px;
+  padding: 0 12px;
+}
+
 .drawer-backdrop,
 .modal-backdrop {
   background: rgba(5, 4, 3, 0.72);
@@ -1647,6 +1700,24 @@ textarea {
   top: 50%;
   transform: translate(-50%, -50%);
   width: calc(100% - 28px);
+}
+
+.entity-modal {
+  max-width: 520px;
+}
+
+.wide-modal {
+  max-width: 680px;
+}
+
+.modal-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.modal-search {
+  max-width: none;
 }
 
 .drawer-heading {
@@ -1707,9 +1778,30 @@ textarea {
   text-align: left;
 }
 
+.client-suggestions button.selected {
+  background: rgba(99, 214, 151, 0.12);
+  border-color: rgba(99, 214, 151, 0.38);
+  color: var(--success);
+}
+
+.client-suggestions .create-inline-client {
+  border-style: dashed;
+}
+
 .client-suggestions small {
   color: var(--muted);
   grid-column: 2;
+}
+
+.selected-client-note {
+  background: rgba(99, 214, 151, 0.1);
+  border: 1px solid rgba(99, 214, 151, 0.24);
+  border-radius: 8px;
+  color: var(--success);
+  font-size: 0.84rem;
+  font-weight: 900;
+  margin: 0;
+  padding: 10px;
 }
 
 .drawer-slot-strip button {
@@ -1764,14 +1856,24 @@ textarea {
 .settings-grid {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 .settings-toggle {
+  align-items: center;
   background: rgba(33, 23, 13, 0.42);
   border: 1px solid rgba(217, 164, 65, 0.16);
   border-radius: 8px;
+  min-height: 56px;
   padding: 12px;
+}
+
+.settings-toggle input {
+  flex: 0 0 auto;
+}
+
+.settings-layout .panel-heading h2 {
+  font-size: clamp(1.45rem, 3vw, 2rem);
 }
 
 .usage-list article {
@@ -2028,6 +2130,7 @@ textarea {
   .photo-admin-card,
   .month-agenda,
   .settings-grid,
+  .modal-grid,
   .drawer-section.two-column,
   .reschedule-grid {
     grid-template-columns: 1fr;
@@ -2138,6 +2241,7 @@ textarea {
 
   .finance-toolbar,
   .payment-card-header,
+  .heading-actions,
   .drawer-actions {
     align-items: stretch;
     flex-direction: column;
@@ -2146,6 +2250,7 @@ textarea {
   .payment-summary-grid,
   .hours-row,
   .availability-row,
+  .payment-picker-list article,
   .exception-list article {
     grid-template-columns: 1fr;
   }
