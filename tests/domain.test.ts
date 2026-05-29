@@ -2,12 +2,19 @@ import { describe, expect, it } from 'vitest'
 import {
   buildWhatsAppUrl,
   calculateAdminStats,
+  defaultAvailabilityExceptions,
+  defaultAvailabilityRules,
+  defaultBusinessHours,
+  defaultScheduleSettings,
+  defaultServices,
   formatCurrency,
+  getAppointmentEndTime,
   getAvailableSlots,
   getLowStockProducts,
   getPaymentState,
   getServiceUsage,
   hasScheduleConflict,
+  isSlotInsideAvailability,
   maskBrazilianPhone,
   parseCurrencyToCents,
 } from '../src/domain'
@@ -22,10 +29,12 @@ const baseAppointment: AppointmentRecord = {
   service_name: 'Design',
   scheduled_date: '2026-05-29',
   start_time: '09:00',
+  end_time: '10:00',
   status: 'confirmed',
   charged_amount_cents: 3000,
   received_amount_cents: 0,
   payment_method: 'pix',
+  payment_status: 'pending',
   notes: '',
 }
 
@@ -79,15 +88,55 @@ describe('domain helpers', () => {
     expect(getPaymentState({ charged_amount_cents: 4000, received_amount_cents: 0 })).toBe('pending')
     expect(getPaymentState({ charged_amount_cents: 4000, received_amount_cents: 2000 })).toBe('partial')
     expect(getPaymentState({ charged_amount_cents: 4000, received_amount_cents: 4000 })).toBe('paid')
+    expect(getPaymentState({ charged_amount_cents: 4000, received_amount_cents: 0, payment_status: 'canceled' })).toBe(
+      'canceled',
+    )
   })
 
-  it('masks Brazilian phones and blocks occupied or unavailable slots', () => {
+  it('masks Brazilian phones and blocks occupied, overlapping or unavailable slots', () => {
     const appointments: AppointmentRecord[] = [{ ...baseAppointment, start_time: '09:00' }]
 
     expect(maskBrazilianPhone('16988758633')).toBe('(16) 98875-8633')
     expect(hasScheduleConflict(appointments, '2026-05-29', '09:00')).toBe(true)
+    expect(hasScheduleConflict(appointments, '2026-05-29', '09:30')).toBe(true)
+    expect(hasScheduleConflict(appointments, '2026-05-29', '10:00')).toBe(false)
     expect(getAvailableSlots(appointments, '2026-05-29')).not.toContain('09:00')
     expect(getAvailableSlots(appointments, '2026-05-29')).not.toContain('12:00')
+  })
+
+  it('uses service duration and availability rules for schedule slots', () => {
+    const service = defaultServices.find((item) => item.id === 'design-com-coloracao') ?? defaultServices[0]
+    const appointment: AppointmentRecord = {
+      ...baseAppointment,
+      service_id: service.id,
+      service_name: service.name,
+      start_time: '14:30',
+      end_time: null,
+    }
+
+    expect(getAppointmentEndTime(appointment, defaultServices)).toBe('15:40')
+    expect(
+      isSlotInsideAvailability(
+        '2026-05-29',
+        '13:30',
+        '14:30',
+        defaultBusinessHours,
+        defaultAvailabilityRules,
+        defaultAvailabilityExceptions,
+      ),
+    ).toBe(true)
+    expect(
+      getAvailableSlots(
+        [appointment],
+        '2026-05-29',
+        defaultServices,
+        defaultBusinessHours,
+        defaultAvailabilityRules,
+        defaultAvailabilityExceptions,
+        defaultScheduleSettings,
+        service.duration_minutes,
+      ),
+    ).not.toContain('14:00')
   })
 
   it('summarizes low stock and service usage', () => {

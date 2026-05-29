@@ -99,9 +99,12 @@ textarea:focus-visible {
 .primary-action,
 .ghost-action,
 .quick-actions button,
+.filter-chips button,
+.payment-actions button,
 .price-area button,
 .price-area a,
 .product-actions button,
+.week-empty,
 .timeline-empty,
 .row-actions button,
 .photo-admin-card button,
@@ -1005,6 +1008,7 @@ textarea {
 }
 
 .timeline-appointment,
+.timeline-occupied,
 .timeline-empty,
 .timeline-blocked {
   border-radius: 8px;
@@ -1054,6 +1058,14 @@ textarea {
   padding: 0;
 }
 
+.timeline-occupied {
+  background: rgba(23, 17, 11, 0.05);
+  border: 1px solid rgba(23, 17, 11, 0.1);
+  color: #7c736a;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
 .timeline-blocked {
   align-items: center;
   background: rgba(23, 17, 11, 0.08);
@@ -1062,6 +1074,131 @@ textarea {
   display: flex;
   gap: 8px;
   padding: 0 12px;
+}
+
+.timeline-blocked.unavailable {
+  background: rgba(23, 17, 11, 0.04);
+  color: #8b8279;
+}
+
+.week-agenda {
+  background: rgba(248, 234, 208, 0.96);
+  border-radius: 8px;
+  color: #17110b;
+  overflow: auto;
+}
+
+.week-grid-header,
+.week-grid-row {
+  display: grid;
+  grid-template-columns: 70px repeat(7, minmax(132px, 1fr));
+  min-width: 1040px;
+}
+
+.week-grid-header {
+  border-bottom: 1px solid rgba(23, 17, 11, 0.12);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.week-grid-header button {
+  background: #fffdfa;
+  border: 0;
+  border-left: 1px solid rgba(23, 17, 11, 0.12);
+  color: #17110b;
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  text-align: left;
+}
+
+.week-grid-header small,
+.week-appointment span,
+.week-appointment small,
+.week-blocked {
+  color: #6d655d;
+  font-size: 0.76rem;
+}
+
+.week-grid-row time {
+  border-right: 1px solid rgba(23, 17, 11, 0.12);
+  color: #3a3025;
+  font-variant-numeric: tabular-nums;
+  padding: 10px 8px;
+  text-align: right;
+}
+
+.week-slot {
+  border-bottom: 1px solid rgba(23, 17, 11, 0.12);
+  border-left: 1px solid rgba(23, 17, 11, 0.1);
+  min-height: 72px;
+  padding: 5px;
+}
+
+.week-appointment,
+.week-empty,
+.week-blocked {
+  border-radius: 8px;
+  min-height: 58px;
+  width: 100%;
+}
+
+.week-appointment {
+  background: #fffdfa;
+  border: 1px solid #e8e1dd;
+  color: #17110b;
+  display: grid;
+  gap: 2px;
+  padding: 8px;
+  text-align: left;
+}
+
+.week-empty {
+  background: transparent;
+  border: 1px dashed rgba(23, 17, 11, 0.14);
+  color: rgba(23, 17, 11, 0.32);
+  font-size: 1.1rem;
+  padding: 0;
+}
+
+.week-blocked {
+  align-items: center;
+  background: rgba(23, 17, 11, 0.05);
+  border: 1px solid rgba(23, 17, 11, 0.08);
+  display: flex;
+  justify-content: center;
+  padding: 8px;
+}
+
+.month-agenda {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.month-day {
+  background: rgba(33, 23, 13, 0.42);
+  border: 1px solid rgba(217, 164, 65, 0.18);
+  border-radius: 8px;
+  color: var(--text);
+  display: grid;
+  gap: 5px;
+  min-height: 92px;
+  padding: 10px;
+  text-align: left;
+}
+
+.month-day.active,
+.month-day:hover {
+  border-color: rgba(255, 226, 160, 0.48);
+}
+
+.month-day span,
+.month-day small,
+.row-main small {
+  color: var(--muted);
+  font-size: 0.78rem;
 }
 
 .agenda-list,
@@ -1311,6 +1448,35 @@ textarea {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.finance-toolbar {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.filter-chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.filter-chips button {
+  background: rgba(217, 164, 65, 0.08);
+  border: 1px solid rgba(217, 164, 65, 0.18);
+  color: var(--muted);
+  min-height: 36px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.filter-chips button.active {
+  background: rgba(217, 164, 65, 0.18);
+  color: var(--gold-bright);
+}
+
 .payment-list article {
   align-items: center;
   background: rgba(33, 23, 13, 0.38);
@@ -1320,6 +1486,292 @@ textarea {
   gap: 12px;
   grid-template-columns: minmax(0, 1fr) auto 140px 150px;
   padding: 10px;
+}
+
+.payment-card-list,
+.settings-layout,
+.hours-list,
+.availability-list,
+.exception-list {
+  display: grid;
+  gap: 12px;
+}
+
+.payment-card {
+  background: rgba(33, 23, 13, 0.42);
+  border: 1px solid rgba(217, 164, 65, 0.18);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.payment-card-header {
+  align-items: start;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.payment-card-header > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.payment-card-header span,
+.payment-note,
+.transaction-history span,
+.transaction-history small,
+.transaction-history p,
+.exception-list p {
+  color: var(--muted);
+}
+
+.payment-summary-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+}
+
+.payment-summary-grid div {
+  background: rgba(16, 12, 8, 0.44);
+  border: 1px solid rgba(217, 164, 65, 0.12);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.payment-summary-grid dt {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+}
+
+.payment-summary-grid dd {
+  color: var(--gold-bright);
+  font-weight: 900;
+  margin: 0;
+}
+
+.payment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.payment-actions button {
+  background: rgba(217, 164, 65, 0.08);
+  border: 1px solid rgba(217, 164, 65, 0.22);
+  color: var(--gold-bright);
+  min-height: 38px;
+  padding: 0 12px;
+}
+
+.payment-actions button:last-child,
+.danger-action {
+  border-color: rgba(255, 126, 97, 0.32);
+  color: var(--danger);
+}
+
+.transaction-history {
+  border-top: 1px solid rgba(217, 164, 65, 0.14);
+  padding-top: 10px;
+}
+
+.transaction-history summary {
+  align-items: center;
+  color: var(--gold-bright);
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 900;
+  gap: 6px;
+}
+
+.transaction-history div {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.transaction-history article {
+  background: rgba(16, 12, 8, 0.36);
+  border: 1px solid rgba(217, 164, 65, 0.12);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+}
+
+.drawer-backdrop,
+.modal-backdrop {
+  background: rgba(5, 4, 3, 0.72);
+  inset: 0;
+  position: fixed;
+  z-index: 80;
+}
+
+.appointment-drawer,
+.payment-modal {
+  background:
+    linear-gradient(145deg, rgba(217, 164, 65, 0.08), transparent 34%),
+    var(--surface);
+  border: 1px solid rgba(217, 164, 65, 0.26);
+  box-shadow: var(--shadow-panel);
+  color: var(--text);
+}
+
+.appointment-drawer {
+  display: grid;
+  gap: 16px;
+  height: 100%;
+  margin-left: auto;
+  max-width: 560px;
+  overflow-y: auto;
+  padding: 18px;
+  width: min(100%, 560px);
+}
+
+.payment-modal {
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  left: 50%;
+  max-height: calc(100svh - 40px);
+  max-width: 440px;
+  overflow-y: auto;
+  padding: 18px;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(100% - 28px);
+}
+
+.drawer-heading {
+  align-items: start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.drawer-heading h2,
+.drawer-section h3 {
+  margin: 0;
+}
+
+.drawer-form,
+.drawer-section {
+  display: grid;
+  gap: 12px;
+}
+
+.drawer-section {
+  border-top: 1px solid rgba(217, 164, 65, 0.14);
+  padding-top: 14px;
+}
+
+.drawer-section.two-column {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.drawer-section.two-column h3,
+.drawer-section.two-column .drawer-slot-strip {
+  grid-column: 1 / -1;
+}
+
+.client-suggestions,
+.drawer-slot-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+}
+
+.client-suggestions button,
+.drawer-slot-strip button {
+  background: rgba(217, 164, 65, 0.08);
+  border: 1px solid rgba(217, 164, 65, 0.18);
+  border-radius: 8px;
+  color: var(--gold-bright);
+}
+
+.client-suggestions button {
+  align-items: center;
+  display: grid;
+  flex: 0 0 178px;
+  gap: 4px;
+  grid-template-columns: auto 1fr;
+  min-height: 54px;
+  padding: 8px;
+  text-align: left;
+}
+
+.client-suggestions small {
+  color: var(--muted);
+  grid-column: 2;
+}
+
+.drawer-slot-strip button {
+  flex: 0 0 auto;
+  font-weight: 900;
+  min-height: 36px;
+  padding: 0 12px;
+}
+
+.drawer-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.hours-row,
+.availability-row,
+.exception-list article {
+  align-items: center;
+  background: rgba(33, 23, 13, 0.42);
+  border: 1px solid rgba(217, 164, 65, 0.16);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(110px, 1fr) auto 130px 130px;
+  padding: 12px;
+}
+
+.hours-row.open,
+.availability-row.active {
+  border-color: rgba(255, 226, 160, 0.32);
+}
+
+.availability-row {
+  grid-template-columns: minmax(110px, 1fr) 130px 130px auto;
+}
+
+.exception-list article {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+}
+
+.exception-list button {
+  background: rgba(217, 164, 65, 0.08);
+  border: 1px solid rgba(217, 164, 65, 0.18);
+  border-radius: 8px;
+  color: var(--gold-bright);
+  min-height: 36px;
+  width: 36px;
+}
+
+.settings-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.settings-toggle {
+  background: rgba(33, 23, 13, 0.42);
+  border: 1px solid rgba(217, 164, 65, 0.16);
+  border-radius: 8px;
+  padding: 12px;
 }
 
 .usage-list article {
@@ -1494,9 +1946,9 @@ textarea {
     background: rgba(16, 12, 8, 0.98);
     border-top: 1px solid rgba(217, 164, 65, 0.24);
     bottom: 0;
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    display: flex;
     left: 0;
+    overflow-x: auto;
     position: fixed;
     right: 0;
     z-index: 50;
@@ -1510,6 +1962,7 @@ textarea {
     color: var(--muted);
     display: grid;
     font-size: 0.68rem;
+    flex: 0 0 74px;
     gap: 4px;
     justify-items: center;
     min-height: 64px;
@@ -1573,6 +2026,9 @@ textarea {
   .product-grid,
   .service-editor-row,
   .photo-admin-card,
+  .month-agenda,
+  .settings-grid,
+  .drawer-section.two-column,
   .reschedule-grid {
     grid-template-columns: 1fr;
   }
@@ -1680,9 +2136,56 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .finance-toolbar,
+  .payment-card-header,
+  .drawer-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .payment-summary-grid,
+  .hours-row,
+  .availability-row,
+  .exception-list article {
+    grid-template-columns: 1fr;
+  }
+
   .usage-list article,
   .payment-list article {
     grid-template-columns: 1fr;
+  }
+
+  .payment-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .payment-actions button {
+    min-height: 46px;
+    padding: 0 8px;
+  }
+
+  .appointment-drawer {
+    border-radius: 16px 16px 0 0;
+    bottom: 0;
+    height: min(92svh, 760px);
+    left: 0;
+    margin: 0;
+    max-width: none;
+    position: absolute;
+    right: 0;
+    width: 100%;
+  }
+
+  .payment-modal {
+    bottom: 0;
+    border-radius: 16px 16px 0 0;
+    left: 0;
+    max-height: 90svh;
+    max-width: none;
+    top: auto;
+    transform: none;
+    width: 100%;
   }
 
   .fab-button {

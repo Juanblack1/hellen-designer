@@ -138,15 +138,36 @@ create table if not exists public.appointments (
   service_name text not null check (char_length(service_name) between 2 and 140),
   scheduled_date date not null,
   start_time time not null,
+  end_time time,
   status text not null default 'scheduled' check (status in ('scheduled', 'confirmed', 'completed', 'no_show', 'canceled')),
   charged_amount_cents integer not null default 0 check (charged_amount_cents >= 0),
   received_amount_cents integer not null default 0 check (received_amount_cents >= 0),
-  payment_method text not null default 'pix' check (payment_method in ('pix', 'cash', 'debit_card', 'credit_card')),
+  payment_method text not null default 'pix' check (payment_method in ('pix', 'cash', 'debit_card', 'credit_card', 'transfer', 'other')),
+  payment_status text not null default 'pending' check (payment_status in ('pending', 'partial', 'paid', 'canceled')),
+  payment_canceled_reason text,
   notes text not null default '' check (char_length(notes) <= 2000),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint appointments_received_not_above_charged_check check (received_amount_cents <= charged_amount_cents)
 );
+
+alter table public.appointments add column if not exists end_time time;
+alter table public.appointments add column if not exists payment_status text not null default 'pending';
+alter table public.appointments add column if not exists payment_canceled_reason text;
+alter table public.appointments drop constraint if exists appointments_payment_method_check;
+alter table public.appointments add constraint appointments_payment_method_check
+check (payment_method in ('pix', 'cash', 'debit_card', 'credit_card', 'transfer', 'other'));
+alter table public.appointments drop constraint if exists appointments_payment_status_check;
+alter table public.appointments add constraint appointments_payment_status_check
+check (payment_status in ('pending', 'partial', 'paid', 'canceled'));
+update public.appointments
+set payment_status = case
+  when payment_status = 'canceled' then 'canceled'
+  when received_amount_cents <= 0 then 'pending'
+  when received_amount_cents < charged_amount_cents then 'partial'
+  else 'paid'
+end
+where payment_status is null or payment_status = 'pending';
 
 create index if not exists appointments_date_time_idx on public.appointments (scheduled_date, start_time);
 create index if not exists appointments_client_id_idx on public.appointments (client_id);
@@ -154,6 +175,117 @@ create index if not exists appointments_status_idx on public.appointments (statu
 create unique index if not exists appointments_unique_active_slot_idx
 on public.appointments (scheduled_date, start_time)
 where status in ('scheduled', 'confirmed', 'completed');
+
+create table if not exists public.payment_transactions (
+  id text primary key default gen_random_uuid()::text,
+  appointment_id text not null references public.appointments(id) on delete cascade,
+  amount_cents integer not null check (amount_cents > 0),
+  method text not null check (method in ('pix', 'cash', 'debit_card', 'credit_card', 'transfer', 'other')),
+  paid_at timestamptz not null default now(),
+  notes text not null default '' check (char_length(notes) <= 1000),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists payment_transactions_appointment_id_idx
+on public.payment_transactions (appointment_id, paid_at desc);
+
+create table if not exists public.business_hours (
+  id text primary key,
+  day_of_week integer not null unique check (day_of_week between 0 and 6),
+  is_open boolean not null default false,
+  start_time time not null default '09:00',
+  end_time time not null default '18:00',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint business_hours_range_check check (start_time < end_time)
+);
+
+create table if not exists public.availability_rules (
+  id text primary key default gen_random_uuid()::text,
+  day_of_week integer not null check (day_of_week between 0 and 6),
+  start_time time not null,
+  end_time time not null,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint availability_rules_range_check check (start_time < end_time)
+);
+
+create index if not exists availability_rules_day_idx
+on public.availability_rules (day_of_week, active);
+
+create table if not exists public.availability_exceptions (
+  id text primary key default gen_random_uuid()::text,
+  date date not null,
+  type text not null check (type in ('blocked', 'custom_available', 'holiday', 'vacation')),
+  start_time time,
+  end_time time,
+  reason text not null default '' check (char_length(reason) <= 1000),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint availability_exceptions_range_check check (
+    (type in ('holiday', 'vacation') and start_time is null and end_time is null)
+    or (type in ('blocked', 'custom_available') and start_time is not null and end_time is not null and start_time < end_time)
+  )
+);
+
+create index if not exists availability_exceptions_date_idx
+on public.availability_exceptions (date, type);
+
+create table if not exists public.schedule_settings (
+  id text primary key default 'default',
+  slot_interval_minutes integer not null default 30 check (slot_interval_minutes in (15, 30, 60)),
+  buffer_between_services_minutes integer not null default 0 check (buffer_between_services_minutes >= 0),
+  minimum_notice_hours integer not null default 0 check (minimum_notice_hours >= 0),
+  max_days_ahead integer not null default 60 check (max_days_ahead >= 0),
+  allow_same_day_booking boolean not null default true,
+  allow_manual_outside_availability boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+insert into public.business_hours (id, day_of_week, is_open, start_time, end_time)
+values
+  ('sun', 0, false, '09:00', '18:00'),
+  ('mon', 1, false, '09:00', '18:00'),
+  ('tue', 2, true, '09:00', '18:00'),
+  ('wed', 3, true, '09:00', '18:00'),
+  ('thu', 4, true, '09:00', '18:00'),
+  ('fri', 5, true, '09:00', '18:00'),
+  ('sat', 6, true, '09:00', '14:00')
+on conflict (id) do nothing;
+
+insert into public.availability_rules (id, day_of_week, start_time, end_time, active)
+values
+  ('tue-morning', 2, '09:00', '12:00', true),
+  ('tue-afternoon', 2, '13:30', '18:00', true),
+  ('wed-morning', 3, '09:00', '12:00', true),
+  ('wed-afternoon', 3, '14:00', '18:00', true),
+  ('thu-morning', 4, '09:00', '12:00', true),
+  ('thu-afternoon', 4, '13:30', '18:00', true),
+  ('fri-morning', 5, '09:00', '12:00', true),
+  ('fri-afternoon', 5, '13:30', '18:00', true),
+  ('sat-short', 6, '09:00', '14:00', true)
+on conflict (id) do nothing;
+
+insert into public.schedule_settings (
+  id,
+  slot_interval_minutes,
+  buffer_between_services_minutes,
+  minimum_notice_hours,
+  max_days_ahead,
+  allow_same_day_booking,
+  allow_manual_outside_availability
+) values (
+  'default',
+  30,
+  0,
+  0,
+  60,
+  true,
+  false
+)
+on conflict (id) do nothing;
 
 create table if not exists public.products (
   id text primary key default gen_random_uuid()::text,
@@ -245,6 +377,26 @@ create trigger appointments_touch_updated_at
 before update on public.appointments
 for each row execute function public.touch_updated_at();
 
+drop trigger if exists business_hours_touch_updated_at on public.business_hours;
+create trigger business_hours_touch_updated_at
+before update on public.business_hours
+for each row execute function public.touch_updated_at();
+
+drop trigger if exists availability_rules_touch_updated_at on public.availability_rules;
+create trigger availability_rules_touch_updated_at
+before update on public.availability_rules
+for each row execute function public.touch_updated_at();
+
+drop trigger if exists availability_exceptions_touch_updated_at on public.availability_exceptions;
+create trigger availability_exceptions_touch_updated_at
+before update on public.availability_exceptions
+for each row execute function public.touch_updated_at();
+
+drop trigger if exists schedule_settings_touch_updated_at on public.schedule_settings;
+create trigger schedule_settings_touch_updated_at
+before update on public.schedule_settings
+for each row execute function public.touch_updated_at();
+
 drop trigger if exists products_touch_updated_at on public.products;
 create trigger products_touch_updated_at
 before update on public.products
@@ -257,6 +409,11 @@ revoke insert on public.clients from anon;
 revoke insert on public.appointments from anon;
 grant select, insert, update, delete on public.clients to authenticated, service_role;
 grant select, insert, update, delete on public.appointments to authenticated, service_role;
+grant select, insert, update, delete on public.payment_transactions to authenticated, service_role;
+grant select, insert, update, delete on public.business_hours to authenticated, service_role;
+grant select, insert, update, delete on public.availability_rules to authenticated, service_role;
+grant select, insert, update, delete on public.availability_exceptions to authenticated, service_role;
+grant select, insert, update, delete on public.schedule_settings to authenticated, service_role;
 grant select, insert, update, delete on public.products to authenticated, service_role;
 grant select, insert, update, delete on public.stock_movements to authenticated, service_role;
 grant insert, update, delete on public.business_profile to authenticated, service_role;
@@ -269,6 +426,11 @@ alter table public.services enable row level security;
 alter table public.gallery_items enable row level security;
 alter table public.clients enable row level security;
 alter table public.appointments enable row level security;
+alter table public.payment_transactions enable row level security;
+alter table public.business_hours enable row level security;
+alter table public.availability_rules enable row level security;
+alter table public.availability_exceptions enable row level security;
+alter table public.schedule_settings enable row level security;
 alter table public.products enable row level security;
 alter table public.stock_movements enable row level security;
 
@@ -357,6 +519,46 @@ using (app_private.is_admin())
 with check (app_private.is_admin());
 
 drop policy if exists "Visitors can request appointments" on public.appointments;
+
+drop policy if exists "Admins can manage payment transactions" on public.payment_transactions;
+create policy "Admins can manage payment transactions"
+on public.payment_transactions
+for all
+to authenticated
+using (app_private.is_admin())
+with check (app_private.is_admin());
+
+drop policy if exists "Admins can manage business hours" on public.business_hours;
+create policy "Admins can manage business hours"
+on public.business_hours
+for all
+to authenticated
+using (app_private.is_admin())
+with check (app_private.is_admin());
+
+drop policy if exists "Admins can manage availability rules" on public.availability_rules;
+create policy "Admins can manage availability rules"
+on public.availability_rules
+for all
+to authenticated
+using (app_private.is_admin())
+with check (app_private.is_admin());
+
+drop policy if exists "Admins can manage availability exceptions" on public.availability_exceptions;
+create policy "Admins can manage availability exceptions"
+on public.availability_exceptions
+for all
+to authenticated
+using (app_private.is_admin())
+with check (app_private.is_admin());
+
+drop policy if exists "Admins can manage schedule settings" on public.schedule_settings;
+create policy "Admins can manage schedule settings"
+on public.schedule_settings
+for all
+to authenticated
+using (app_private.is_admin())
+with check (app_private.is_admin());
 
 drop policy if exists "Admins can manage products" on public.products;
 create policy "Admins can manage products"

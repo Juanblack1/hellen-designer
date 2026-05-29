@@ -41,7 +41,8 @@ export type ClientRecord = {
 
 export type AppointmentStatus = 'scheduled' | 'confirmed' | 'completed' | 'no_show' | 'canceled'
 
-export type PaymentMethod = 'pix' | 'cash' | 'debit_card' | 'credit_card'
+export type PaymentMethod = 'pix' | 'cash' | 'debit_card' | 'credit_card' | 'transfer' | 'other'
+export type PaymentStatus = 'pending' | 'partial' | 'paid' | 'canceled'
 
 export type AppointmentRecord = {
   id: string
@@ -52,11 +53,24 @@ export type AppointmentRecord = {
   service_name: string
   scheduled_date: string
   start_time: string
+  end_time?: string | null
   status: AppointmentStatus
   charged_amount_cents: number
   received_amount_cents: number
   payment_method: PaymentMethod
+  payment_status?: PaymentStatus | null
+  payment_canceled_reason?: string | null
   notes: string
+}
+
+export type PaymentTransaction = {
+  id: string
+  appointment_id: string
+  amount_cents: number
+  method: PaymentMethod
+  paid_at: string
+  notes: string
+  created_at: string
 }
 
 export type ProductItem = {
@@ -81,6 +95,42 @@ export type StockMovement = {
   quantity: number
   notes: string
   created_at: string
+}
+
+export type BusinessHour = {
+  id: string
+  day_of_week: number
+  is_open: boolean
+  start_time: string
+  end_time: string
+}
+
+export type AvailabilityRule = {
+  id: string
+  day_of_week: number
+  start_time: string
+  end_time: string
+  active: boolean
+}
+
+export type AvailabilityExceptionType = 'blocked' | 'custom_available' | 'holiday' | 'vacation'
+
+export type AvailabilityException = {
+  id: string
+  date: string
+  type: AvailabilityExceptionType
+  start_time: string | null
+  end_time: string | null
+  reason: string
+}
+
+export type ScheduleSettings = {
+  slot_interval_minutes: 15 | 30 | 60
+  buffer_between_services_minutes: number
+  minimum_notice_hours: number
+  max_days_ahead: number
+  allow_same_day_booking: boolean
+  allow_manual_outside_availability: boolean
 }
 
 export type AdminStats = {
@@ -216,10 +266,12 @@ export const defaultAppointments: AppointmentRecord[] = [
     service_name: 'Design com Henna',
     scheduled_date: new Date().toISOString().slice(0, 10),
     start_time: '09:00',
+    end_time: '10:00',
     status: 'confirmed',
     charged_amount_cents: 3000,
     received_amount_cents: 3000,
     payment_method: 'pix',
+    payment_status: 'paid',
     notes: 'Primeira cliente do dia.',
   },
   {
@@ -231,10 +283,12 @@ export const defaultAppointments: AppointmentRecord[] = [
     service_name: 'Design com Coloracao',
     scheduled_date: new Date().toISOString().slice(0, 10),
     start_time: '14:30',
+    end_time: '15:40',
     status: 'scheduled',
     charged_amount_cents: 4000,
     received_amount_cents: 0,
     payment_method: 'pix',
+    payment_status: 'pending',
     notes: 'Enviar confirmacao pela manha.',
   },
   {
@@ -246,11 +300,34 @@ export const defaultAppointments: AppointmentRecord[] = [
     service_name: 'Design com Henna',
     scheduled_date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     start_time: '16:00',
+    end_time: '17:00',
     status: 'confirmed',
     charged_amount_cents: 3000,
     received_amount_cents: 1500,
     payment_method: 'cash',
+    payment_status: 'partial',
     notes: 'Pagamento parcial combinado.',
+  },
+]
+
+export const defaultPaymentTransactions: PaymentTransaction[] = [
+  {
+    id: 'txn-1',
+    appointment_id: 'appt-1',
+    amount_cents: 3000,
+    method: 'pix',
+    paid_at: new Date().toISOString(),
+    notes: 'Pagamento integral.',
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'txn-2',
+    appointment_id: 'appt-3',
+    amount_cents: 1500,
+    method: 'cash',
+    paid_at: new Date().toISOString(),
+    notes: 'Sinal registrado.',
+    created_at: new Date().toISOString(),
   },
 ]
 
@@ -306,6 +383,48 @@ export const defaultUnavailableBlocks = [
   { id: 'lunch', label: 'Almoco / indisponivel', start: '12:00', end: '13:30' },
   { id: 'closing', label: 'Fechamento', start: '19:00', end: '20:00' },
 ]
+
+export const defaultBusinessHours: BusinessHour[] = [
+  { id: 'sun', day_of_week: 0, is_open: false, start_time: '09:00', end_time: '18:00' },
+  { id: 'mon', day_of_week: 1, is_open: false, start_time: '09:00', end_time: '18:00' },
+  { id: 'tue', day_of_week: 2, is_open: true, start_time: '09:00', end_time: '18:00' },
+  { id: 'wed', day_of_week: 3, is_open: true, start_time: '09:00', end_time: '18:00' },
+  { id: 'thu', day_of_week: 4, is_open: true, start_time: '09:00', end_time: '18:00' },
+  { id: 'fri', day_of_week: 5, is_open: true, start_time: '09:00', end_time: '18:00' },
+  { id: 'sat', day_of_week: 6, is_open: true, start_time: '09:00', end_time: '14:00' },
+]
+
+export const defaultAvailabilityRules: AvailabilityRule[] = [
+  { id: 'tue-morning', day_of_week: 2, start_time: '09:00', end_time: '12:00', active: true },
+  { id: 'tue-afternoon', day_of_week: 2, start_time: '13:30', end_time: '18:00', active: true },
+  { id: 'wed-morning', day_of_week: 3, start_time: '09:00', end_time: '12:00', active: true },
+  { id: 'wed-afternoon', day_of_week: 3, start_time: '14:00', end_time: '18:00', active: true },
+  { id: 'thu-morning', day_of_week: 4, start_time: '09:00', end_time: '12:00', active: true },
+  { id: 'thu-afternoon', day_of_week: 4, start_time: '13:30', end_time: '18:00', active: true },
+  { id: 'fri-morning', day_of_week: 5, start_time: '09:00', end_time: '12:00', active: true },
+  { id: 'fri-afternoon', day_of_week: 5, start_time: '13:30', end_time: '18:00', active: true },
+  { id: 'sat-short', day_of_week: 6, start_time: '09:00', end_time: '14:00', active: true },
+]
+
+export const defaultAvailabilityExceptions: AvailabilityException[] = [
+  {
+    id: 'today-lunch',
+    date: new Date().toISOString().slice(0, 10),
+    type: 'blocked',
+    start_time: '12:00',
+    end_time: '13:30',
+    reason: 'Almoco',
+  },
+]
+
+export const defaultScheduleSettings: ScheduleSettings = {
+  slot_interval_minutes: 30,
+  buffer_between_services_minutes: 0,
+  minimum_notice_hours: 0,
+  max_days_ahead: 60,
+  allow_same_day_booking: true,
+  allow_manual_outside_availability: false,
+}
 
 export const timelineSlots = buildTimeSlots('08:00', '20:00', 30)
 
@@ -385,17 +504,30 @@ export function formatDateShort(dateIso: string) {
   }).format(new Date(`${dateIso}T12:00:00`))
 }
 
+export function getDayOfWeek(dateIso: string) {
+  return new Date(`${dateIso}T12:00:00`).getDay()
+}
+
 export function minutesFromTime(time: string) {
   const [hour = '0', minute = '0'] = time.split(':')
   return Number.parseInt(hour, 10) * 60 + Number.parseInt(minute, 10)
 }
 
+export function timeFromMinutes(totalMinutes: number) {
+  const normalized = Math.max(0, totalMinutes)
+  const hour = Math.floor(normalized / 60)
+  const minute = normalized % 60
+  return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+}
+
+export function addMinutesToTime(time: string, minutes: number) {
+  return timeFromMinutes(minutesFromTime(time) + minutes)
+}
+
 export function buildTimeSlots(start: string, end: string, stepMinutes: number) {
   const slots: string[] = []
   for (let cursor = minutesFromTime(start); cursor <= minutesFromTime(end); cursor += stepMinutes) {
-    const hour = Math.floor(cursor / 60)
-    const minute = cursor % 60
-    slots.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`)
+    slots.push(timeFromMinutes(cursor))
   }
   return slots
 }
@@ -405,25 +537,158 @@ export function isTimeInBlock(time: string, block: { start: string; end: string 
   return minute >= minutesFromTime(block.start) && minute < minutesFromTime(block.end)
 }
 
+export function rangesOverlap(start: string, end: string, otherStart: string, otherEnd: string) {
+  return minutesFromTime(start) < minutesFromTime(otherEnd) && minutesFromTime(end) > minutesFromTime(otherStart)
+}
+
+export function rangeFitsInside(start: string, end: string, rangeStart: string, rangeEnd: string) {
+  return minutesFromTime(start) >= minutesFromTime(rangeStart) && minutesFromTime(end) <= minutesFromTime(rangeEnd)
+}
+
 export function isUnavailableTime(time: string) {
   return defaultUnavailableBlocks.some((block) => isTimeInBlock(time, block))
 }
 
-export function hasScheduleConflict(appointments: AppointmentRecord[], date: string, time: string, ignoreId?: string) {
+export function getServiceForAppointment(appointment: AppointmentRecord, services: ServiceItem[] = defaultServices) {
+  return services.find((service) => service.id === appointment.service_id) ?? services.find((service) => service.name === appointment.service_name)
+}
+
+export function getAppointmentDurationMinutes(appointment: AppointmentRecord, services: ServiceItem[] = defaultServices) {
+  return getServiceForAppointment(appointment, services)?.duration_minutes ?? 60
+}
+
+export function getAppointmentEndTime(appointment: AppointmentRecord, services: ServiceItem[] = defaultServices) {
+  return appointment.end_time ?? addMinutesToTime(appointment.start_time, getAppointmentDurationMinutes(appointment, services))
+}
+
+export function hasScheduleConflict(
+  appointments: AppointmentRecord[],
+  date: string,
+  time: string,
+  ignoreId?: string,
+  services: ServiceItem[] = defaultServices,
+  durationMinutes = 60,
+  bufferMinutes = 0,
+) {
+  const targetEnd = addMinutesToTime(time, durationMinutes + bufferMinutes)
+
   return appointments.some(
-    (appointment) =>
-      appointment.id !== ignoreId &&
-      appointment.scheduled_date === date &&
-      appointment.start_time === time &&
-      appointment.status !== 'canceled' &&
-      appointment.status !== 'no_show',
+    (appointment) => {
+      if (
+        appointment.id === ignoreId ||
+        appointment.scheduled_date !== date ||
+        appointment.status === 'canceled' ||
+        appointment.status === 'no_show'
+      ) {
+        return false
+      }
+
+      const appointmentEnd = addMinutesToTime(
+        getAppointmentEndTime(appointment, services),
+        bufferMinutes,
+      )
+
+      return rangesOverlap(time, targetEnd, appointment.start_time, appointmentEnd)
+    },
   )
 }
 
-export function getAvailableSlots(appointments: AppointmentRecord[], date: string) {
-  return buildTimeSlots('08:00', '18:00', 30).filter(
-    (slot) => !isUnavailableTime(slot) && !hasScheduleConflict(appointments, date, slot),
-  )
+export function getBusinessHourForDate(date: string, businessHours: BusinessHour[] = defaultBusinessHours) {
+  return businessHours.find((hour) => hour.day_of_week === getDayOfWeek(date))
+}
+
+export function getAvailabilityRulesForDate(date: string, rules: AvailabilityRule[] = defaultAvailabilityRules) {
+  const dayOfWeek = getDayOfWeek(date)
+  return rules.filter((rule) => rule.day_of_week === dayOfWeek && rule.active)
+}
+
+export function getBlockingExceptions(date: string, exceptions: AvailabilityException[] = defaultAvailabilityExceptions) {
+  return exceptions.filter((exception) => exception.date === date && exception.type !== 'custom_available')
+}
+
+export function isSlotBlockedByException(
+  date: string,
+  start: string,
+  end: string,
+  exceptions: AvailabilityException[] = defaultAvailabilityExceptions,
+) {
+  return getBlockingExceptions(date, exceptions).some((exception) => {
+    if (exception.type === 'holiday' || exception.type === 'vacation' || !exception.start_time || !exception.end_time) {
+      return true
+    }
+
+    return rangesOverlap(start, end, exception.start_time, exception.end_time)
+  })
+}
+
+export function isSlotInsideAvailability(
+  date: string,
+  start: string,
+  end: string,
+  businessHours: BusinessHour[] = defaultBusinessHours,
+  rules: AvailabilityRule[] = defaultAvailabilityRules,
+  exceptions: AvailabilityException[] = defaultAvailabilityExceptions,
+) {
+  const businessHour = getBusinessHourForDate(date, businessHours)
+  if (!businessHour?.is_open || !rangeFitsInside(start, end, businessHour.start_time, businessHour.end_time)) {
+    return false
+  }
+
+  if (isSlotBlockedByException(date, start, end, exceptions)) {
+    return false
+  }
+
+  const customRules = exceptions.filter((exception) => exception.date === date && exception.type === 'custom_available')
+  if (customRules.length) {
+    return customRules.some(
+      (exception) =>
+        exception.start_time &&
+        exception.end_time &&
+        rangeFitsInside(start, end, exception.start_time, exception.end_time),
+    )
+  }
+
+  return getAvailabilityRulesForDate(date, rules).some((rule) => rangeFitsInside(start, end, rule.start_time, rule.end_time))
+}
+
+export function buildAgendaSlotsForDate(
+  date: string,
+  businessHours: BusinessHour[] = defaultBusinessHours,
+  settings: ScheduleSettings = defaultScheduleSettings,
+) {
+  const businessHour = getBusinessHourForDate(date, businessHours)
+  if (!businessHour?.is_open) {
+    return buildTimeSlots('08:00', '18:00', settings.slot_interval_minutes)
+  }
+
+  return buildTimeSlots(businessHour.start_time, businessHour.end_time, settings.slot_interval_minutes)
+}
+
+export function getAvailableSlots(
+  appointments: AppointmentRecord[],
+  date: string,
+  services: ServiceItem[] = defaultServices,
+  businessHours: BusinessHour[] = defaultBusinessHours,
+  availabilityRules: AvailabilityRule[] = defaultAvailabilityRules,
+  exceptions: AvailabilityException[] = defaultAvailabilityExceptions,
+  settings: ScheduleSettings = defaultScheduleSettings,
+  durationMinutes = 60,
+) {
+  return buildAgendaSlotsForDate(date, businessHours, settings).filter((slot) => {
+    const end = addMinutesToTime(slot, durationMinutes)
+    return (
+      isSlotInsideAvailability(date, slot, end, businessHours, availabilityRules, exceptions) &&
+      !hasScheduleConflict(
+        appointments,
+        date,
+        slot,
+        undefined,
+        services,
+        durationMinutes,
+        settings.buffer_between_services_minutes,
+      )
+    )
+  })
 }
 
 function getWeekBounds(today: string) {
@@ -433,6 +698,11 @@ function getWeekBounds(today: string) {
   const start = addDays(today, offset)
   const end = addDays(start, 6)
   return { start, end }
+}
+
+export function getWeekDates(dateIso: string) {
+  const { start } = getWeekBounds(dateIso)
+  return Array.from({ length: 7 }, (_, index) => addDays(start, index))
 }
 
 export function calculateAdminStats(
@@ -472,7 +742,15 @@ export function calculateAdminStats(
   }
 }
 
-export function getPaymentState(appointment: Pick<AppointmentRecord, 'charged_amount_cents' | 'received_amount_cents'>) {
+export function getPaymentState(
+  appointment: Pick<AppointmentRecord, 'charged_amount_cents' | 'received_amount_cents'> & {
+    payment_status?: PaymentStatus | null
+  },
+) {
+  if (appointment.payment_status === 'canceled') {
+    return 'canceled'
+  }
+
   if (appointment.received_amount_cents <= 0) {
     return 'pending'
   }
