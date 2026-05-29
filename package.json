@@ -1,8 +1,8 @@
 {
-  "name": "hellen-brows",
+  "name": "hellen-designer",
   "private": true,
   "version": "1.0.0",
-  "description": "Site de agendamento para servicos de sobrancelhas com Supabase e Vercel.",
+  "description": "Landing publica e painel admin para Hellen Designer.",
   "type": "module",
   "scripts": {
     "dev": "vite",

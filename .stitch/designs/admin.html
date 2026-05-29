@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Studio Gold | Painel Administrativo</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&amp;family=Montserrat:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary-fixed": "#2a1700",
+                    "success": "#63D697",
+                    "background": "#151311",
+                    "on-surface-variant": "#d3c4b1",
+                    "on-secondary-fixed-variant": "#574411",
+                    "outline": "#9c8f7d",
+                    "on-primary": "#422c00",
+                    "surface-container-low": "#1d1b19",
+                    "tertiary-container": "#dda152",
+                    "inverse-primary": "#7d5700",
+                    "surface-soft": "#21170D",
+                    "surface-container-lowest": "#100e0c",
+                    "surface-container-highest": "#373432",
+                    "primary-fixed": "#ffdeaa",
+                    "text-primary": "#F8EAD0",
+                    "line": "#4D3517",
+                    "text-muted": "#C6B696",
+                    "tertiary-fixed-dim": "#fabb68",
+                    "surface-raised": "#17110B",
+                    "surface": "#100C08",
+                    "danger": "#FF7E61",
+                    "on-primary-fixed-variant": "#5f4100",
+                    "outline-variant": "#4f4536",
+                    "surface-variant": "#373432",
+                    "error-container": "#93000a",
+                    "warning": "#F4C873",
+                    "secondary": "#dfc484",
+                    "on-secondary-fixed": "#251a00",
+                    "secondary-fixed": "#fce09e",
+                    "surface-container": "#221f1d",
+                    "surface-tint": "#f5bd58",
+                    "primary-fixed-dim": "#f5bd58",
+                    "on-secondary": "#3e2e00",
+                    "on-surface": "#e8e1dd",
+                    "on-background": "#e8e1dd",
+                    "tertiary": "#fcbc6a",
+                    "secondary-container": "#574411",
+                    "on-secondary-container": "#cdb275",
+                    "surface-container-high": "#2c2927",
+                    "on-primary-fixed": "#271900",
+                    "on-error-container": "#ffdad6",
+                    "on-error": "#690005",
+                    "inverse-on-surface": "#33302d",
+                    "on-tertiary": "#462a00",
+                    "on-primary-container": "#573c00",
+                    "secondary-fixed-dim": "#dfc484",
+                    "tertiary-fixed": "#ffddb7",
+                    "error": "#ffb4ab",
+                    "primary-container": "#d9a441",
+                    "on-tertiary-fixed-variant": "#643e00",
+                    "surface-bright": "#3c3936",
+                    "on-tertiary-container": "#5c3900",
+                    "inverse-surface": "#e8e1dd",
+                    "primary": "#f7bf59",
+                    "surface-dim": "#151311"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "gutter": "16px",
+                    "admin-tight": "4px",
+                    "container-padding": "24px",
+                    "section-gap": "80px",
+                    "base": "8px",
+                    "admin-normal": "12px"
+            },
+            "fontFamily": {
+                    "headline-md": ["Playfair Display"],
+                    "headline-lg-mobile": ["Playfair Display"],
+                    "body-lg": ["Montserrat"],
+                    "tabular-nums": ["Montserrat"],
+                    "body-md": ["Montserrat"],
+                    "label-sm": ["Montserrat"],
+                    "headline-lg": ["Playfair Display"],
+                    "display-lg": ["Playfair Display"],
+                    "label-md": ["Montserrat"]
+            },
+            "fontSize": {
+                    "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                    "headline-lg-mobile": ["32px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "tabular-nums": ["14px", {"fontWeight": "400"}],
+                    "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                    "label-sm": ["12px", {"lineHeight": "1.2", "fontWeight": "500"}],
+                    "headline-lg": ["40px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                    "display-lg": ["56px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "label-md": ["14px", {"lineHeight": "1.2", "letterSpacing": "0.05em", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #050403;
+            color: #F8EAD0;
+            font-family: 'Montserrat', sans-serif;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #100C08;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #4D3517;
+            border-radius: 10px;
+        }
+        .status-badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .glass-card {
+            background: rgba(34, 31, 29, 0.4);
+            backdrop-filter: blur(8px);
+            border: 1px solid #4D3517;
+        }
+    </style>
+</head>
+<body class="h-screen flex overflow-hidden">
+<!-- SideNavBar Anchor -->
+<aside class="fixed left-0 top-0 h-full flex flex-col py-6 overflow-y-auto z-50 bg-surface dark:bg-surface border-r border-line w-64">
+<div class="px-6 mb-8">
+<h1 class="font-headline-md text-headline-md text-primary font-bold">Studio Gold</h1>
+<p class="text-label-sm text-text-muted mt-1 uppercase tracking-widest">Admin Dashboard</p>
+</div>
+<div class="px-4 mb-8">
+<div class="flex items-center gap-3 p-3 bg-surface-container rounded-lg border border-line/30">
+<img alt="Hellen Designer" class="w-10 h-10 rounded-full object-cover border border-primary/50" data-alt="A professional close-up portrait of a sophisticated woman with styled dark hair and elegant makeup, embodying the luxury beauty brand Studio Gold. She is positioned against a soft, dark studio background with subtle warm lighting highlighting her features, creating a high-end, intimate cosmetic service aesthetic. The color palette is dominated by deep blacks and warm gold tones." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDWdHxTT8uPFMLYRPPFdRUC-Obr8Uog1KMoa3NYYbEU75kkm5OapX2zNyqy8-o8y0EBrpm1BBvPLxW5Xoe9uI5667iPDQeBPw0AzCdgJ2yjih8IvkWdia-53ln4mao7AvNeyZa6ARyzcZ2GNrFHJ8p-koqTWnXOKCu_nExyfiFGK3YHtAf0iW_oDtlptMNoEWf7bzqfBGbhX9o9zdVI6PBkX2li2FPYkjgDOw4C2Gp6XEPzdoJU7_nehVU7WLLBbF5Ln3249RvQh9U"/>
+<div class="overflow-hidden">
+<p class="font-label-md text-text-primary truncate">Hellen Designer</p>
+<p class="text-[10px] text-text-muted truncate uppercase">Studio Gold Admin</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1 px-2">
+<!-- Active Navigation Logic: "Hoje" is selected by default for Dashboard -->
+<a class="flex items-center gap-3 px-4 py-3 rounded text-primary border-r-2 border-primary bg-secondary-container/10 transition-all duration-150" href="#">
+<span class="material-symbols-outlined">today</span>
+<span class="font-label-md">Hoje</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded text-text-muted hover:bg-surface-variant hover:text-primary transition-all duration-150" href="#">
+<span class="material-symbols-outlined">calendar_month</span>
+<span class="font-label-md">Agenda</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded text-text-muted hover:bg-surface-variant hover:text-primary transition-all duration-150" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-label-md">Clientes</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded text-text-muted hover:bg-surface-variant hover:text-primary transition-all duration-150" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-label-md">Financeiro</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded text-text-muted hover:bg-surface-variant hover:text-primary transition-all duration-150" href="#">
+<span class="material-symbols-outlined">web</span>
+<span class="font-label-md">Landing</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded text-text-muted hover:bg-surface-variant hover:text-primary transition-all duration-150" href="#">
+<span class="material-symbols-outlined">auto_fix</span>
+<span class="font-label-md">Serviços</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded text-text-muted hover:bg-surface-variant hover:text-primary transition-all duration-150" href="#">
+<span class="material-symbols-outlined">photo_library</span>
+<span class="font-label-md">Fotos</span>
+</a>
+</nav>
+<div class="px-2 mt-auto">
+<a class="flex items-center gap-3 px-4 py-3 rounded text-danger hover:bg-error-container/10 transition-all duration-150" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-label-md">Sair</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 ml-64 flex flex-col h-full bg-background overflow-hidden">
+<!-- TopNavBar Anchor -->
+<header class="flex justify-between items-center w-full px-container-padding h-16 sticky top-0 z-40 bg-surface dark:bg-surface border-b border-line">
+<div class="flex items-center gap-4">
+<span class="font-tabular-nums text-label-md text-text-muted">Quarta, 24 de Maio</span>
+</div>
+<div class="flex-1 max-w-md mx-8">
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-text-muted text-[20px]">search</span>
+<input class="w-full bg-surface-soft border border-line rounded-lg py-2 pl-10 pr-4 text-body-md focus:outline-none focus:border-primary transition-colors" placeholder="Buscar cliente..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="flex items-center gap-2 bg-primary text-on-primary px-6 py-2 rounded-lg font-label-md active:scale-95 transition-transform">
+<span class="material-symbols-outlined">add</span>
+                    Novo Horário
+                </button>
+</div>
+</header>
+<!-- Dashboard Content -->
+<div class="flex-1 overflow-y-auto p-gutter custom-scrollbar space-y-gutter">
+<!-- Métricas do Dia -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-gutter">
+<div class="p-5 border border-line bg-surface-container rounded-lg flex items-center justify-between">
+<div>
+<p class="text-label-sm text-text-muted uppercase">Clientes hoje</p>
+<h3 class="font-headline-md text-primary mt-1">12</h3>
+</div>
+<span class="material-symbols-outlined text-primary/30 text-[32px]">event_available</span>
+</div>
+<div class="p-5 border border-line bg-surface-container rounded-lg flex items-center justify-between">
+<div>
+<p class="text-label-sm text-text-muted uppercase">Recebido (R$)</p>
+<h3 class="font-headline-md text-success mt-1">1.450,00</h3>
+</div>
+<span class="material-symbols-outlined text-success/30 text-[32px]">payments</span>
+</div>
+<div class="p-5 border border-line bg-surface-container rounded-lg flex items-center justify-between">
+<div>
+<p class="text-label-sm text-text-muted uppercase">Pendente (R$)</p>
+<h3 class="font-headline-md text-warning mt-1">380,00</h3>
+</div>
+<span class="material-symbols-outlined text-warning/30 text-[32px]">pending_actions</span>
+</div>
+<div class="p-5 border border-line bg-surface-container rounded-lg flex items-center justify-between">
+<div>
+<p class="text-label-sm text-text-muted uppercase">Faltas</p>
+<h3 class="font-headline-md text-danger mt-1">01</h3>
+</div>
+<span class="material-symbols-outlined text-danger/30 text-[32px]">person_off</span>
+</div>
+</div>
+<!-- Bento Layout: Agenda and Detail Panel -->
+<div class="grid grid-cols-12 gap-gutter items-start">
+<!-- Agenda de Hoje -->
+<div class="col-span-12 lg:col-span-8 space-y-4">
+<div class="flex justify-between items-end">
+<h2 class="font-headline-md text-text-primary">Agenda de Hoje</h2>
+<span class="text-label-sm text-primary underline cursor-pointer">Ver agenda completa</span>
+</div>
+<div class="bg-surface border border-line overflow-hidden rounded-lg">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-line bg-surface-container-low">
+<th class="px-4 py-3 font-label-md text-text-muted uppercase text-[10px]">Horário</th>
+<th class="px-4 py-3 font-label-md text-text-muted uppercase text-[10px]">Cliente</th>
+<th class="px-4 py-3 font-label-md text-text-muted uppercase text-[10px]">Serviço</th>
+<th class="px-4 py-3 font-label-md text-text-muted uppercase text-[10px]">Valor</th>
+<th class="px-4 py-3 font-label-md text-text-muted uppercase text-[10px]">Status</th>
+<th class="px-4 py-3 font-label-md text-text-muted uppercase text-[10px] text-right">Ações</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-line/50">
+<tr class="hover:bg-surface-container/30 transition-colors group cursor-pointer border-l-2 border-transparent hover:border-primary">
+<td class="px-4 py-4 font-tabular-nums text-text-primary">09:00</td>
+<td class="px-4 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center text-[12px] font-bold text-on-secondary-container">AM</div>
+<span class="font-body-md text-text-primary">Ana Maria</span>
+</div>
+</td>
+<td class="px-4 py-4 text-label-md text-text-muted">Design Reconstrutivo</td>
+<td class="px-4 py-4 font-tabular-nums text-text-primary">R$ 120,00</td>
+<td class="px-4 py-4">
+<span class="status-badge bg-success/10 text-success border border-success/20">Concluído</span>
+</td>
+<td class="px-4 py-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="material-symbols-outlined text-[18px] text-success hover:scale-110 transition-transform">check_circle</button>
+<button class="material-symbols-outlined text-[18px] text-primary hover:scale-110 transition-transform">edit</button>
+</div>
+</td>
+</tr>
+<tr class="bg-surface-container/20 border-l-2 border-primary">
+<td class="px-4 py-4 font-tabular-nums text-text-primary">10:30</td>
+<td class="px-4 py-4">
+<div class="flex items-center gap-3">
+<img alt="Juliana Costa" class="w-8 h-8 rounded-full object-cover" data-alt="A portrait of a stylish woman with professional studio makeup, illuminated with warm lighting that creates a soft glow on her face. The style is minimalist and high-end, fitting for a luxury aesthetic. Deep black background with very subtle golden rim light." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDnIlW4vA6gCL0us4iYlW7--isUJ28o_uXPQfuLtg2MUJmXW43LAF92Sw4C4n1b4PWu7aKDxVMcmoQVOX0u5KfMUrcltyKHKW413yWlFKHaHVhvP5Hr53FePJCx922iu3AEHxnBLxPKyISmih2LO78yD7j37P9N_D-FdqWWKKXMy8TGMLhrbyruEDcFwOrIVFgqJMlOVAZjfgxfW7-YIW-Hem7iBA3hdguH0MUQrNvq1O3ZtHCxeE1SKc98NbN6SZqeyQNw9oN5ZNo"/>
+<span class="font-body-md text-text-primary">Juliana Costa</span>
+</div>
+</td>
+<td class="px-4 py-4 text-label-md text-text-muted">Microblading Retoque</td>
+<td class="px-4 py-4 font-tabular-nums text-text-primary">R$ 450,00</td>
+<td class="px-4 py-4">
+<span class="status-badge bg-primary/10 text-primary border border-primary/20">Confirmado</span>
+</td>
+<td class="px-4 py-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="material-symbols-outlined text-[18px] text-success hover:scale-110 transition-transform">chat</button>
+<button class="material-symbols-outlined text-[18px] text-primary hover:scale-110 transition-transform">edit</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-surface-container/30 transition-colors cursor-pointer border-l-2 border-transparent">
+<td class="px-4 py-4 font-tabular-nums text-text-primary">14:00</td>
+<td class="px-4 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center text-[12px] font-bold text-text-muted">BP</div>
+<span class="font-body-md text-text-primary">Beatriz Paiva</span>
+</div>
+</td>
+<td class="px-4 py-4 text-label-md text-text-muted">Extensão Cílios</td>
+<td class="px-4 py-4 font-tabular-nums text-text-primary">R$ 180,00</td>
+<td class="px-4 py-4">
+<span class="status-badge bg-warning/10 text-warning border border-warning/20">Pendente</span>
+</td>
+<td class="px-4 py-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="material-symbols-outlined text-[18px] text-success hover:scale-110 transition-transform">chat</button>
+<button class="material-symbols-outlined text-[18px] text-primary hover:scale-110 transition-transform">edit</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Editor de Landing e Galeria Grid -->
+<div class="grid grid-cols-2 gap-gutter">
+<!-- Editor Landing -->
+<div class="p-5 border border-line bg-surface-container rounded-lg space-y-4">
+<h4 class="font-label-md text-text-primary uppercase tracking-wider">Editor de Landing</h4>
+<div class="space-y-3">
+<div>
+<label class="text-[10px] text-text-muted uppercase">WhatsApp</label>
+<input class="w-full bg-surface-soft border border-line rounded p-2 text-tabular-nums mt-1 focus:border-primary focus:outline-none" type="text" value="(11) 98765-4321"/>
+</div>
+<div>
+<label class="text-[10px] text-text-muted uppercase">Instagram User</label>
+<input class="w-full bg-surface-soft border border-line rounded p-2 text-body-md mt-1 focus:border-primary focus:outline-none" type="text" value="@hellen_designer"/>
+</div>
+<div class="flex items-center justify-between pt-2">
+<span class="text-body-md text-text-primary">Site Publicado</span>
+<div class="w-10 h-5 bg-primary/20 rounded-full relative border border-line cursor-pointer">
+<div class="absolute right-1 top-1 w-3 h-3 bg-primary rounded-full"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Lista de Serviços (Compacta) -->
+<div class="p-5 border border-line bg-surface-container rounded-lg space-y-4 overflow-hidden">
+<div class="flex justify-between items-center">
+<h4 class="font-label-md text-text-primary uppercase tracking-wider">Serviços Ativos</h4>
+<span class="material-symbols-outlined text-primary text-[20px] cursor-pointer">add_circle</span>
+</div>
+<div class="space-y-2 overflow-y-auto max-h-[160px] custom-scrollbar pr-2">
+<div class="flex justify-between items-center py-2 border-b border-line/30">
+<span class="text-label-md">Design + Henna</span>
+<span class="text-tabular-nums text-primary font-bold">R$ 80</span>
+</div>
+<div class="flex justify-between items-center py-2 border-b border-line/30">
+<span class="text-label-md">Micropigmentação</span>
+<span class="text-tabular-nums text-primary font-bold">R$ 650</span>
+</div>
+<div class="flex justify-between items-center py-2 border-b border-line/30">
+<span class="text-label-md">Lash Lifting</span>
+<span class="text-tabular-nums text-primary font-bold">R$ 150</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Painel Lateral de Detalhe Contextual -->
+<div class="col-span-12 lg:col-span-4 space-y-gutter sticky top-4">
+<div class="border border-line bg-surface-raised rounded-lg overflow-hidden flex flex-col">
+<div class="h-24 bg-surface-soft border-b border-line relative">
+<div class="absolute -bottom-10 left-6">
+<img alt="Juliana Costa Detail" class="w-20 h-20 rounded-full object-cover border-4 border-surface-raised" data-alt="Close up high-end portrait of a client in a beauty studio, showcasing detailed lash and eyebrow work. Lighting is warm and localized, highlighting the skin texture and metallic gold accents in the environment. Sophisticated dark mode aesthetic with deep black shadows." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVNBidRSEJe3UOtSTxCMCOrrG2N2gyHaKY4Kkt1jXkpPlTnQzJ8tJosw4_xUpkYSmXhmA9Yw5GPaTAj16X8Cj0TkNkDCeJm9dh28b4jxCLCJh-mUUd_evMIyW7ljj_FRq96qocLYIw2lYm8Rn33QNsCPZlX36rq4WWJyg553tCGybAqZvI80lCj3e_IYIHSbA8ExbYS-aBGnG5P4qGNX-wHlv-uGPhT4xEdyihy_0YX4W6CY5qgHn9Kib3GUvehz6V3AU0DqyEZ4g"/>
+</div>
+</div>
+<div class="pt-12 px-6 pb-6 space-y-6">
+<div>
+<h3 class="font-headline-md text-text-primary">Juliana Costa</h3>
+<p class="text-label-sm text-text-muted italic">Cliente VIP desde Jan/2023</p>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-surface-soft p-3 rounded border border-line">
+<p class="text-[10px] text-text-muted uppercase">Investimento Total</p>
+<p class="font-tabular-nums text-primary font-bold">R$ 2.450,00</p>
+</div>
+<div class="bg-surface-soft p-3 rounded border border-line">
+<p class="text-[10px] text-text-muted uppercase">Visitas</p>
+<p class="font-tabular-nums text-primary font-bold">14 sessões</p>
+</div>
+</div>
+<div class="space-y-3">
+<p class="text-[10px] text-text-muted uppercase font-bold">Últimas Observações</p>
+<p class="text-body-md text-text-primary bg-surface p-3 rounded border border-line italic">"Pele sensível na região das sobrancelhas. Prefere tom de henna médio para natural."</p>
+</div>
+<div class="space-y-2">
+<button class="w-full bg-[#25D366] text-white py-3 rounded-lg flex items-center justify-center gap-2 font-label-md transition-opacity hover:opacity-90 active:scale-[0.98]">
+<span class="material-symbols-outlined">chat</span>
+                                    Chamar no WhatsApp
+                                </button>
+<button class="w-full border border-line text-text-muted py-3 rounded-lg font-label-md hover:bg-surface-variant transition-colors">
+                                    Ver Histórico Completo
+                                </button>
+</div>
+<!-- Financeira Seção -->
+<div class="pt-4 border-t border-line space-y-4">
+<h4 class="font-label-md text-text-primary uppercase tracking-wider">Últimos Pagamentos</h4>
+<div class="space-y-3">
+<div class="flex justify-between items-center text-sm">
+<div class="flex flex-col">
+<span class="text-text-primary">Design de Sobrancelha</span>
+<span class="text-[10px] text-text-muted">12 Mai, 2023</span>
+</div>
+<span class="status-badge bg-success/10 text-success border border-success/20">Pago</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<div class="flex flex-col">
+<span class="text-text-primary">Microblading (Sinal)</span>
+<span class="text-[10px] text-text-muted">05 Mai, 2023</span>
+</div>
+<span class="status-badge bg-warning/10 text-warning border border-warning/20">Parcial</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Galeria de Fotos Grid -->
+<div class="bg-surface border border-line rounded-lg p-5 space-y-4">
+<div class="flex justify-between items-center">
+<h4 class="font-label-md text-text-primary uppercase tracking-wider">Portfólio Recente</h4>
+<span class="text-label-sm text-primary cursor-pointer">Ver todas</span>
+</div>
+<div class="grid grid-cols-3 gap-2">
+<div class="aspect-square bg-surface-soft rounded overflow-hidden relative group cursor-pointer border border-line">
+<img alt="Work 1" class="w-full h-full object-cover" data-alt="Macro photography of detailed eyebrow microblading work, showing crisp hair strokes and a natural shape. The lighting is bright and clear to emphasize professional precision. Dark background provides a premium contrast in a beauty salon setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCAvx9TunKNpXvZx14wl2JeVGlJrCMKehKdw1ICAiIgnxgnhCRKd_5nDw887fZz4zt4vQyr2n3njzEExdtJR0eD7TocsMHH8hUKdRKNt4-zF5QRz00VKJywvFhMAxzRGdvMATZxJprhMRfdODeFCCa5h3cytOTCzK26CGRaQK_TkMh4RSdvZ09VacmCzoXSCDkPy2DXxjUXgVpZs5KKbQE_ibZQPkyGAqeRYQyHIasQuIiRGOSh_FsH4NljAoj9aWUeATsBpWoSZlg"/>
+<div class="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+<span class="material-symbols-outlined text-white">visibility</span>
+</div>
+</div>
+<div class="aspect-square bg-surface-soft rounded overflow-hidden relative group cursor-pointer border border-line">
+<img alt="Work 2" class="w-full h-full object-cover" data-alt="Detailed view of high-quality lash extensions in a luxury beauty studio. The image focus is on the lashes, with soft warm lighting and a deep black environment that emphasizes the studio gold aesthetic. Elegant, clean, and professional visual." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD4HOY8zG1EjIN2iNW-FxAOYyCKMEtLUF3pUPWCAq3D_ss7-4erLRUnT9XUmaR6busYU9Z60tUhCEeudwtEQdM37hNrJfVLc5zM6BNcHRCU8UA1UsU1C5BEfnB3Y8WXONnIA_QcfD4ensUrMdV2opkXCknGqaWpmTDLnI4IcQo5R26yy8XqQDKWDmNYYiTNWgkYYjGXBTNoUDNAwKsekNyrrJqCpH_1BTTRX2KEa0wxxcEKKROGt5OaQAhESyllXk_Ni7sHLTfKneU"/>
+<div class="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+<span class="material-symbols-outlined text-white text-[18px]">visibility_off</span>
+</div>
+</div>
+<div class="aspect-square bg-surface-soft rounded border border-line flex items-center justify-center cursor-pointer hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-primary text-[24px]">add</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Overlay FAB (Novo Agendamento Rápido Mobile/Global) -->
+<button class="fixed bottom-8 right-8 w-14 h-14 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-xl active:scale-90 transition-transform md:hidden">
+<span class="material-symbols-outlined text-[32px]">add</span>
+</button>
+<script>
+        // Micro-interactions and simple reactive logic
+        document.querySelectorAll('tbody tr').forEach(row => {
+            row.addEventListener('click', () => {
+                // In a real app, this would update the lateral detail panel
+                console.log('Cliente selecionada');
+            });
+        });
+
+        // Toggle simulation for Site Published
+        const toggleBtn = document.querySelector('.cursor-pointer.relative.w-10.h-5');
+        if(toggleBtn) {
+            toggleBtn.addEventListener('click', function() {
+                const knob = this.querySelector('div');
+                if (knob.classList.contains('right-1')) {
+                    knob.classList.remove('right-1');
+                    knob.classList.add('left-1');
+                    this.classList.replace('bg-primary/20', 'bg-surface-soft');
+                } else {
+                    knob.classList.remove('left-1');
+                    knob.classList.add('right-1');
+                    this.classList.replace('bg-surface-soft', 'bg-primary/20');
+                }
+            });
+        }
+    </script>
+</body></html>

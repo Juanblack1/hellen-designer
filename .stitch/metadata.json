@@ -1,0 +1,27 @@
+{
+  "projectId": "1155312581449594488",
+  "projectName": "Hellen Designer",
+  "designSystem": {
+    "assetId": "4979033361024d29a058739a4ada8675",
+    "name": "Hellen Designer Design System",
+    "source": ".stitch/DESIGN.md"
+  },
+  "screens": [
+    {
+      "id": "1f7a5549e5cd49f7b16174f546732908",
+      "name": "Hellen Designer - Landing Page",
+      "route": "/",
+      "deviceType": "DESKTOP",
+      "localHtml": ".stitch/designs/landing.html",
+      "localScreenshot": ".stitch/designs/landing.png"
+    },
+    {
+      "id": "a82a4dbdca154ed4b16433382b3e5bd2",
+      "name": "Hellen Designer - Admin Dashboard",
+      "route": "/admin",
+      "deviceType": "DESKTOP",
+      "localHtml": ".stitch/designs/admin.html",
+      "localScreenshot": ".stitch/designs/admin.png"
+    }
+  ]
+}
