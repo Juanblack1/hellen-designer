@@ -719,6 +719,7 @@ export function calculateAdminStats(
   const { start, end } = getWeekBounds(today)
   const month = today.slice(0, 7)
   const activeAppointments = appointments.filter((appointment) => appointment.status !== 'canceled')
+  const billableAppointments = activeAppointments.filter((appointment) => appointment.payment_status !== 'canceled')
 
   return {
     todayCount: todaysAppointments.length,
@@ -730,15 +731,17 @@ export function calculateAdminStats(
         appointment.status !== 'no_show',
     ).length,
     clientCount: clients.length,
-    receivedCents: todaysAppointments.reduce((sum, appointment) => sum + appointment.received_amount_cents, 0),
-    pendingCents: activeAppointments.reduce(
+    receivedCents: billableAppointments
+      .filter((appointment) => appointment.scheduled_date === today)
+      .reduce((sum, appointment) => sum + appointment.received_amount_cents, 0),
+    pendingCents: billableAppointments.reduce(
       (sum, appointment) => sum + Math.max(appointment.charged_amount_cents - appointment.received_amount_cents, 0),
       0,
     ),
-    weekReceivedCents: activeAppointments
+    weekReceivedCents: billableAppointments
       .filter((appointment) => appointment.scheduled_date >= start && appointment.scheduled_date <= end)
       .reduce((sum, appointment) => sum + appointment.received_amount_cents, 0),
-    monthReceivedCents: activeAppointments
+    monthReceivedCents: billableAppointments
       .filter((appointment) => appointment.scheduled_date.startsWith(month))
       .reduce((sum, appointment) => sum + appointment.received_amount_cents, 0),
     noShowCount: activeAppointments.filter((appointment) => appointment.status === 'no_show').length,

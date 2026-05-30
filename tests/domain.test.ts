@@ -93,6 +93,18 @@ describe('domain helpers', () => {
     )
   })
 
+  it('excludes canceled payments from received and pending finance totals', () => {
+    const stats = calculateAdminStats(
+      [{ ...baseAppointment, charged_amount_cents: 5000, received_amount_cents: 5000, payment_status: 'canceled' }],
+      '2026-05-29',
+    )
+
+    expect(stats.receivedCents).toBe(0)
+    expect(stats.pendingCents).toBe(0)
+    expect(stats.weekReceivedCents).toBe(0)
+    expect(stats.monthReceivedCents).toBe(0)
+  })
+
   it('masks Brazilian phones and blocks occupied, overlapping or unavailable slots', () => {
     const appointments: AppointmentRecord[] = [{ ...baseAppointment, start_time: '09:00' }]
 

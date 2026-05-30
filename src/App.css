@@ -904,6 +904,44 @@ textarea {
   padding: 10px 12px;
 }
 
+.admin-status-toast {
+  align-items: center;
+  background: rgba(23, 17, 11, 0.98);
+  border: 1px solid rgba(99, 214, 151, 0.34);
+  border-radius: 8px;
+  bottom: 18px;
+  box-shadow: var(--shadow-panel);
+  color: var(--text);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  max-width: min(440px, calc(100vw - 24px));
+  padding: 12px;
+  position: fixed;
+  right: 18px;
+  z-index: 120;
+}
+
+.admin-status-toast.error {
+  border-color: rgba(255, 126, 97, 0.42);
+}
+
+.admin-status-toast span {
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.admin-status-toast button {
+  background: rgba(217, 164, 65, 0.08);
+  border: 1px solid rgba(217, 164, 65, 0.2);
+  color: var(--gold-bright);
+  min-height: 32px;
+  padding: 0;
+  width: 32px;
+}
+
 .admin-workspace,
 .finance-layout,
 .landing-manager {
@@ -1918,6 +1956,11 @@ textarea {
   padding: 0 12px;
 }
 
+.payment-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .payment-actions button:last-child,
 .danger-action {
   border-color: rgba(255, 126, 97, 0.32);
@@ -2039,6 +2082,19 @@ textarea {
 
 .wide-modal {
   max-width: 680px;
+}
+
+.confirm-backdrop {
+  display: grid;
+  place-items: center;
+}
+
+.confirm-modal {
+  left: auto;
+  max-width: 480px;
+  position: relative;
+  top: auto;
+  transform: none;
 }
 
 .modal-grid {
@@ -2913,6 +2969,21 @@ textarea {
     top: auto;
     transform: none;
     width: 100%;
+  }
+
+  .confirm-backdrop {
+    align-items: end;
+  }
+
+  .confirm-modal {
+    max-width: none;
+    width: 100%;
+  }
+
+  .admin-status-toast {
+    bottom: 76px;
+    left: 10px;
+    right: 10px;
   }
 
   .site-footer {

@@ -198,6 +198,10 @@ type GalleryDraft = {
   file: File | null
 }
 
+function isStatusErrorMessage(message: string) {
+  return /^(Alguns|A regra|Data|Esse|Horario|Informe|Ja existe|Nao|O fim|O valor|Selecione)/.test(message)
+}
+
 const todayIso = () => new Date().toISOString().slice(0, 10)
 const canonicalPublicUrl = import.meta.env.VITE_PUBLIC_SITE_URL?.trim() || 'https://hellen-designer.vercel.app'
 const canonicalAdminUrl = import.meta.env.VITE_ADMIN_SITE_URL?.trim() || 'https://hellen-designer-admin.vercel.app'
@@ -426,6 +430,7 @@ function App() {
   const [isProductModalOpen, setIsProductModalOpen] = useState(false)
   const [isPaymentLauncherOpen, setIsPaymentLauncherOpen] = useState(false)
   const [isBlockModalOpen, setIsBlockModalOpen] = useState(false)
+  const [deleteAppointmentTarget, setDeleteAppointmentTarget] = useState<AppointmentRecord | null>(null)
   const [newClient, setNewClient] = useState<ClientDraft>(() => newClientDraft())
   const [paymentLauncher, setPaymentLauncher] = useState<PaymentLauncherDraft>({ search: '' })
   const [exceptionDraft, setExceptionDraft] = useState<ExceptionDraft>({
@@ -867,6 +872,80 @@ function App() {
     return () => window.clearTimeout(redirectTimer)
   }, [isAdminRoute, redirectToAdminHost, route])
 
+  useEffect(() => {
+    if (!dataStatus) {
+      return undefined
+    }
+
+    const statusTimer = window.setTimeout(() => setDataStatus(''), 8000)
+    return () => window.clearTimeout(statusTimer)
+  }, [dataStatus])
+
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') {
+        return
+      }
+
+      if (deleteAppointmentTarget) {
+        setDeleteAppointmentTarget(null)
+        return
+      }
+
+      if (cancelPaymentDraft) {
+        setCancelPaymentDraft(null)
+        return
+      }
+
+      if (partialPaymentDraft) {
+        setPartialPaymentDraft(null)
+        return
+      }
+
+      if (isBlockModalOpen) {
+        setIsBlockModalOpen(false)
+        return
+      }
+
+      if (isPaymentLauncherOpen) {
+        setIsPaymentLauncherOpen(false)
+        return
+      }
+
+      if (isProductModalOpen) {
+        setIsProductModalOpen(false)
+        return
+      }
+
+      if (isClientModalOpen) {
+        setIsClientModalOpen(false)
+        return
+      }
+
+      if (appointmentDrawer.open) {
+        setAppointmentDrawer({ open: false, mode: 'create', appointmentId: '' })
+        return
+      }
+
+      if (isMobileSidebarOpen) {
+        setIsMobileSidebarOpen(false)
+      }
+    }
+
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [
+    appointmentDrawer.open,
+    cancelPaymentDraft,
+    deleteAppointmentTarget,
+    isBlockModalOpen,
+    isClientModalOpen,
+    isMobileSidebarOpen,
+    isPaymentLauncherOpen,
+    isProductModalOpen,
+    partialPaymentDraft,
+  ])
+
   async function handleSignIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setAuthStatus('')
@@ -1018,13 +1097,7 @@ function App() {
   }
 
   function confirmDeleteAppointment(appointment: AppointmentRecord) {
-    const confirmed = window.confirm(
-      `Excluir o horario de ${appointment.client_name} em ${formatDateShort(appointment.scheduled_date)} as ${appointment.start_time}?`,
-    )
-
-    if (confirmed) {
-      void deleteAppointment(appointment.id)
-    }
+    setDeleteAppointmentTarget(appointment)
   }
 
   function closeAppointmentDrawer() {
@@ -1403,6 +1476,12 @@ function App() {
   }
 
   async function markAppointmentPaid(appointment: AppointmentRecord) {
+    const paymentState = getPaymentState(appointment)
+    if (paymentState === 'paid' || paymentState === 'canceled') {
+      setDataStatus(paymentState === 'paid' ? 'Pagamento ja esta quitado.' : 'Pagamento ja esta cancelado.')
+      return
+    }
+
     const remainingAmount = Math.max(appointment.charged_amount_cents - appointment.received_amount_cents, 0)
     await updateAppointment(appointment.id, {
       received_amount_cents: appointment.charged_amount_cents,
@@ -1420,6 +1499,12 @@ function App() {
   }
 
   function openPartialPayment(appointment: AppointmentRecord) {
+    const paymentState = getPaymentState(appointment)
+    if (paymentState === 'paid' || paymentState === 'canceled') {
+      setDataStatus(paymentState === 'paid' ? 'Pagamento ja esta quitado.' : 'Pagamento ja esta cancelado.')
+      return
+    }
+
     const remainingAmount = Math.max(appointment.charged_amount_cents - appointment.received_amount_cents, 0)
     setPartialPaymentDraft({
       appointmentId: appointment.id,
@@ -1473,6 +1558,11 @@ function App() {
   }
 
   function openCancelPayment(appointment: AppointmentRecord) {
+    if (getPaymentState(appointment) === 'canceled') {
+      setDataStatus('Pagamento ja esta cancelado.')
+      return
+    }
+
     setCancelPaymentDraft({
       appointmentId: appointment.id,
       reason: 'Cliente cancelou',
@@ -1493,6 +1583,7 @@ function App() {
 
     const reason = [cancelPaymentDraft.reason, cancelPaymentDraft.notes.trim()].filter(Boolean).join(' - ')
     await updateAppointment(appointment.id, {
+      received_amount_cents: 0,
       payment_status: 'canceled',
       payment_canceled_reason: reason,
     })
@@ -1575,6 +1666,11 @@ function App() {
 
   async function handleCreateProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (newProduct.name.trim().length < 2) {
+      setDataStatus('Informe o nome do produto.')
+      return
+    }
+
     const product: ProductItem = {
       id: crypto.randomUUID(),
       name: newProduct.name.trim(),
@@ -2139,7 +2235,6 @@ function App() {
 
         <section className="admin-main">
           {renderAdminTopbar()}
-          {dataStatus ? <p className="form-status top-status">{dataStatus}</p> : null}
 
           {(activeTab === 'today' || activeTab === 'agenda') && renderAgendaDashboard()}
           {activeTab === 'clients' && renderClients()}
@@ -2174,7 +2269,26 @@ function App() {
         {renderBlockModal()}
         {renderPartialPaymentModal()}
         {renderCancelPaymentModal()}
+        {renderDeleteAppointmentModal()}
+        {renderAdminStatusToast()}
       </main>
+    )
+  }
+
+  function renderAdminStatusToast() {
+    if (!dataStatus) {
+      return null
+    }
+
+    const isError = isStatusErrorMessage(dataStatus)
+
+    return (
+      <div className={isError ? 'admin-status-toast error' : 'admin-status-toast'} role={isError ? 'alert' : 'status'} aria-live={isError ? 'assertive' : 'polite'}>
+        <span>{dataStatus}</span>
+        <button type="button" aria-label="Dispensar mensagem" onClick={() => setDataStatus('')}>
+          <XCircle size={15} aria-hidden="true" />
+        </button>
+      </div>
     )
   }
 
@@ -2191,16 +2305,17 @@ function App() {
           <div className="appbar-actions">
             {isAgendaContext ? (
               <>
-                <button className="icon-button" type="button" aria-label="Compartilhar agenda" onClick={() => void handleShareAdmin()}>
+                <button className="icon-button" type="button" aria-label="Compartilhar agenda" title="Compartilhar agenda" onClick={() => void handleShareAdmin()}>
                   <Share2 size={18} aria-hidden="true" />
                 </button>
-                <button className="icon-button" type="button" aria-label="Ver lista" onClick={() => setCalendarView('list')}>
+                <button className="icon-button" type="button" aria-label="Ver lista" title="Ver lista" onClick={() => setCalendarView('list')}>
                   <List size={20} aria-hidden="true" />
                 </button>
                 <button
                   className="icon-button"
                   type="button"
                   aria-label="Voltar para hoje"
+                  title="Voltar para hoje"
                   onClick={() => {
                     setAgendaDate(today)
                     setCalendarView('day')
@@ -3162,13 +3277,21 @@ function App() {
               </button>
             </div>
             <div className="payment-actions detail-payment-actions">
-              <button type="button" onClick={() => void markAppointmentPaid(selectedAppointment)}>
+              <button
+                type="button"
+                onClick={() => void markAppointmentPaid(selectedAppointment)}
+                disabled={paymentState === 'paid' || paymentState === 'canceled'}
+              >
                 <CheckCircle2 size={15} aria-hidden="true" /> Quitar
               </button>
-              <button type="button" onClick={() => openPartialPayment(selectedAppointment)}>
+              <button
+                type="button"
+                onClick={() => openPartialPayment(selectedAppointment)}
+                disabled={paymentState === 'paid' || paymentState === 'canceled'}
+              >
                 <Wallet size={15} aria-hidden="true" /> Registrar parcial
               </button>
-              <button type="button" onClick={() => openCancelPayment(selectedAppointment)}>
+              <button type="button" onClick={() => openCancelPayment(selectedAppointment)} disabled={paymentState === 'canceled'}>
                 <XCircle size={15} aria-hidden="true" /> Cancelar recebimento
               </button>
             </div>
@@ -3248,6 +3371,8 @@ function App() {
             <label className="admin-search slim-search">
               <Search size={16} aria-hidden="true" />
               <input
+                aria-label="Buscar cliente"
+                type="search"
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
                 placeholder="Buscar cliente"
@@ -3328,7 +3453,10 @@ function App() {
   }
 
   function renderFinance() {
-    const pendingAppointments = appointments.filter((appointment) => getPaymentState(appointment) !== 'paid')
+    const pendingAppointments = appointments.filter((appointment) => {
+      const paymentState = getPaymentState(appointment)
+      return paymentState === 'pending' || paymentState === 'partial'
+    })
     const paymentFilters: Array<{ id: PaymentFilter; label: string }> = [
       { id: 'open', label: 'Em aberto' },
       { id: 'all', label: 'Todos' },
@@ -3380,6 +3508,8 @@ function App() {
             <label className="admin-search slim-search">
               <Search size={16} aria-hidden="true" />
               <input
+                aria-label="Buscar pagamento"
+                type="search"
                 value={financeSearch}
                 onChange={(event) => setFinanceSearch(event.target.value)}
                 placeholder="Buscar cliente, telefone ou servico"
@@ -3715,6 +3845,8 @@ function App() {
           <label className="admin-search modal-search">
             <Search size={16} aria-hidden="true" />
             <input
+              aria-label="Buscar atendimento em aberto"
+              type="search"
               value={paymentLauncher.search}
               onChange={(event) => setPaymentLauncher({ search: event.target.value })}
               placeholder="Buscar por cliente, telefone ou servico"
@@ -4044,6 +4176,54 @@ function App() {
             </button>
           </div>
         </form>
+      </div>
+    )
+  }
+
+  function renderDeleteAppointmentModal() {
+    if (!deleteAppointmentTarget) {
+      return null
+    }
+
+    return (
+      <div className="modal-backdrop confirm-backdrop" role="presentation">
+        <section
+          className="payment-modal confirm-modal"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="delete-appointment-title"
+          aria-describedby="delete-appointment-description"
+        >
+          <div className="drawer-heading">
+            <div>
+              <p className="eyebrow">Excluir horario</p>
+              <h2 id="delete-appointment-title">{deleteAppointmentTarget.client_name}</h2>
+            </div>
+            <button className="icon-button" type="button" aria-label="Fechar" onClick={() => setDeleteAppointmentTarget(null)}>
+              <XCircle size={18} aria-hidden="true" />
+            </button>
+          </div>
+          <p className="payment-note" id="delete-appointment-description">
+            Remove o horario de {formatDateShort(deleteAppointmentTarget.scheduled_date)} as {deleteAppointmentTarget.start_time}.
+            O historico financeiro vinculado pode ficar sem atendimento de referencia.
+          </p>
+          <div className="drawer-actions">
+            <button className="ghost-action" type="button" onClick={() => setDeleteAppointmentTarget(null)}>
+              Cancelar
+            </button>
+            <button
+              className="primary-action danger-action"
+              type="button"
+              onClick={() => {
+                const targetId = deleteAppointmentTarget.id
+                setDeleteAppointmentTarget(null)
+                void deleteAppointment(targetId)
+              }}
+            >
+              Excluir horario
+            </button>
+          </div>
+        </section>
       </div>
     )
   }
