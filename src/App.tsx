@@ -15,7 +15,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
-  CircleHelp,
   ClipboardList,
   Clock3,
   CreditCard,
@@ -486,6 +485,14 @@ function App() {
   const selectedClient = selectedAppointment
     ? clients.find((client) => client.id === selectedAppointment.client_id || client.phone === selectedAppointment.client_phone)
     : null
+  const openPaymentAppointments = useMemo(
+    () =>
+      appointments.filter((appointment) => {
+        const paymentState = getPaymentState(appointment)
+        return paymentState === 'pending' || paymentState === 'partial'
+      }),
+    [appointments],
+  )
   const clientsByRecent = useMemo(
     () =>
       [...clients].sort((a, b) => {
@@ -1008,6 +1015,16 @@ function App() {
     setIsClientPickerExpanded(false)
     setAppointmentDrawer({ open: true, mode: 'edit', appointmentId: appointment.id })
     setActiveTab('agenda')
+  }
+
+  function confirmDeleteAppointment(appointment: AppointmentRecord) {
+    const confirmed = window.confirm(
+      `Excluir o horario de ${appointment.client_name} em ${formatDateShort(appointment.scheduled_date)} as ${appointment.start_time}?`,
+    )
+
+    if (confirmed) {
+      void deleteAppointment(appointment.id)
+    }
   }
 
   function closeAppointmentDrawer() {
@@ -2097,6 +2114,8 @@ function App() {
                   key={tab.id}
                   className={activeTab === tab.id ? 'active' : ''}
                   type="button"
+                  aria-current={activeTab === tab.id ? 'page' : undefined}
+                  title={tab.label}
                   onClick={() => selectAdminTab(tab.id)}
                 >
                   <Icon size={17} aria-hidden="true" />
@@ -2139,6 +2158,7 @@ function App() {
                 key={tab.id}
                 className={activeTab === tab.id ? 'active' : ''}
                 type="button"
+                aria-current={activeTab === tab.id ? 'page' : undefined}
                 onClick={() => selectAdminTab(tab.id)}
               >
                 <Icon size={18} aria-hidden="true" />
@@ -2159,6 +2179,8 @@ function App() {
   }
 
   function renderAdminTopbar() {
+    const isAgendaContext = activeTab === 'today' || activeTab === 'agenda'
+
     return (
       <header className="admin-appbar">
         <div className="appbar-main">
@@ -2167,26 +2189,55 @@ function App() {
           </button>
           <h1>{activeTab === 'today' ? 'Agenda' : adminTabs.find((tab) => tab.id === activeTab)?.label}</h1>
           <div className="appbar-actions">
-            <button className="icon-button" type="button" aria-label="Compartilhar agenda" onClick={() => void handleShareAdmin()}>
-              <Share2 size={18} aria-hidden="true" />
-            </button>
-            <button className="icon-button" type="button" aria-label="Ver lista" onClick={() => setCalendarView('list')}>
-              <List size={20} aria-hidden="true" />
-            </button>
-            <button className="icon-button" type="button" aria-label="Ajuda">
-              <CircleHelp size={20} aria-hidden="true" />
-            </button>
+            {isAgendaContext ? (
+              <>
+                <button className="icon-button" type="button" aria-label="Compartilhar agenda" onClick={() => void handleShareAdmin()}>
+                  <Share2 size={18} aria-hidden="true" />
+                </button>
+                <button className="icon-button" type="button" aria-label="Ver lista" onClick={() => setCalendarView('list')}>
+                  <List size={20} aria-hidden="true" />
+                </button>
+                <button
+                  className="icon-button"
+                  type="button"
+                  aria-label="Voltar para hoje"
+                  onClick={() => {
+                    setAgendaDate(today)
+                    setCalendarView('day')
+                  }}
+                >
+                  <CalendarCheck2 size={18} aria-hidden="true" />
+                </button>
+              </>
+            ) : null}
+            {activeTab === 'clients' ? (
+              <button className="primary-action compact-action" type="button" onClick={() => setIsClientModalOpen(true)}>
+                <Plus size={16} aria-hidden="true" /> Nova cliente
+              </button>
+            ) : null}
+            {activeTab === 'finance' ? (
+              <button className="primary-action compact-action" type="button" onClick={() => setIsPaymentLauncherOpen(true)}>
+                <Plus size={16} aria-hidden="true" /> Novo pagamento
+              </button>
+            ) : null}
+            {activeTab === 'products' ? (
+              <button className="primary-action compact-action" type="button" onClick={() => setIsProductModalOpen(true)}>
+                <Plus size={16} aria-hidden="true" /> Novo produto
+              </button>
+            ) : null}
           </div>
         </div>
-        <div className="date-control" aria-label="Controle de data">
-          <button type="button" aria-label="Dia anterior" onClick={() => setAgendaDate((date) => addDays(date, -1))}>
-            <ChevronLeft size={22} aria-hidden="true" />
-          </button>
-          <strong>{formatDateLong(agendaDate)}</strong>
-          <button type="button" aria-label="Proximo dia" onClick={() => setAgendaDate((date) => addDays(date, 1))}>
-            <ChevronRight size={22} aria-hidden="true" />
-          </button>
-        </div>
+        {isAgendaContext ? (
+          <div className="date-control" aria-label="Controle de data">
+            <button type="button" aria-label="Dia anterior" onClick={() => setAgendaDate((date) => addDays(date, -1))}>
+              <ChevronLeft size={22} aria-hidden="true" />
+            </button>
+            <strong>{formatDateLong(agendaDate)}</strong>
+            <button type="button" aria-label="Proximo dia" onClick={() => setAgendaDate((date) => addDays(date, 1))}>
+              <ChevronRight size={22} aria-hidden="true" />
+            </button>
+          </div>
+        ) : null}
       </header>
     )
   }
@@ -2226,6 +2277,8 @@ function App() {
             <strong>{stats.clientCount}</strong>
           </article>
         </section>
+
+        {renderDailyFocusPanel()}
 
         <section className="quick-actions" aria-label="Atalhos rapidos">
           <button type="button" onClick={() => openNewAppointmentDrawer(agendaDate, getFirstAvailableSlot(agendaDate))}>
@@ -2298,23 +2351,124 @@ function App() {
           </aside>
         </div>
 
-        <button
-          className="fab-button"
-          type="button"
-          aria-label="Criar novo horario"
-          onClick={() => openNewAppointmentDrawer(agendaDate, getFirstAvailableSlot(agendaDate))}
-        >
-          <Plus size={28} aria-hidden="true" />
-        </button>
+      </div>
+    )
+  }
+
+  function renderDailyFocusPanel() {
+    const quickSlot = getFirstAvailableSlot(agendaDate)
+    const nextAgendaAppointment = agendaAppointments.find(
+      (appointment) => appointment.status === 'scheduled' || appointment.status === 'confirmed',
+    )
+    const dayReceivedCents = agendaAppointments.reduce((sum, appointment) => sum + appointment.received_amount_cents, 0)
+
+    return (
+      <section className="focus-panel" aria-label="Foco do dia">
+        <div className="focus-heading">
+          <div>
+            <p className="eyebrow">Foco do dia</p>
+            <h2>{formatDateShort(agendaDate)}</h2>
+          </div>
+          <span>{agendaAppointments.length} horario(s)</span>
+        </div>
+        <div className="focus-grid">
+          <article className="focus-card highlight">
+            <CalendarCheck2 size={18} aria-hidden="true" />
+            <div>
+              <span>Proximo atendimento</span>
+              <strong>{nextAgendaAppointment ? `${nextAgendaAppointment.start_time} - ${nextAgendaAppointment.client_name}` : 'Nenhum horario marcado'}</strong>
+              <small>{nextAgendaAppointment ? nextAgendaAppointment.service_name : 'Use o primeiro encaixe para preencher a agenda.'}</small>
+            </div>
+            {nextAgendaAppointment ? (
+              <a
+                href={buildWhatsAppUrl(
+                  nextAgendaAppointment.client_phone,
+                  `Ola ${nextAgendaAppointment.client_name}, tudo bem? Confirmando seu horario de ${nextAgendaAppointment.service_name} as ${nextAgendaAppointment.start_time}.`,
+                )}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Confirmar
+              </a>
+            ) : (
+              <button type="button" onClick={() => openNewAppointmentDrawer(agendaDate, quickSlot)}>
+                Criar horario
+              </button>
+            )}
+          </article>
+
+          <article className="focus-card">
+            <Clock3 size={18} aria-hidden="true" />
+            <div>
+              <span>Primeiro encaixe</span>
+              <strong>{quickSlot}</strong>
+              <small>Horario livre mais proximo dentro da disponibilidade.</small>
+            </div>
+            <button type="button" onClick={() => openNewAppointmentDrawer(agendaDate, quickSlot)}>
+              Agendar
+            </button>
+          </article>
+
+          <article className="focus-card">
+            <Wallet size={18} aria-hidden="true" />
+            <div>
+              <span>A receber</span>
+              <strong>{formatCurrency(stats.pendingCents)}</strong>
+              <small>{openPaymentAppointments.length} atendimento(s) em aberto.</small>
+            </div>
+            <button type="button" onClick={() => setIsPaymentLauncherOpen(true)}>
+              Receber
+            </button>
+          </article>
+
+          <article className="focus-card">
+            <Package size={18} aria-hidden="true" />
+            <div>
+              <span>Estoque</span>
+              <strong>{lowStockProducts.length ? `${lowStockProducts.length} baixo(s)` : 'Em dia'}</strong>
+              <small>{lowStockProducts[0]?.name ?? `Recebido hoje: ${formatCurrency(dayReceivedCents)}`}</small>
+            </div>
+            <button type="button" onClick={() => selectAdminTab('products')}>
+              Ver estoque
+            </button>
+          </article>
+        </div>
+      </section>
+    )
+  }
+
+  function renderActionableEmptyState(
+    title: string,
+    body: string,
+    actions: Array<{ label: string; icon: typeof Plus; onClick: () => void; primary?: boolean }>,
+  ) {
+    return (
+      <div className="empty-state actionable-empty">
+        <div>
+          <strong>{title}</strong>
+          <span>{body}</span>
+        </div>
+        <div className="empty-actions">
+          {actions.map((action) => {
+            const Icon = action.icon
+            return (
+              <button
+                key={action.label}
+                className={action.primary ? 'primary-action compact-action' : 'ghost-action compact-action'}
+                type="button"
+                onClick={action.onClick}
+              >
+                <Icon size={15} aria-hidden="true" />
+                {action.label}
+              </button>
+            )
+          })}
+        </div>
       </div>
     )
   }
 
   function renderAutomationPanel() {
-    const openPayments = appointments.filter((appointment) => {
-      const paymentState = getPaymentState(appointment)
-      return paymentState === 'pending' || paymentState === 'partial'
-    })
     const nextReminderAppointment = sortedAppointments.find(
       (appointment) =>
         appointment.scheduled_date >= today &&
@@ -2355,7 +2509,7 @@ function App() {
             <Wallet size={16} aria-hidden="true" />
             <span>
               <strong>Receber pendentes</strong>
-              <small>{openPayments.length} pagamento(s) em aberto</small>
+              <small>{openPaymentAppointments.length} pagamento(s) em aberto</small>
             </span>
           </button>
           <button
@@ -2854,9 +3008,21 @@ function App() {
     return (
       <div className="agenda-list">
         {items.map((appointment) => renderAppointmentRow(appointment))}
-        {items.length === 0 ? (
-          <p className="empty-state">Nenhum horario neste filtro. Crie um novo atendimento ou altere a data.</p>
-        ) : null}
+        {items.length === 0
+          ? renderActionableEmptyState('Nenhum horario neste filtro.', 'Crie um atendimento ou volte para a grade do dia.', [
+              {
+                label: 'Novo horario',
+                icon: Plus,
+                primary: true,
+                onClick: () => openNewAppointmentDrawer(agendaDate, getFirstAvailableSlot(agendaDate)),
+              },
+              {
+                label: 'Ver dia',
+                icon: CalendarDays,
+                onClick: () => setCalendarView('day'),
+              },
+            ])
+          : null}
       </div>
     )
   }
@@ -2948,65 +3114,73 @@ function App() {
                 />
               </label>
             </div>
-            <div className="row-actions detail-actions">
+            <div className="detail-action-grid" aria-label="Acoes do atendimento">
               <button
                 type="button"
                 aria-label={`Editar horario de ${selectedAppointment.client_name}`}
                 onClick={() => openEditAppointmentDrawer(selectedAppointment)}
               >
-                <Edit3 size={15} aria-hidden="true" />
+                <Edit3 size={15} aria-hidden="true" /> Editar
               </button>
               <button
                 type="button"
                 aria-label={`Marcar ${selectedAppointment.client_name} como confirmado`}
                 onClick={() => void updateAppointment(selectedAppointment.id, { status: 'confirmed' })}
               >
-                <CalendarCheck2 size={15} aria-hidden="true" />
+                <CalendarCheck2 size={15} aria-hidden="true" /> Confirmar
               </button>
               <button
                 type="button"
                 aria-label={`Marcar ${selectedAppointment.client_name} como concluido`}
                 onClick={() => void updateAppointment(selectedAppointment.id, { status: 'completed' })}
               >
-                <CheckCircle2 size={15} aria-hidden="true" />
+                <CheckCircle2 size={15} aria-hidden="true" /> Concluir
               </button>
               <button
+                className="danger-ghost"
                 type="button"
                 aria-label={`Cancelar horario de ${selectedAppointment.client_name}`}
                 onClick={() => void updateAppointment(selectedAppointment.id, { status: 'canceled' })}
               >
-                <Ban size={15} aria-hidden="true" />
+                <Ban size={15} aria-hidden="true" /> Cancelar
               </button>
               <button
+                className="danger-ghost"
                 type="button"
                 aria-label={`Marcar ${selectedAppointment.client_name} como nao compareceu`}
                 onClick={() => void updateAppointment(selectedAppointment.id, { status: 'no_show' })}
               >
-                <XCircle size={15} aria-hidden="true" />
+                <XCircle size={15} aria-hidden="true" /> Falta
               </button>
               <button
+                className="danger-ghost"
                 type="button"
                 aria-label={`Excluir horario de ${selectedAppointment.client_name}`}
-                onClick={() => void deleteAppointment(selectedAppointment.id)}
+                onClick={() => confirmDeleteAppointment(selectedAppointment)}
               >
-                <Trash2 size={15} aria-hidden="true" />
+                <Trash2 size={15} aria-hidden="true" /> Excluir
               </button>
             </div>
             <div className="payment-actions detail-payment-actions">
               <button type="button" onClick={() => void markAppointmentPaid(selectedAppointment)}>
-                <CheckCircle2 size={15} aria-hidden="true" /> Pago
+                <CheckCircle2 size={15} aria-hidden="true" /> Quitar
               </button>
               <button type="button" onClick={() => openPartialPayment(selectedAppointment)}>
-                <Wallet size={15} aria-hidden="true" /> Parcial
+                <Wallet size={15} aria-hidden="true" /> Registrar parcial
               </button>
               <button type="button" onClick={() => openCancelPayment(selectedAppointment)}>
-                <XCircle size={15} aria-hidden="true" /> Cancelar pagamento
+                <XCircle size={15} aria-hidden="true" /> Cancelar recebimento
               </button>
             </div>
           </>
-        ) : (
-          <p className="empty-state">Selecione um atendimento para ver detalhes.</p>
-        )}
+        ) : renderActionableEmptyState('Selecione um atendimento.', 'Abra um horario da agenda ou crie um novo atendimento.', [
+            {
+              label: 'Novo horario',
+              icon: Plus,
+              primary: true,
+              onClick: () => openNewAppointmentDrawer(agendaDate, getFirstAvailableSlot(agendaDate)),
+            },
+          ])}
       </section>
     )
   }
@@ -3126,9 +3300,29 @@ function App() {
             )
           })}
         </div>
-        {filteredClients.length === 0 ? (
-          <p className="empty-state">Nenhuma cliente encontrada. Ajuste a busca ou crie um novo horario.</p>
-        ) : null}
+        {filteredClients.length === 0
+          ? renderActionableEmptyState(
+              searchTerm ? 'Nenhuma cliente encontrada.' : 'Nenhuma cliente cadastrada.',
+              searchTerm ? 'Limpe a busca ou cadastre uma nova cliente.' : 'Cadastre a cliente antes de marcar o atendimento.',
+              [
+                {
+                  label: 'Nova cliente',
+                  icon: Plus,
+                  primary: true,
+                  onClick: () => setIsClientModalOpen(true),
+                },
+                ...(searchTerm
+                  ? [
+                      {
+                        label: 'Limpar busca',
+                        icon: Search,
+                        onClick: () => setSearchTerm(''),
+                      },
+                    ]
+                  : []),
+              ],
+            )
+          : null}
       </section>
     )
   }
@@ -3247,13 +3441,13 @@ function App() {
 
                   <div className="payment-actions">
                     <button type="button" onClick={() => void markAppointmentPaid(appointment)} disabled={paymentState === 'paid'}>
-                      <CheckCircle2 size={15} aria-hidden="true" /> Pago
+                      <CheckCircle2 size={15} aria-hidden="true" /> Quitar
                     </button>
                     <button type="button" onClick={() => openPartialPayment(appointment)} disabled={paymentState === 'paid' || paymentState === 'canceled'}>
-                      <Wallet size={15} aria-hidden="true" /> Parcial
+                      <Wallet size={15} aria-hidden="true" /> Registrar parcial
                     </button>
                     <button type="button" onClick={() => openCancelPayment(appointment)} disabled={paymentState === 'canceled'}>
-                      <XCircle size={15} aria-hidden="true" /> Cancelado
+                      <XCircle size={15} aria-hidden="true" /> Cancelar recebimento
                     </button>
                   </div>
 
@@ -3287,9 +3481,24 @@ function App() {
                 </article>
               )
             })}
-            {financeAppointments.length === 0 ? (
-              <p className="empty-state">Nenhum pagamento neste filtro.</p>
-            ) : null}
+            {financeAppointments.length === 0
+              ? renderActionableEmptyState('Nenhum pagamento neste filtro.', 'Limpe a busca ou registre um recebimento em aberto.', [
+                  {
+                    label: 'Novo pagamento',
+                    icon: Plus,
+                    primary: true,
+                    onClick: () => setIsPaymentLauncherOpen(true),
+                  },
+                  {
+                    label: 'Limpar filtros',
+                    icon: Search,
+                    onClick: () => {
+                      setFinanceSearch('')
+                      setPaymentFilter('open')
+                    },
+                  },
+                ])
+              : null}
           </div>
         </section>
 
