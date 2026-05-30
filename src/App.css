@@ -691,22 +691,24 @@ textarea {
 }
 
 .admin-shell {
+  --sidebar-width: 244px;
   display: grid;
-  grid-template-columns: 224px minmax(0, 1fr);
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
 }
 
 .admin-shell.sidebar-collapsed {
-  grid-template-columns: 72px minmax(0, 1fr);
+  --sidebar-width: 76px;
 }
 
 .admin-sidebar {
   background: rgba(16, 12, 8, 0.96);
   border-right: 1px solid rgba(217, 164, 65, 0.24);
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  display: flex;
+  flex-direction: column;
   max-height: 100svh;
   min-height: 100svh;
-  padding: 14px;
+  overflow: hidden;
+  padding: 18px 16px;
   position: sticky;
   top: 0;
   z-index: 60;
@@ -728,8 +730,9 @@ textarea {
 .sidebar-header {
   align-items: center;
   display: grid;
-  gap: 8px;
+  gap: 10px;
   grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 46px;
 }
 
 .sidebar-toggle {
@@ -740,11 +743,13 @@ textarea {
 }
 
 .admin-sidebar nav {
-  align-content: start;
   display: grid;
-  gap: 4px;
-  margin-top: 24px;
+  flex: 1 1 auto;
+  gap: 6px;
+  margin-top: 28px;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding-right: 2px;
 }
 
@@ -756,11 +761,13 @@ textarea {
   color: var(--muted);
   display: flex;
   font-weight: 800;
-  gap: 10px;
-  min-height: 38px;
-  padding: 0 10px;
+  gap: 11px;
+  min-height: 42px;
+  min-width: 0;
+  padding: 0 12px;
   position: relative;
   text-align: left;
+  width: 100%;
 }
 
 .admin-sidebar nav button svg {
@@ -790,16 +797,16 @@ textarea {
 }
 
 .sidebar-exit {
-  align-self: end;
+  flex: 0 0 auto;
   justify-content: flex-start;
-  margin-top: 14px;
-  min-height: 40px;
-  padding: 0 10px;
+  margin-top: auto;
+  min-height: 42px;
+  padding: 0 12px;
   width: 100%;
 }
 
 .admin-shell.sidebar-collapsed .admin-sidebar {
-  padding: 12px 8px;
+  padding: 14px 8px;
 }
 
 .admin-shell.sidebar-collapsed .sidebar-header {
@@ -851,15 +858,19 @@ textarea {
   align-items: center;
   display: grid;
   gap: 12px;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   min-width: 0;
+}
+
+.appbar-menu-button {
+  display: none;
 }
 
 .admin-appbar h1 {
   font-size: 2.25rem;
   min-width: 0;
   overflow-wrap: anywhere;
-  text-align: center;
+  text-align: left;
 }
 
 .appbar-actions {
@@ -1247,9 +1258,24 @@ textarea {
 .timeline-row time {
   border-right: 1px solid rgba(23, 17, 11, 0.12);
   color: #3a3025;
+  display: grid;
   font-variant-numeric: tabular-nums;
+  gap: 2px;
+  justify-items: end;
   padding: 10px 10px 0;
   text-align: right;
+}
+
+.timeline-row time strong {
+  font-size: 0.94rem;
+  line-height: 1.1;
+}
+
+.timeline-row time small {
+  color: rgba(58, 48, 37, 0.58);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .timeline-cell {
@@ -1330,7 +1356,8 @@ textarea {
   background: rgba(226, 82, 54, 0.08);
   border: 1px solid rgba(226, 82, 54, 0.18);
   color: #8d3b2d;
-  padding: 0 12px;
+  padding: 0;
+  width: 48px;
 }
 
 .timeline-occupied {
@@ -1769,6 +1796,53 @@ textarea {
 
 .product-card.low {
   border-color: rgba(244, 200, 115, 0.48);
+}
+
+.product-card-header {
+  align-items: start;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.product-card-header span {
+  background: rgba(217, 164, 65, 0.09);
+  border: 1px solid rgba(217, 164, 65, 0.16);
+  border-radius: 999px;
+  flex: 0 1 auto;
+  padding: 4px 8px;
+  text-align: right;
+}
+
+.stock-meter {
+  background: rgba(248, 234, 208, 0.08);
+  border-radius: 999px;
+  height: 8px;
+  overflow: hidden;
+}
+
+.stock-meter span {
+  background: var(--success);
+  display: block;
+  height: 100%;
+  min-width: 8px;
+}
+
+.stock-meter.low span {
+  background: var(--warning);
+}
+
+.stock-quantity-control {
+  align-items: center !important;
+  display: grid !important;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) 82px;
+}
+
+.stock-quantity-control input {
+  min-height: 38px;
+  text-align: center;
 }
 
 .client-card p,
@@ -2257,6 +2331,110 @@ textarea {
   border-color: rgba(255, 226, 160, 0.32);
 }
 
+.operating-days-list {
+  display: grid;
+  gap: 12px;
+}
+
+.operating-day {
+  background: rgba(33, 23, 13, 0.42);
+  border: 1px solid rgba(217, 164, 65, 0.16);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.operating-day.open {
+  border-color: rgba(255, 226, 160, 0.32);
+}
+
+.operating-day-main {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(136px, 1fr) auto 128px 128px;
+}
+
+.operating-day-main > div:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.operating-day-main strong {
+  color: var(--text);
+}
+
+.operating-day-main span,
+.availability-band-heading span,
+.availability-empty {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.availability-band {
+  background: rgba(16, 12, 8, 0.42);
+  border: 1px solid rgba(217, 164, 65, 0.12);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+}
+
+.availability-band-heading {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.availability-band-heading button,
+.availability-chip button {
+  align-items: center;
+  background: rgba(217, 164, 65, 0.08);
+  border: 1px solid rgba(217, 164, 65, 0.18);
+  border-radius: 8px;
+  color: var(--gold-bright);
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 900;
+  gap: 6px;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 9px;
+}
+
+.availability-chip-list {
+  display: grid;
+  gap: 8px;
+}
+
+.availability-chip {
+  align-items: center;
+  background: rgba(217, 164, 65, 0.06);
+  border: 1px solid rgba(217, 164, 65, 0.14);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto 120px 120px auto;
+  padding: 8px;
+}
+
+.availability-chip.active {
+  border-color: rgba(99, 214, 151, 0.34);
+}
+
+.availability-chip input {
+  min-height: 36px;
+}
+
+.availability-chip button {
+  min-width: 36px;
+  padding: 0;
+}
+
 .availability-row {
   grid-template-columns: minmax(110px, 1fr) 130px 130px auto;
 }
@@ -2404,11 +2582,24 @@ textarea {
   padding: 0 8px;
 }
 
+.product-actions button:disabled {
+  background: rgba(248, 234, 208, 0.05);
+  border-color: rgba(248, 234, 208, 0.12);
+  color: var(--muted);
+  transform: none;
+}
+
 .movement-panel {
   border-top: 1px solid rgba(217, 164, 65, 0.16);
   display: grid;
   gap: 10px;
   padding-top: 16px;
+}
+
+.movement-list small {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
 }
 
 .service-editor-row {
@@ -2626,7 +2817,8 @@ textarea {
 
   .admin-sidebar {
     bottom: 0;
-    display: grid;
+    display: flex;
+    flex-direction: column;
     left: 0;
     max-height: none;
     min-height: 100svh;
@@ -2679,6 +2871,14 @@ textarea {
 
   .admin-main {
     padding: 10px;
+  }
+
+  .appbar-main {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .appbar-menu-button {
+    display: inline-flex;
   }
 
   .mobile-bottom-nav {
@@ -2919,8 +3119,23 @@ textarea {
   .payment-summary-grid,
   .hours-row,
   .availability-row,
+  .operating-day-main,
+  .availability-chip,
   .payment-picker-list article,
   .exception-list article {
+    grid-template-columns: 1fr;
+  }
+
+  .availability-band-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .availability-band-heading button {
+    width: 100%;
+  }
+
+  .stock-quantity-control {
     grid-template-columns: 1fr;
   }
 
@@ -2999,6 +3214,10 @@ textarea {
   }
 
   .detail-action-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .product-actions {
     grid-template-columns: 1fr;
   }
 }

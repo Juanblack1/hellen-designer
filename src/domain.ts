@@ -101,6 +101,11 @@ export type StockMovement = {
   created_at: string
 }
 
+export type StockMovementDatabaseRow = Partial<StockMovement> & {
+  movement_type?: string | null
+  quantity_delta?: number | null
+}
+
 export type BusinessHour = {
   id: string
   day_of_week: number
@@ -771,6 +776,64 @@ export function getPaymentState(
 
 export function getLowStockProducts(products: ProductItem[]) {
   return products.filter((product) => product.quantity <= product.minimum_quantity)
+}
+
+export function normalizeStockMovementType(type?: string | null): StockMovementType {
+  if (type === 'input') {
+    return 'in'
+  }
+
+  if (type === 'output') {
+    return 'out'
+  }
+
+  if (type === 'manual_adjustment') {
+    return 'adjustment'
+  }
+
+  if (type === 'in' || type === 'out' || type === 'service_use' || type === 'sale' || type === 'adjustment') {
+    return type
+  }
+
+  return 'adjustment'
+}
+
+export function getLegacyStockMovementType(type: StockMovementType) {
+  if (type === 'in') {
+    return 'input'
+  }
+
+  if (type === 'out') {
+    return 'output'
+  }
+
+  if (type === 'adjustment') {
+    return 'manual_adjustment'
+  }
+
+  return type
+}
+
+export function getStockMovementDelta(type: StockMovementType, quantity: number) {
+  const normalizedQuantity = Math.max(0, Math.abs(quantity))
+  return type === 'in' || type === 'adjustment' ? normalizedQuantity : -normalizedQuantity
+}
+
+export function normalizeStockMovement(row: StockMovementDatabaseRow): StockMovement {
+  const type = normalizeStockMovementType(row.type ?? row.movement_type)
+  const legacyQuantity = Number(row.quantity_delta ?? 0)
+  const quantity = Number(row.quantity ?? 0) || Math.abs(legacyQuantity)
+  const createdAt = row.created_at ?? new Date(0).toISOString()
+
+  return {
+    id: row.id ?? `${row.product_id ?? 'stock'}-${createdAt}`,
+    product_id: row.product_id ?? '',
+    product_name: row.product_name || 'Produto',
+    type,
+    quantity: Math.max(0, Math.abs(quantity)),
+    notes: row.notes ?? '',
+    created_at: createdAt,
+  }
 }
 
 export function getServiceUsage(appointments: AppointmentRecord[]) {

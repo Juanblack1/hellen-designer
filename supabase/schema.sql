@@ -355,6 +355,12 @@ end $$;
 alter table public.stock_movements add column if not exists product_name text not null default '';
 alter table public.stock_movements add column if not exists type text not null default 'adjustment';
 alter table public.stock_movements add column if not exists quantity integer not null default 0;
+alter table public.stock_movements drop constraint if exists stock_movements_type_check;
+alter table public.stock_movements add constraint stock_movements_type_check
+  check (type in ('in', 'out', 'service_use', 'sale', 'adjustment', 'input', 'output', 'manual_adjustment'));
+alter table public.stock_movements drop constraint if exists stock_movements_movement_type_check;
+alter table public.stock_movements drop constraint if exists stock_movements_quantity_check;
+alter table public.stock_movements add constraint stock_movements_quantity_check check (quantity >= 0);
 do $$
 begin
   if exists (

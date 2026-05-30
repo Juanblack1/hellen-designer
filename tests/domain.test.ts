@@ -10,12 +10,16 @@ import {
   formatCurrency,
   getAppointmentEndTime,
   getAvailableSlots,
+  getLegacyStockMovementType,
   getLowStockProducts,
   getPaymentState,
   getServiceUsage,
+  getStockMovementDelta,
   hasScheduleConflict,
   isSlotInsideAvailability,
   maskBrazilianPhone,
+  normalizeStockMovement,
+  normalizeStockMovementType,
   parseCurrencyToCents,
 } from '../src/domain'
 import type { AppointmentRecord, ClientRecord, ProductItem } from '../src/domain'
@@ -179,5 +183,33 @@ describe('domain helpers', () => {
     expect(getServiceUsage([{ ...baseAppointment, received_amount_cents: 3000 }])).toEqual([
       { serviceName: 'Design', count: 1, revenueCents: 3000 },
     ])
+  })
+
+  it('normalizes current and legacy stock movement formats', () => {
+    expect(normalizeStockMovementType('input')).toBe('in')
+    expect(normalizeStockMovementType('manual_adjustment')).toBe('adjustment')
+    expect(getLegacyStockMovementType('out')).toBe('output')
+    expect(getStockMovementDelta('service_use', 3)).toBe(-3)
+    expect(getStockMovementDelta('in', 3)).toBe(3)
+
+    expect(
+      normalizeStockMovement({
+        id: 'move',
+        product_id: 'prod',
+        product_name: 'Henna',
+        movement_type: 'sale',
+        quantity_delta: -2,
+        notes: 'Venda',
+        created_at: '2026-05-30T12:00:00.000Z',
+      }),
+    ).toEqual({
+      id: 'move',
+      product_id: 'prod',
+      product_name: 'Henna',
+      type: 'sale',
+      quantity: 2,
+      notes: 'Venda',
+      created_at: '2026-05-30T12:00:00.000Z',
+    })
   })
 })

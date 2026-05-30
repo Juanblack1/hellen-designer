@@ -72,14 +72,17 @@ import {
   getAppointmentEndTime,
   getAvailableSlots,
   getBusinessHourForDate,
+  getLegacyStockMovementType,
   getLowStockProducts,
   getPaymentState,
   getServiceUsage,
+  getStockMovementDelta,
   getWeekDates,
   hasScheduleConflict,
   isSlotBlockedByException,
   isSlotInsideAvailability,
   maskBrazilianPhone,
+  normalizeStockMovement,
   parseCurrencyToCents,
   rangesOverlap,
   sortByOrder,
@@ -100,6 +103,7 @@ import type {
   ProductItem,
   ScheduleSettings,
   ServiceItem,
+  StockMovementDatabaseRow,
   StockMovement,
   StockMovementType,
 } from './domain'
@@ -401,6 +405,7 @@ function App() {
   const [paymentTransactions, setPaymentTransactions] = useState<PaymentTransaction[]>(defaultPaymentTransactions)
   const [products, setProducts] = useState<ProductItem[]>(defaultProducts)
   const [stockMovements, setStockMovements] = useState<StockMovement[]>(defaultStockMovements)
+  const [productMovementQuantities, setProductMovementQuantities] = useState<Record<string, string>>({})
   const [businessHours, setBusinessHours] = useState<BusinessHour[]>(defaultBusinessHours)
   const [availabilityRules, setAvailabilityRules] = useState<AvailabilityRule[]>(defaultAvailabilityRules)
   const [availabilityExceptions, setAvailabilityExceptions] =
@@ -752,7 +757,7 @@ function App() {
     }
 
     if (movementResult.data) {
-      setStockMovements(movementResult.data as StockMovement[])
+      setStockMovements((movementResult.data as StockMovementDatabaseRow[]).map(normalizeStockMovement))
     }
 
     if (paymentTransactionResult.data) {
@@ -1715,29 +1720,94 @@ function App() {
     setDataStatus('Produto salvo.')
   }
 
-  async function adjustProductQuantity(product: ProductItem, type: StockMovementType, delta: number) {
-    const nextQuantity = Math.max(product.quantity + delta, 0)
+  function getProductMovementQuantity(productId: string) {
+    const rawQuantity = productMovementQuantities[productId] ?? '1'
+    const quantity = Number.parseInt(rawQuantity, 10)
+    return Number.isFinite(quantity) && quantity > 0 ? quantity : 1
+  }
+
+  function updateProductMovementQuantity(productId: string, value: string) {
+    const normalizedValue = value.replace(/\D/g, '').slice(0, 3)
+    setProductMovementQuantities((current) => ({
+      ...current,
+      [productId]: normalizedValue || '1',
+    }))
+  }
+
+  async function insertStockMovementInDatabase(movement: StockMovement) {
+    if (!supabase) {
+      return null
+    }
+
+    const { error } = await supabase.from('stock_movements').insert(movement)
+    if (!error) {
+      return null
+    }
+
+    const legacyType = getLegacyStockMovementType(movement.type)
+    const legacyTypeRetry = await supabase.from('stock_movements').insert({ ...movement, type: legacyType })
+    if (!legacyTypeRetry.error) {
+      return null
+    }
+
+    const legacyMovement = {
+      id: movement.id,
+      product_id: movement.product_id,
+      movement_type: legacyType,
+      quantity_delta: getStockMovementDelta(movement.type, movement.quantity),
+      notes: movement.notes,
+      created_at: movement.created_at,
+    }
+    const legacyColumnRetry = await supabase.from('stock_movements').insert(legacyMovement)
+    return legacyColumnRetry.error ?? legacyTypeRetry.error ?? error
+  }
+
+  async function adjustProductQuantity(product: ProductItem, type: StockMovementType) {
+    const quantity = getProductMovementQuantity(product.id)
+    const delta = getStockMovementDelta(type, quantity)
+    const nextQuantity = product.quantity + delta
+
+    if (nextQuantity < 0) {
+      setDataStatus(`Estoque insuficiente para registrar ${quantity} un. de ${product.name}.`)
+      return
+    }
+
+    const now = new Date().toISOString()
     const movement: StockMovement = {
       id: crypto.randomUUID(),
       product_id: product.id,
       product_name: product.name,
       type,
-      quantity: Math.abs(delta),
-      notes: movementTypeLabels[type],
-      created_at: new Date().toISOString(),
+      quantity,
+      notes: `${movementTypeLabels[type]} registrada no painel.`,
+      created_at: now,
     }
+    const updatedProduct = { ...product, quantity: nextQuantity, updated_at: now }
 
-    await updateProduct(product, { quantity: nextQuantity })
+    setProducts((current) => current.map((item) => (item.id === product.id ? updatedProduct : item)))
 
     if (supabase) {
-      const { error } = await supabase.from('stock_movements').insert(movement)
-      if (error) {
-        setDataStatus('Produto salvo, mas a movimentacao nao foi registrada.')
+      const { error: productError } = await supabase
+        .from('products')
+        .update({ quantity: nextQuantity, updated_at: now })
+        .eq('id', product.id)
+
+      if (productError) {
+        setDataStatus('Nao foi possivel salvar o estoque do produto.')
+        await loadAdminData()
+        return
+      }
+
+      const movementError = await insertStockMovementInDatabase(movement)
+      if (movementError) {
+        setDataStatus('Estoque atualizado, mas o historico nao foi salvo. Execute a atualizacao do banco.')
+        await loadAdminData()
         return
       }
     }
 
     setStockMovements((current) => [movement, ...current].slice(0, 12))
+    setDataStatus(`${movementTypeLabels[type]} registrada em ${product.name}.`)
   }
 
   async function updateBusinessHour(hour: BusinessHour, patch: Partial<BusinessHour>) {
@@ -1756,6 +1826,30 @@ function App() {
     setDataStatus('Horario de funcionamento salvo.')
   }
 
+  async function createAvailabilityRule(dayOfWeek: number) {
+    const businessHour = businessHours.find((hour) => hour.day_of_week === dayOfWeek)
+    const rule: AvailabilityRule = {
+      id: crypto.randomUUID(),
+      day_of_week: dayOfWeek,
+      start_time: businessHour?.start_time ?? '09:00',
+      end_time: businessHour?.end_time ?? '18:00',
+      active: true,
+    }
+
+    setAvailabilityRules((current) => [...current, rule].sort((a, b) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time)))
+
+    if (supabase) {
+      const { error } = await supabase.from('availability_rules').insert(rule)
+      if (error) {
+        setDataStatus('Nao foi possivel criar a faixa de agendamento.')
+        await loadAdminData()
+        return
+      }
+    }
+
+    setDataStatus('Faixa de agendamento criada.')
+  }
+
   async function updateAvailabilityRule(rule: AvailabilityRule, patch: Partial<AvailabilityRule>) {
     const updatedRule = { ...rule, ...patch }
     setAvailabilityRules((current) => current.map((item) => (item.id === rule.id ? updatedRule : item)))
@@ -1770,6 +1864,21 @@ function App() {
     }
 
     setDataStatus('Disponibilidade salva.')
+  }
+
+  async function deleteAvailabilityRule(ruleId: string) {
+    setAvailabilityRules((current) => current.filter((rule) => rule.id !== ruleId))
+
+    if (supabase) {
+      const { error } = await supabase.from('availability_rules').delete().eq('id', ruleId)
+      if (error) {
+        setDataStatus('Nao foi possivel remover a faixa de agendamento.')
+        await loadAdminData()
+        return
+      }
+    }
+
+    setDataStatus('Faixa de agendamento removida.')
   }
 
   async function saveAvailabilityException(draft = exceptionDraft) {
@@ -2196,7 +2305,7 @@ function App() {
             <button
               className="icon-button sidebar-toggle"
               type="button"
-              aria-label={isSidebarCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+              aria-label={isMobileSidebarOpen ? 'Fechar menu lateral' : isSidebarCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
               onClick={toggleAdminMenu}
             >
               <Menu size={18} aria-hidden="true" />
@@ -2298,7 +2407,7 @@ function App() {
     return (
       <header className="admin-appbar">
         <div className="appbar-main">
-          <button className="icon-button" type="button" aria-label="Alternar menu" onClick={toggleAdminMenu}>
+          <button className="icon-button appbar-menu-button" type="button" aria-label="Alternar menu" onClick={toggleAdminMenu}>
             <Menu size={22} aria-hidden="true" />
           </button>
           <h1>{activeTab === 'today' ? 'Agenda' : adminTabs.find((tab) => tab.id === activeTab)?.label}</h1>
@@ -2946,11 +3055,13 @@ function App() {
               availabilityRules,
               availabilityExceptions,
             )
-            const isHalfHour = slot.endsWith(':30')
 
             return (
               <div className="timeline-row" key={slot}>
-                <time>{isHalfHour ? slot : slot}</time>
+                <time dateTime={`${agendaDate}T${slot}`}>
+                  <strong>{slot}</strong>
+                  <small>{slotEnd}</small>
+                </time>
                 <div className="timeline-cell">
                   {appointment ? (
                     <button
@@ -2999,10 +3110,11 @@ function App() {
                       <button
                         className="timeline-block-action"
                         type="button"
+                        aria-label={`Bloquear ${slot}`}
+                        title="Bloquear horario"
                         onClick={() => openBlockModal(agendaDate, slot)}
                       >
                         <Ban size={14} aria-hidden="true" />
-                        Bloquear
                       </button>
                     </div>
                   )}
@@ -4247,9 +4359,11 @@ function App() {
         <div className="product-grid">
           {productsByRecent.map((product) => {
             const low = product.quantity <= product.minimum_quantity
+            const movementQuantity = getProductMovementQuantity(product.id)
+            const stockRatio = product.minimum_quantity > 0 ? Math.min(product.quantity / product.minimum_quantity, 1) : 1
             return (
               <article className={low ? 'product-card low' : 'product-card'} key={product.id}>
-                <div>
+                <div className="product-card-header">
                   <strong>{product.name}</strong>
                   <span>{product.category}</span>
                 </div>
@@ -4267,16 +4381,37 @@ function App() {
                     <dd>{formatCurrency(product.unit_cost_cents)}</dd>
                   </div>
                 </dl>
+                <div className={low ? 'stock-meter low' : 'stock-meter'} aria-label={`Estoque ${product.quantity} de minimo ${product.minimum_quantity}`}>
+                  <span style={{ width: `${stockRatio * 100}%` }} />
+                </div>
                 {low ? <span className="status-pill pending">Estoque baixo</span> : <span className="status-pill paid">Ok</span>}
+                <label className="stock-quantity-control">
+                  Quantidade da movimentacao
+                  <input
+                    aria-label={`Quantidade para movimentar ${product.name}`}
+                    inputMode="numeric"
+                    min={1}
+                    value={productMovementQuantities[product.id] ?? '1'}
+                    onChange={(event) => updateProductMovementQuantity(product.id, event.target.value)}
+                  />
+                </label>
                 <div className="product-actions">
-                  <button type="button" onClick={() => void adjustProductQuantity(product, 'in', 1)}>
-                    Entrada
+                  <button type="button" onClick={() => void adjustProductQuantity(product, 'in')}>
+                    Entrada +{movementQuantity}
                   </button>
-                  <button type="button" onClick={() => void adjustProductQuantity(product, 'service_use', -1)}>
-                    Uso
+                  <button
+                    type="button"
+                    disabled={product.quantity < movementQuantity}
+                    onClick={() => void adjustProductQuantity(product, 'service_use')}
+                  >
+                    Uso -{movementQuantity}
                   </button>
-                  <button type="button" onClick={() => void adjustProductQuantity(product, 'sale', -1)}>
-                    Venda
+                  <button
+                    type="button"
+                    disabled={product.quantity < movementQuantity}
+                    onClick={() => void adjustProductQuantity(product, 'sale')}
+                  >
+                    Venda -{movementQuantity}
                   </button>
                 </div>
                 <label>
@@ -4297,10 +4432,114 @@ function App() {
                 <span>
                   {movementTypeLabels[movement.type]} - {movement.quantity} un.
                 </span>
+                {movement.notes ? <small>{movement.notes}</small> : null}
               </article>
             ))}
           </div>
         </section>
+      </section>
+    )
+  }
+
+  function renderOperatingSchedulePanel() {
+    return (
+      <section className="panel full-panel operating-panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Funcionamento</p>
+            <h2>Agenda semanal.</h2>
+          </div>
+          <CalendarRange size={22} aria-hidden="true" />
+        </div>
+        <div className="operating-days-list">
+          {businessHours.map((hour) => {
+            const dayRules = availabilityRules
+              .filter((rule) => rule.day_of_week === hour.day_of_week)
+              .sort((a, b) => a.start_time.localeCompare(b.start_time))
+
+            return (
+              <article key={hour.id} className={hour.is_open ? 'operating-day open' : 'operating-day'}>
+                <div className="operating-day-main">
+                  <div>
+                    <strong>{dayLabels[hour.day_of_week]}</strong>
+                    <span>{hour.is_open ? `${hour.start_time} ate ${hour.end_time}` : 'Fechado'}</span>
+                  </div>
+                  <label className="toggle-label">
+                    <input
+                      type="checkbox"
+                      checked={hour.is_open}
+                      onChange={(event) => void updateBusinessHour(hour, { is_open: event.target.checked })}
+                    />
+                    Aberto
+                  </label>
+                  <label>
+                    Inicio
+                    <input
+                      type="time"
+                      value={hour.start_time}
+                      onChange={(event) => void updateBusinessHour(hour, { start_time: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    Fim
+                    <input
+                      type="time"
+                      value={hour.end_time}
+                      onChange={(event) => void updateBusinessHour(hour, { end_time: event.target.value })}
+                    />
+                  </label>
+                </div>
+
+                <div className="availability-band">
+                  <div className="availability-band-heading">
+                    <span>Faixas de agendamento</span>
+                    <button type="button" onClick={() => void createAvailabilityRule(hour.day_of_week)}>
+                      <Plus size={14} aria-hidden="true" /> Nova faixa
+                    </button>
+                  </div>
+                  <div className="availability-chip-list">
+                    {dayRules.map((rule) => (
+                      <div key={rule.id} className={rule.active ? 'availability-chip active' : 'availability-chip'}>
+                        <label className="toggle-label">
+                          <input
+                            type="checkbox"
+                            checked={rule.active}
+                            onChange={(event) => void updateAvailabilityRule(rule, { active: event.target.checked })}
+                          />
+                          Ativa
+                        </label>
+                        <label>
+                          Inicio
+                          <input
+                            type="time"
+                            value={rule.start_time}
+                            onChange={(event) => void updateAvailabilityRule(rule, { start_time: event.target.value })}
+                          />
+                        </label>
+                        <label>
+                          Fim
+                          <input
+                            type="time"
+                            value={rule.end_time}
+                            onChange={(event) => void updateAvailabilityRule(rule, { end_time: event.target.value })}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          aria-label={`Remover faixa de ${dayLabels[rule.day_of_week]} ${rule.start_time}`}
+                          onClick={() => void deleteAvailabilityRule(rule.id)}
+                        >
+                          <Trash2 size={14} aria-hidden="true" />
+                        </button>
+                      </div>
+                    ))}
+                    {dayRules.length === 0 ? <span className="availability-empty">Nenhuma faixa ativa.</span> : null}
+                  </div>
+                </div>
+              </article>
+            )
+          })}
+        </div>
       </section>
     )
   }
@@ -4310,87 +4549,7 @@ function App() {
       <div className="settings-layout">
         {renderServiceDurationPanel()}
 
-        <section className="panel full-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Funcionamento</p>
-              <h2>Dias e horarios gerais.</h2>
-            </div>
-            <CalendarRange size={22} aria-hidden="true" />
-          </div>
-          <div className="hours-list">
-            {businessHours.map((hour) => (
-              <article key={hour.id} className={hour.is_open ? 'hours-row open' : 'hours-row'}>
-                <strong>{dayLabels[hour.day_of_week]}</strong>
-                <label className="toggle-label">
-                  <input
-                    type="checkbox"
-                    checked={hour.is_open}
-                    onChange={(event) => void updateBusinessHour(hour, { is_open: event.target.checked })}
-                  />
-                  Aberto
-                </label>
-                <label>
-                  Inicio
-                  <input
-                    type="time"
-                    value={hour.start_time}
-                    onChange={(event) => void updateBusinessHour(hour, { start_time: event.target.value })}
-                  />
-                </label>
-                <label>
-                  Fim
-                  <input
-                    type="time"
-                    value={hour.end_time}
-                    onChange={(event) => void updateBusinessHour(hour, { end_time: event.target.value })}
-                  />
-                </label>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="panel full-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Disponibilidade</p>
-              <h2>Faixas que podem receber agendamento.</h2>
-            </div>
-            <SlidersHorizontal size={22} aria-hidden="true" />
-          </div>
-          <div className="availability-list">
-            {availabilityRules.map((rule) => (
-              <article key={rule.id} className={rule.active ? 'availability-row active' : 'availability-row'}>
-                <strong>{dayLabels[rule.day_of_week]}</strong>
-                <label>
-                  Inicio
-                  <input
-                    type="time"
-                    value={rule.start_time}
-                    onChange={(event) => void updateAvailabilityRule(rule, { start_time: event.target.value })}
-                  />
-                </label>
-                <label>
-                  Fim
-                  <input
-                    type="time"
-                    value={rule.end_time}
-                    onChange={(event) => void updateAvailabilityRule(rule, { end_time: event.target.value })}
-                  />
-                </label>
-                <label className="toggle-label">
-                  <input
-                    type="checkbox"
-                    checked={rule.active}
-                    onChange={(event) => void updateAvailabilityRule(rule, { active: event.target.checked })}
-                  />
-                  Ativo
-                </label>
-              </article>
-            ))}
-          </div>
-        </section>
+        {renderOperatingSchedulePanel()}
 
         <section className="panel full-panel">
           <div className="panel-heading">
