@@ -120,6 +120,17 @@ export type AvailabilityRule = {
   start_time: string
   end_time: string
   active: boolean
+  label?: string | null
+}
+
+export type AvailabilityShift = {
+  id: string
+  label: string
+  start_time: string
+  end_time: string
+  active: boolean
+  days: number[]
+  ruleIds: string[]
 }
 
 export type AvailabilityExceptionType = 'blocked' | 'custom_available' | 'holiday' | 'vacation'
@@ -404,15 +415,15 @@ export const defaultBusinessHours: BusinessHour[] = [
 ]
 
 export const defaultAvailabilityRules: AvailabilityRule[] = [
-  { id: 'tue-morning', day_of_week: 2, start_time: '09:00', end_time: '12:00', active: true },
-  { id: 'tue-afternoon', day_of_week: 2, start_time: '13:30', end_time: '18:00', active: true },
-  { id: 'wed-morning', day_of_week: 3, start_time: '09:00', end_time: '12:00', active: true },
-  { id: 'wed-afternoon', day_of_week: 3, start_time: '14:00', end_time: '18:00', active: true },
-  { id: 'thu-morning', day_of_week: 4, start_time: '09:00', end_time: '12:00', active: true },
-  { id: 'thu-afternoon', day_of_week: 4, start_time: '13:30', end_time: '18:00', active: true },
-  { id: 'fri-morning', day_of_week: 5, start_time: '09:00', end_time: '12:00', active: true },
-  { id: 'fri-afternoon', day_of_week: 5, start_time: '13:30', end_time: '18:00', active: true },
-  { id: 'sat-short', day_of_week: 6, start_time: '09:00', end_time: '14:00', active: true },
+  { id: 'tue-morning', day_of_week: 2, start_time: '09:00', end_time: '12:00', active: true, label: 'Manha' },
+  { id: 'tue-afternoon', day_of_week: 2, start_time: '13:30', end_time: '18:00', active: true, label: 'Tarde' },
+  { id: 'wed-morning', day_of_week: 3, start_time: '09:00', end_time: '12:00', active: true, label: 'Manha' },
+  { id: 'wed-afternoon', day_of_week: 3, start_time: '13:30', end_time: '18:00', active: true, label: 'Tarde' },
+  { id: 'thu-morning', day_of_week: 4, start_time: '09:00', end_time: '12:00', active: true, label: 'Manha' },
+  { id: 'thu-afternoon', day_of_week: 4, start_time: '13:30', end_time: '18:00', active: true, label: 'Tarde' },
+  { id: 'fri-morning', day_of_week: 5, start_time: '09:00', end_time: '12:00', active: true, label: 'Manha' },
+  { id: 'fri-afternoon', day_of_week: 5, start_time: '13:30', end_time: '18:00', active: true, label: 'Tarde' },
+  { id: 'sat-short', day_of_week: 6, start_time: '09:00', end_time: '14:00', active: true, label: 'Sabado' },
 ]
 
 export const defaultAvailabilityExceptions: AvailabilityException[] = [
@@ -609,6 +620,100 @@ export function getBusinessHourForDate(date: string, businessHours: BusinessHour
 export function getAvailabilityRulesForDate(date: string, rules: AvailabilityRule[] = defaultAvailabilityRules) {
   const dayOfWeek = getDayOfWeek(date)
   return rules.filter((rule) => rule.day_of_week === dayOfWeek && rule.active)
+}
+
+function normalizeShiftLabel(label: string) {
+  return label
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+}
+
+function mostCommonValue(values: string[]) {
+  const counts = new Map<string, number>()
+  values.forEach((value) => counts.set(value, (counts.get(value) ?? 0) + 1))
+  return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] ?? ''
+}
+
+export function inferAvailabilityShiftLabel(rule: Pick<AvailabilityRule, 'label' | 'start_time'>) {
+  const savedLabel = rule.label?.trim()
+  if (savedLabel) {
+    return savedLabel
+  }
+
+  const startHour = Number.parseInt(rule.start_time.slice(0, 2), 10)
+  if (startHour < 12) {
+    return 'Manha'
+  }
+
+  if (startHour < 18) {
+    return 'Tarde'
+  }
+
+  return 'Noite'
+}
+
+function getAvailabilityShiftGroupKey(rule: AvailabilityRule) {
+  const savedLabel = rule.label?.trim()
+  if (savedLabel) {
+    return normalizeShiftLabel(savedLabel) || rule.id
+  }
+
+  const inferredLabel = inferAvailabilityShiftLabel(rule)
+  return `${normalizeShiftLabel(inferredLabel)}-${rule.start_time}-${rule.end_time}`
+}
+
+export function buildAvailabilityShifts(rules: AvailabilityRule[]): AvailabilityShift[] {
+  const groups = new Map<string, AvailabilityRule[]>()
+
+  rules.forEach((rule) => {
+    const key = getAvailabilityShiftGroupKey(rule)
+    groups.set(key, [...(groups.get(key) ?? []), rule])
+  })
+
+  return [...groups.entries()]
+    .map(([key, groupRules]) => {
+      const label = mostCommonValue(groupRules.map((rule) => inferAvailabilityShiftLabel(rule)))
+      const startTime = mostCommonValue(groupRules.map((rule) => rule.start_time))
+      const endTime = mostCommonValue(groupRules.map((rule) => rule.end_time))
+
+      return {
+        id: `shift-${key}`,
+        label,
+        start_time: startTime,
+        end_time: endTime,
+        active: groupRules.some((rule) => rule.active),
+        days: [...new Set(groupRules.map((rule) => rule.day_of_week))].sort((a, b) => a - b),
+        ruleIds: groupRules.map((rule) => rule.id),
+      }
+    })
+    .sort((a, b) => a.start_time.localeCompare(b.start_time) || a.label.localeCompare(b.label))
+}
+
+export function deriveBusinessHoursFromAvailabilityRules(
+  currentHours: BusinessHour[],
+  rules: AvailabilityRule[],
+): BusinessHour[] {
+  return currentHours.map((hour) => {
+    const activeRules = rules
+      .filter((rule) => rule.day_of_week === hour.day_of_week && rule.active)
+      .sort((a, b) => a.start_time.localeCompare(b.start_time))
+
+    if (!activeRules.length) {
+      return { ...hour, is_open: false }
+    }
+
+    const startTime = activeRules.reduce((earliest, rule) => (rule.start_time < earliest ? rule.start_time : earliest), activeRules[0].start_time)
+    const endTime = activeRules.reduce((latest, rule) => (rule.end_time > latest ? rule.end_time : latest), activeRules[0].end_time)
+
+    return {
+      ...hour,
+      is_open: true,
+      start_time: startTime,
+      end_time: endTime,
+    }
+  })
 }
 
 export function getBlockingExceptions(date: string, exceptions: AvailabilityException[] = defaultAvailabilityExceptions) {

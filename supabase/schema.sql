@@ -203,6 +203,7 @@ create table if not exists public.business_hours (
 create table if not exists public.availability_rules (
   id text primary key default gen_random_uuid()::text,
   day_of_week integer not null check (day_of_week between 0 and 6),
+  label text not null default '',
   start_time time not null,
   end_time time not null,
   active boolean not null default true,
@@ -210,6 +211,8 @@ create table if not exists public.availability_rules (
   updated_at timestamptz not null default now(),
   constraint availability_rules_range_check check (start_time < end_time)
 );
+
+alter table public.availability_rules add column if not exists label text not null default '';
 
 create index if not exists availability_rules_day_idx
 on public.availability_rules (day_of_week, active);

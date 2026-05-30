@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildAvailabilityShifts,
   buildWhatsAppUrl,
   calculateAdminStats,
   defaultAvailabilityExceptions,
@@ -7,6 +8,7 @@ import {
   defaultBusinessHours,
   defaultScheduleSettings,
   defaultServices,
+  deriveBusinessHoursFromAvailabilityRules,
   formatCurrency,
   getAppointmentEndTime,
   getAvailableSlots,
@@ -22,7 +24,7 @@ import {
   normalizeStockMovementType,
   parseCurrencyToCents,
 } from '../src/domain'
-import type { AppointmentRecord, ClientRecord, ProductItem } from '../src/domain'
+import type { AppointmentRecord, BusinessHour, ClientRecord, ProductItem } from '../src/domain'
 
 const baseAppointment: AppointmentRecord = {
   id: 'appt',
@@ -153,6 +155,50 @@ describe('domain helpers', () => {
         service.duration_minutes,
       ),
     ).not.toContain('14:00')
+  })
+
+  it('groups availability rules into editable shifts', () => {
+    const shifts = buildAvailabilityShifts([
+      { id: 'mon-morning', day_of_week: 1, start_time: '09:00', end_time: '12:00', active: true },
+      { id: 'tue-morning', day_of_week: 2, start_time: '09:00', end_time: '12:00', active: true },
+      { id: 'sat-short', day_of_week: 6, start_time: '09:00', end_time: '14:00', active: true },
+      { id: 'wed-afternoon', day_of_week: 3, start_time: '13:30', end_time: '18:00', active: false, label: 'Tarde' },
+      { id: 'thu-afternoon', day_of_week: 4, start_time: '13:30', end_time: '18:00', active: true, label: 'Tarde' },
+    ])
+
+    expect(
+      shifts.map((shift) => ({
+        label: shift.label,
+        start_time: shift.start_time,
+        end_time: shift.end_time,
+        active: shift.active,
+        days: shift.days,
+      })),
+    ).toEqual([
+      { label: 'Manha', start_time: '09:00', end_time: '12:00', active: true, days: [1, 2] },
+      { label: 'Manha', start_time: '09:00', end_time: '14:00', active: true, days: [6] },
+      { label: 'Tarde', start_time: '13:30', end_time: '18:00', active: true, days: [3, 4] },
+    ])
+  })
+
+  it('derives weekly business hours from active availability shifts', () => {
+    const hours: BusinessHour[] = [
+      { id: 'sun', day_of_week: 0, is_open: true, start_time: '09:00', end_time: '18:00' },
+      { id: 'mon', day_of_week: 1, is_open: false, start_time: '09:00', end_time: '18:00' },
+      { id: 'tue', day_of_week: 2, is_open: true, start_time: '09:00', end_time: '18:00' },
+    ]
+
+    expect(
+      deriveBusinessHoursFromAvailabilityRules(hours, [
+        { id: 'mon-morning', day_of_week: 1, start_time: '09:30', end_time: '12:00', active: true, label: 'Manha' },
+        { id: 'mon-afternoon', day_of_week: 1, start_time: '13:30', end_time: '17:00', active: true, label: 'Tarde' },
+        { id: 'tue-paused', day_of_week: 2, start_time: '09:00', end_time: '18:00', active: false, label: 'Pausado' },
+      ]),
+    ).toEqual([
+      { id: 'sun', day_of_week: 0, is_open: false, start_time: '09:00', end_time: '18:00' },
+      { id: 'mon', day_of_week: 1, is_open: true, start_time: '09:30', end_time: '17:00' },
+      { id: 'tue', day_of_week: 2, is_open: false, start_time: '09:00', end_time: '18:00' },
+    ])
   })
 
   it('summarizes low stock and service usage', () => {

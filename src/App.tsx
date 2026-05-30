@@ -52,6 +52,7 @@ import {
   addMinutesToTime,
   buildAgendaSlotsForDate,
   buildWhatsAppUrl,
+  buildAvailabilityShifts,
   calculateAdminStats,
   centsToInputValue,
   defaultAvailabilityExceptions,
@@ -66,6 +67,7 @@ import {
   defaultScheduleSettings,
   defaultServices,
   defaultStockMovements,
+  deriveBusinessHoursFromAvailabilityRules,
   formatCurrency,
   formatDateLong,
   formatDateShort,
@@ -89,6 +91,7 @@ import {
 } from './domain'
 import type {
   AppointmentRecord,
+  AvailabilityShift,
   AppointmentStatus,
   AvailabilityException,
   AvailabilityExceptionType,
@@ -251,6 +254,15 @@ const paymentStatusLabels: Record<PaymentStatus, string> = {
 }
 
 const dayLabels = ['Domingo', 'Segunda', 'Terca', 'Quarta', 'Quinta', 'Sexta', 'Sabado']
+const weekdayChips = [
+  { day: 1, short: 'Seg', label: 'Segunda' },
+  { day: 2, short: 'Ter', label: 'Terca' },
+  { day: 3, short: 'Qua', label: 'Quarta' },
+  { day: 4, short: 'Qui', label: 'Quinta' },
+  { day: 5, short: 'Sex', label: 'Sexta' },
+  { day: 6, short: 'Sab', label: 'Sabado' },
+  { day: 0, short: 'Dom', label: 'Domingo' },
+]
 
 const movementTypeLabels: Record<StockMovementType, string> = {
   in: 'Entrada',
@@ -355,6 +367,10 @@ function getGeneralMessage() {
 
 function getServiceMessage(service: ServiceItem) {
   return `Ola Hellen, vim pelo site e quero saber sobre ${service.name} (${formatCurrency(service.price_cents)}).`
+}
+
+function formatShiftDayCount(count: number) {
+  return `${count} ${count === 1 ? 'dia' : 'dias'} com novos horarios.`
 }
 
 function isLocalHost(hostname: string) {
@@ -579,6 +595,7 @@ function App() {
       selectedDraftService,
     ],
   )
+  const availabilityShifts = useMemo(() => buildAvailabilityShifts(availabilityRules), [availabilityRules])
   const filteredClients = clientsByRecent.filter((client) => {
     const search = searchTerm.toLowerCase()
     return (
@@ -1810,75 +1827,173 @@ function App() {
     setDataStatus(`${movementTypeLabels[type]} registrada em ${product.name}.`)
   }
 
-  async function updateBusinessHour(hour: BusinessHour, patch: Partial<BusinessHour>) {
-    const updatedHour = { ...hour, ...patch }
-    setBusinessHours((current) => current.map((item) => (item.id === hour.id ? updatedHour : item)))
+  function sortAvailabilityRules(rules: AvailabilityRule[]) {
+    return [...rules].sort((a, b) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time))
+  }
+
+  function stripAvailabilityRuleLabel(rule: AvailabilityRule) {
+    const legacyRule = { ...rule }
+    delete legacyRule.label
+    return legacyRule
+  }
+
+  async function upsertAvailabilityRulesInDatabase(rules: AvailabilityRule[]) {
+    if (!supabase || rules.length === 0) {
+      return null
+    }
+
+    const { error } = await supabase.from('availability_rules').upsert(rules)
+    if (!error || !isSchemaCompatibilityError(error)) {
+      return error
+    }
+
+    const retry = await supabase.from('availability_rules').upsert(rules.map(stripAvailabilityRuleLabel))
+    return retry.error
+  }
+
+  async function syncBusinessHoursFromRules(nextRules: AvailabilityRule[]) {
+    const nextHours = deriveBusinessHoursFromAvailabilityRules(businessHours, nextRules)
+    setBusinessHours(nextHours)
 
     if (supabase) {
-      const { error } = await supabase.from('business_hours').upsert(updatedHour)
+      const { error } = await supabase.from('business_hours').upsert(nextHours)
       if (error) {
-        setDataStatus('Nao foi possivel salvar o horario de funcionamento.')
+        setDataStatus('Nao foi possivel atualizar os dias da agenda.')
+        await loadAdminData()
+        return false
+      }
+    }
+
+    return true
+  }
+
+  async function saveAvailabilityShift(
+    shift: AvailabilityShift,
+    patch: Partial<Pick<AvailabilityShift, 'active' | 'days' | 'end_time' | 'label' | 'start_time'>>,
+  ) {
+    const label = (patch.label ?? shift.label).trim()
+    const startTime = patch.start_time ?? shift.start_time
+    const endTime = patch.end_time ?? shift.end_time
+    const active = patch.active ?? shift.active
+    const days = [...new Set(patch.days ?? shift.days)].sort((a, b) => a - b)
+
+    if (label.length < 2) {
+      setDataStatus('Informe um nome para o turno.')
+      return
+    }
+
+    if (startTime >= endTime) {
+      setDataStatus('O fim do turno precisa ser depois do inicio.')
+      return
+    }
+
+    if (days.length === 0) {
+      setDataStatus('Selecione pelo menos um dia para o turno.')
+      return
+    }
+
+    const currentShiftRules = availabilityRules.filter((rule) => shift.ruleIds.includes(rule.id))
+    const currentRuleByDay = new Map(currentShiftRules.map((rule) => [rule.day_of_week, rule]))
+    const nextShiftRules: AvailabilityRule[] = days.map((day) => {
+      const existingRule = currentRuleByDay.get(day)
+      return {
+        id: existingRule?.id ?? crypto.randomUUID(),
+        day_of_week: day,
+        start_time: startTime,
+        end_time: endTime,
+        active,
+        label,
+      }
+    })
+    const nextShiftRuleIds = new Set(nextShiftRules.map((rule) => rule.id))
+    const removedRuleIds = shift.ruleIds.filter((ruleId) => !nextShiftRuleIds.has(ruleId))
+    const shiftRuleIds = new Set(shift.ruleIds)
+    const nextRules = sortAvailabilityRules([
+      ...availabilityRules.filter((rule) => !shiftRuleIds.has(rule.id)),
+      ...nextShiftRules,
+    ])
+
+    setAvailabilityRules(nextRules)
+
+    if (supabase) {
+      if (removedRuleIds.length > 0) {
+        const { error } = await supabase.from('availability_rules').delete().in('id', removedRuleIds)
+        if (error) {
+          setDataStatus('Nao foi possivel remover os dias antigos do turno.')
+          await loadAdminData()
+          return
+        }
+      }
+
+      const error = await upsertAvailabilityRulesInDatabase(nextShiftRules)
+      if (error) {
+        setDataStatus('Nao foi possivel salvar o turno.')
         await loadAdminData()
         return
       }
     }
 
-    setDataStatus('Horario de funcionamento salvo.')
+    if (!(await syncBusinessHoursFromRules(nextRules))) {
+      return
+    }
+
+    setDataStatus('Turno salvo.')
   }
 
-  async function createAvailabilityRule(dayOfWeek: number) {
-    const businessHour = businessHours.find((hour) => hour.day_of_week === dayOfWeek)
-    const rule: AvailabilityRule = {
+  async function createAvailabilityShift() {
+    const usedLabels = new Set(availabilityShifts.map((shift) => shift.label.trim().toLowerCase()))
+    const label = !usedLabels.has('manha') ? 'Manha' : !usedLabels.has('tarde') ? 'Tarde' : `Turno ${availabilityShifts.length + 1}`
+    const startTime = label === 'Tarde' ? '13:30' : '09:00'
+    const endTime = label === 'Tarde' ? '18:00' : '12:00'
+    const days = [1, 2, 3, 4, 5]
+    const rules: AvailabilityRule[] = days.map((day) => ({
       id: crypto.randomUUID(),
-      day_of_week: dayOfWeek,
-      start_time: businessHour?.start_time ?? '09:00',
-      end_time: businessHour?.end_time ?? '18:00',
+      day_of_week: day,
+      start_time: startTime,
+      end_time: endTime,
       active: true,
-    }
+      label,
+    }))
+    const nextRules = sortAvailabilityRules([...availabilityRules, ...rules])
 
-    setAvailabilityRules((current) => [...current, rule].sort((a, b) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time)))
+    setAvailabilityRules(nextRules)
 
     if (supabase) {
-      const { error } = await supabase.from('availability_rules').insert(rule)
+      const error = await upsertAvailabilityRulesInDatabase(rules)
       if (error) {
-        setDataStatus('Nao foi possivel criar a faixa de agendamento.')
+        setDataStatus('Nao foi possivel criar o turno.')
         await loadAdminData()
         return
       }
     }
 
-    setDataStatus('Faixa de agendamento criada.')
+    if (!(await syncBusinessHoursFromRules(nextRules))) {
+      return
+    }
+
+    setDataStatus('Turno criado.')
   }
 
-  async function updateAvailabilityRule(rule: AvailabilityRule, patch: Partial<AvailabilityRule>) {
-    const updatedRule = { ...rule, ...patch }
-    setAvailabilityRules((current) => current.map((item) => (item.id === rule.id ? updatedRule : item)))
+  async function deleteAvailabilityShift(shift: AvailabilityShift) {
+    const shiftRuleIds = new Set(shift.ruleIds)
+    const nextRules = sortAvailabilityRules(availabilityRules.filter((rule) => !shiftRuleIds.has(rule.id)))
 
-    if (supabase) {
-      const { error } = await supabase.from('availability_rules').upsert(updatedRule)
+    setAvailabilityRules(nextRules)
+
+    if (supabase && shift.ruleIds.length > 0) {
+      const { error } = await supabase.from('availability_rules').delete().in('id', shift.ruleIds)
       if (error) {
-        setDataStatus('Nao foi possivel salvar a disponibilidade.')
+        setDataStatus('Nao foi possivel remover o turno.')
         await loadAdminData()
         return
       }
     }
 
-    setDataStatus('Disponibilidade salva.')
-  }
-
-  async function deleteAvailabilityRule(ruleId: string) {
-    setAvailabilityRules((current) => current.filter((rule) => rule.id !== ruleId))
-
-    if (supabase) {
-      const { error } = await supabase.from('availability_rules').delete().eq('id', ruleId)
-      if (error) {
-        setDataStatus('Nao foi possivel remover a faixa de agendamento.')
-        await loadAdminData()
-        return
-      }
+    if (!(await syncBusinessHoursFromRules(nextRules))) {
+      return
     }
 
-    setDataStatus('Faixa de agendamento removida.')
+    setDataStatus('Turno removido.')
   }
 
   async function saveAvailabilityException(draft = exceptionDraft) {
@@ -4445,102 +4560,125 @@ function App() {
 
   function renderOperatingSchedulePanel() {
     return (
-      <section className="panel full-panel operating-panel">
+      <section className="panel full-panel shift-panel">
         <div className="panel-heading">
           <div>
-            <p className="eyebrow">Funcionamento</p>
-            <h2>Agenda semanal.</h2>
+            <p className="eyebrow">Turnos</p>
+            <h2>Turnos da agenda.</h2>
           </div>
-          <CalendarRange size={22} aria-hidden="true" />
+          <button className="ghost-action compact-action" type="button" onClick={() => void createAvailabilityShift()}>
+            <Plus size={16} aria-hidden="true" /> Adicionar turno
+          </button>
         </div>
-        <div className="operating-days-list">
-          {businessHours.map((hour) => {
-            const dayRules = availabilityRules
-              .filter((rule) => rule.day_of_week === hour.day_of_week)
-              .sort((a, b) => a.start_time.localeCompare(b.start_time))
-
+        <div className="shift-settings-grid">
+          <label>
+            Fuso horario
+            <input value="America/Sao_Paulo" readOnly />
+          </label>
+          <label>
+            Intervalo dos horarios
+            <select
+              value={scheduleSettings.slot_interval_minutes}
+              onChange={(event) =>
+                void updateScheduleSettings({
+                  slot_interval_minutes: Number.parseInt(event.target.value, 10) as ScheduleSettings['slot_interval_minutes'],
+                })
+              }
+            >
+              <option value={15}>15 minutos</option>
+              <option value={30}>30 minutos</option>
+              <option value={60}>60 minutos</option>
+            </select>
+          </label>
+        </div>
+        <div className="shift-list">
+          {availabilityShifts.map((shift) => {
+            const selectedDays = new Set(shift.days)
             return (
-              <article key={hour.id} className={hour.is_open ? 'operating-day open' : 'operating-day'}>
-                <div className="operating-day-main">
-                  <div>
-                    <strong>{dayLabels[hour.day_of_week]}</strong>
-                    <span>{hour.is_open ? `${hour.start_time} ate ${hour.end_time}` : 'Fechado'}</span>
-                  </div>
-                  <label className="toggle-label">
+              <article key={shift.id} className={shift.active ? 'shift-card active' : 'shift-card'}>
+                <div className="shift-fields">
+                  <label>
+                    Turno
                     <input
-                      type="checkbox"
-                      checked={hour.is_open}
-                      onChange={(event) => void updateBusinessHour(hour, { is_open: event.target.checked })}
+                      defaultValue={shift.label}
+                      onBlur={(event) => {
+                        const nextLabel = event.target.value.trim()
+                        if (nextLabel !== shift.label) {
+                          void saveAvailabilityShift(shift, { label: nextLabel })
+                        }
+                      }}
                     />
-                    Aberto
                   </label>
                   <label>
                     Inicio
                     <input
                       type="time"
-                      value={hour.start_time}
-                      onChange={(event) => void updateBusinessHour(hour, { start_time: event.target.value })}
+                      value={shift.start_time.slice(0, 5)}
+                      onChange={(event) => void saveAvailabilityShift(shift, { start_time: event.target.value })}
                     />
                   </label>
                   <label>
                     Fim
                     <input
                       type="time"
-                      value={hour.end_time}
-                      onChange={(event) => void updateBusinessHour(hour, { end_time: event.target.value })}
+                      value={shift.end_time.slice(0, 5)}
+                      onChange={(event) => void saveAvailabilityShift(shift, { end_time: event.target.value })}
                     />
+                  </label>
+                  <label className="shift-switch">
+                    Novos agendamentos
+                    <span>
+                      <input
+                        type="checkbox"
+                        checked={shift.active}
+                        onChange={(event) => void saveAvailabilityShift(shift, { active: event.target.checked })}
+                      />
+                      {shift.active ? 'Ativo' : 'Pausado'}
+                    </span>
                   </label>
                 </div>
 
-                <div className="availability-band">
-                  <div className="availability-band-heading">
-                    <span>Faixas de agendamento</span>
-                    <button type="button" onClick={() => void createAvailabilityRule(hour.day_of_week)}>
-                      <Plus size={14} aria-hidden="true" /> Nova faixa
-                    </button>
-                  </div>
-                  <div className="availability-chip-list">
-                    {dayRules.map((rule) => (
-                      <div key={rule.id} className={rule.active ? 'availability-chip active' : 'availability-chip'}>
-                        <label className="toggle-label">
-                          <input
-                            type="checkbox"
-                            checked={rule.active}
-                            onChange={(event) => void updateAvailabilityRule(rule, { active: event.target.checked })}
-                          />
-                          Ativa
-                        </label>
-                        <label>
-                          Inicio
-                          <input
-                            type="time"
-                            value={rule.start_time}
-                            onChange={(event) => void updateAvailabilityRule(rule, { start_time: event.target.value })}
-                          />
-                        </label>
-                        <label>
-                          Fim
-                          <input
-                            type="time"
-                            value={rule.end_time}
-                            onChange={(event) => void updateAvailabilityRule(rule, { end_time: event.target.value })}
-                          />
-                        </label>
-                        <button
-                          type="button"
-                          aria-label={`Remover faixa de ${dayLabels[rule.day_of_week]} ${rule.start_time}`}
-                          onClick={() => void deleteAvailabilityRule(rule.id)}
-                        >
-                          <Trash2 size={14} aria-hidden="true" />
-                        </button>
-                      </div>
-                    ))}
-                    {dayRules.length === 0 ? <span className="availability-empty">Nenhuma faixa ativa.</span> : null}
-                  </div>
+                <div className="shift-weekdays" role="group" aria-label={`Dias do turno ${shift.label}`}>
+                  {weekdayChips.map((weekday) => {
+                    const isSelected = selectedDays.has(weekday.day)
+                    const nextDays = isSelected
+                      ? shift.days.filter((day) => day !== weekday.day)
+                      : [...shift.days, weekday.day]
+
+                    return (
+                      <button
+                        key={weekday.day}
+                        type="button"
+                        aria-label={weekday.label}
+                        aria-pressed={isSelected}
+                        className={isSelected ? 'active' : ''}
+                        onClick={() => void saveAvailabilityShift(shift, { days: nextDays })}
+                      >
+                        {weekday.short}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <div className="shift-card-footer">
+                  <span>{formatShiftDayCount(shift.days.length)}</span>
+                  <button type="button" aria-label={`Remover turno ${shift.label}`} onClick={() => void deleteAvailabilityShift(shift)}>
+                    <Trash2 size={15} aria-hidden="true" />
+                    Remover
+                  </button>
                 </div>
               </article>
             )
           })}
+          {availabilityShifts.length === 0 ? (
+            <div className="shift-empty">
+              <CalendarRange size={22} aria-hidden="true" />
+              <strong>Nenhum turno configurado.</strong>
+              <button type="button" onClick={() => void createAvailabilityShift()}>
+                <Plus size={15} aria-hidden="true" /> Criar primeiro turno
+              </button>
+            </div>
+          ) : null}
         </div>
       </section>
     )
@@ -4549,9 +4687,9 @@ function App() {
   function renderScheduleSettings() {
     return (
       <div className="settings-layout">
-        {renderServiceDurationPanel()}
-
         {renderOperatingSchedulePanel()}
+
+        {renderServiceDurationPanel()}
 
         <section className="panel full-panel">
           <div className="panel-heading">
@@ -4707,21 +4845,6 @@ function App() {
             <ClipboardList size={22} aria-hidden="true" />
           </div>
           <div className="settings-grid">
-            <label>
-              Intervalo dos slots
-              <select
-                value={scheduleSettings.slot_interval_minutes}
-                onChange={(event) =>
-                  void updateScheduleSettings({
-                    slot_interval_minutes: Number.parseInt(event.target.value, 10) as ScheduleSettings['slot_interval_minutes'],
-                  })
-                }
-              >
-                <option value={15}>15 minutos</option>
-                <option value={30}>30 minutos</option>
-                <option value={60}>60 minutos</option>
-              </select>
-            </label>
             <label>
               Intervalo entre servicos
               <input

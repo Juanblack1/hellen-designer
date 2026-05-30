@@ -2357,12 +2357,18 @@ textarea {
   border-color: rgba(255, 226, 160, 0.32);
 }
 
-.operating-days-list {
+.shift-settings-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.42fr);
+}
+
+.shift-list {
   display: grid;
   gap: 12px;
 }
 
-.operating-day {
+.shift-card {
   background: rgba(33, 23, 13, 0.42);
   border: 1px solid rgba(217, 164, 65, 0.16);
   border-radius: 8px;
@@ -2371,94 +2377,121 @@ textarea {
   padding: 12px;
 }
 
-.operating-day.open {
-  border-color: rgba(255, 226, 160, 0.32);
+.shift-card.active {
+  border-color: rgba(255, 226, 160, 0.34);
 }
 
-.operating-day-main {
-  align-items: center;
+.shift-fields {
+  align-items: end;
   display: grid;
   gap: 10px;
-  grid-template-columns: minmax(136px, 1fr) auto 128px 128px;
+  grid-template-columns: minmax(180px, 1fr) minmax(112px, 0.34fr) minmax(112px, 0.34fr) minmax(170px, 0.45fr);
 }
 
-.operating-day-main > div:first-child {
+.shift-fields input,
+.shift-fields select,
+.shift-settings-grid input,
+.shift-settings-grid select {
+  min-height: 40px;
+}
+
+.shift-switch {
   display: grid;
-  gap: 3px;
-  min-width: 0;
+  gap: 6px;
 }
 
-.operating-day-main strong {
-  color: var(--text);
+.shift-switch > span {
+  align-items: center;
+  background: rgba(217, 164, 65, 0.08);
+  border: 1px solid rgba(217, 164, 65, 0.18);
+  border-radius: 8px;
+  color: var(--gold-bright);
+  display: flex;
+  font-weight: 900;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 12px;
 }
 
-.operating-day-main span,
-.availability-band-heading span,
-.availability-empty {
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 800;
+.shift-switch input {
+  accent-color: var(--gold);
+  flex: 0 0 auto;
+  min-height: 0;
+  width: auto;
 }
 
-.availability-band {
+.shift-weekdays {
   background: rgba(16, 12, 8, 0.42);
   border: 1px solid rgba(217, 164, 65, 0.12);
   border-radius: 8px;
-  display: grid;
-  gap: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   padding: 10px;
 }
 
-.availability-band-heading {
+.shift-weekdays button {
+  background: rgba(217, 164, 65, 0.08);
+  border: 1px solid rgba(217, 164, 65, 0.18);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  min-height: 34px;
+  min-width: 46px;
+  padding: 0 10px;
+}
+
+.shift-weekdays button.active {
+  background: linear-gradient(135deg, rgba(255, 215, 126, 0.95), rgba(119, 84, 28, 0.9));
+  border-color: rgba(255, 226, 160, 0.62);
+  color: #150f08;
+}
+
+.shift-card-footer {
   align-items: center;
   display: flex;
   gap: 10px;
   justify-content: space-between;
 }
 
-.availability-band-heading button,
-.availability-chip button {
+.shift-card-footer span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.shift-card-footer button,
+.shift-empty button {
   align-items: center;
   background: rgba(217, 164, 65, 0.08);
   border: 1px solid rgba(217, 164, 65, 0.18);
   border-radius: 8px;
   color: var(--gold-bright);
   display: inline-flex;
-  font-size: 0.78rem;
   font-weight: 900;
-  gap: 6px;
+  gap: 7px;
   justify-content: center;
-  min-height: 32px;
-  padding: 0 9px;
-}
-
-.availability-chip-list {
-  display: grid;
-  gap: 8px;
-}
-
-.availability-chip {
-  align-items: center;
-  background: rgba(217, 164, 65, 0.06);
-  border: 1px solid rgba(217, 164, 65, 0.14);
-  border-radius: 8px;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: auto 120px 120px auto;
-  padding: 8px;
-}
-
-.availability-chip.active {
-  border-color: rgba(99, 214, 151, 0.34);
-}
-
-.availability-chip input {
   min-height: 36px;
+  padding: 0 12px;
 }
 
-.availability-chip button {
-  min-width: 36px;
-  padding: 0;
+.shift-empty {
+  align-items: center;
+  background: rgba(33, 23, 13, 0.32);
+  border: 1px dashed rgba(217, 164, 65, 0.26);
+  border-radius: 8px;
+  color: var(--muted);
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  min-height: 160px;
+  padding: 18px;
+  text-align: center;
+}
+
+.shift-empty strong {
+  color: var(--text);
 }
 
 .availability-row {
@@ -3145,19 +3178,19 @@ textarea {
   .payment-summary-grid,
   .hours-row,
   .availability-row,
-  .operating-day-main,
-  .availability-chip,
+  .shift-settings-grid,
+  .shift-fields,
   .payment-picker-list article,
   .exception-list article {
     grid-template-columns: 1fr;
   }
 
-  .availability-band-heading {
+  .shift-card-footer {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .availability-band-heading button {
+  .shift-card-footer button {
     width: 100%;
   }
 
