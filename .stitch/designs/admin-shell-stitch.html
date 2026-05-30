@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&amp;family=Playfair+Display:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary": "#f7bf59",
+                    "surface-tint": "#f5bd58",
+                    "warning": "#F4C873",
+                    "on-secondary-fixed-variant": "#574411",
+                    "surface": "#100C08",
+                    "secondary-fixed": "#fce09e",
+                    "on-primary-fixed-variant": "#5f4100",
+                    "surface-container-lowest": "#100e0c",
+                    "on-surface": "#e8e1dd",
+                    "surface-variant": "#373432",
+                    "on-primary": "#422c00",
+                    "tertiary-fixed": "#ffddb7",
+                    "secondary": "#dfc484",
+                    "secondary-container": "#574411",
+                    "tertiary": "#fcbc6a",
+                    "inverse-on-surface": "#33302d",
+                    "tertiary-container": "#dda152",
+                    "on-secondary": "#3e2e00",
+                    "surface-raised": "#17110B",
+                    "on-surface-variant": "#d3c4b1",
+                    "tertiary-fixed-dim": "#fabb68",
+                    "secondary-fixed-dim": "#dfc484",
+                    "on-primary-container": "#573c00",
+                    "success": "#63D697",
+                    "text-muted": "#C6B696",
+                    "outline": "#9c8f7d",
+                    "on-secondary-fixed": "#251a00",
+                    "surface-container-low": "#1d1b19",
+                    "on-tertiary-fixed": "#2a1700",
+                    "on-tertiary-fixed-variant": "#643e00",
+                    "on-error": "#690005",
+                    "surface-dim": "#151311",
+                    "inverse-primary": "#7d5700",
+                    "on-secondary-container": "#cdb275",
+                    "line": "#4D3517",
+                    "outline-variant": "#4f4536",
+                    "on-error-container": "#ffdad6",
+                    "error-container": "#93000a",
+                    "error": "#ffb4ab",
+                    "surface-bright": "#3c3936",
+                    "inverse-surface": "#e8e1dd",
+                    "surface-soft": "#21170D",
+                    "background": "#151311",
+                    "text-primary": "#F8EAD0",
+                    "primary-container": "#d9a441",
+                    "danger": "#FF7E61",
+                    "on-primary-fixed": "#271900",
+                    "surface-container": "#221f1d",
+                    "on-tertiary-container": "#5c3900",
+                    "on-background": "#e8e1dd",
+                    "surface-container-highest": "#373432",
+                    "primary-fixed": "#ffdeaa",
+                    "on-tertiary": "#462a00",
+                    "primary-fixed-dim": "#f5bd58",
+                    "surface-container-high": "#2c2927"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "gutter": "16px",
+                    "container-padding": "24px",
+                    "admin-normal": "12px",
+                    "base": "8px",
+                    "section-gap": "80px",
+                    "admin-tight": "4px"
+            },
+            "fontFamily": {
+                    "headline-lg-mobile": ["Playfair Display"],
+                    "body-lg": ["Montserrat"],
+                    "label-sm": ["Montserrat"],
+                    "label-md": ["Montserrat"],
+                    "body-md": ["Montserrat"],
+                    "headline-lg": ["Playfair Display"],
+                    "headline-md": ["Playfair Display"],
+                    "display-lg": ["Playfair Display"],
+                    "tabular-nums": ["Montserrat"]
+            },
+            "fontSize": {
+                    "headline-lg-mobile": ["32px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "label-sm": ["12px", {"lineHeight": "1.2", "fontWeight": "500"}],
+                    "label-md": ["14px", {"lineHeight": "1.2", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                    "headline-lg": ["40px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                    "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                    "display-lg": ["56px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "tabular-nums": ["14px", {"fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { background-color: #151311; color: #e8e1dd; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .nav-item-active {
+            color: #f7bf59;
+            background-color: rgba(87, 68, 17, 0.1);
+            border-right: 2px solid #f7bf59;
+        }
+        .sidebar-transition {
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Shimmer effect for gold primary elements */
+        .gold-shimmer {
+            position: relative;
+            overflow: hidden;
+        }
+        .gold-shimmer::after {
+            content: "";
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                to bottom right,
+                rgba(255,255,255,0) 0%,
+                rgba(255,255,255,0) 40%,
+                rgba(255,255,255,0.2) 50%,
+                rgba(255,255,255,0) 60%,
+                rgba(255,255,255,0) 100%
+            );
+            transform: rotate(45deg);
+            animation: shimmer 6s infinite;
+        }
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) rotate(45deg); }
+            20%, 100% { transform: translateX(100%) rotate(45deg); }
+        }
+    </style>
+</head>
+<body class="font-body-md text-body-md overflow-hidden h-screen flex">
+<!-- Sidebar Navigation Shell -->
+<!-- Fixed structure as per JSON and instructions -->
+<aside class="sidebar-transition fixed left-0 top-0 h-full flex flex-col py-6 overflow-y-auto z-50 bg-surface border-r border-line w-64 md:relative md:flex shrink-0" id="sidebar">
+<!-- Brand Header -->
+<div class="px-6 mb-10 flex items-center justify-between">
+<div class="flex items-center gap-3 overflow-hidden">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center shrink-0">
+<span class="font-headline-md text-on-primary-container font-bold">H</span>
+</div>
+<div class="sidebar-text-content">
+<h1 class="font-headline-md text-primary font-bold whitespace-nowrap">Hellen Designer</h1>
+<p class="font-label-sm text-text-muted">Studio Gold Admin</p>
+</div>
+</div>
+<button class="text-text-muted hover:text-primary transition-colors" onclick="toggleSidebar()">
+<span class="material-symbols-outlined">menu_open</span>
+</button>
+</div>
+<!-- Navigation List -->
+<nav class="flex-1 space-y-1">
+<!-- Active State determined by page intent (Financeiro preview) -->
+<a class="group flex items-center px-6 py-3 text-text-muted hover:bg-surface-variant hover:text-primary transition-all duration-150" href="#">
+<span class="material-symbols-outlined mr-4">today</span>
+<span class="font-label-md sidebar-text-content">Hoje</span>
+</a>
+<a class="group flex items-center px-6 py-3 text-text-muted hover:bg-surface-variant hover:text-primary transition-all duration-150" href="#">
+<span class="material-symbols-outlined mr-4">calendar_month</span>
+<span class="font-label-md sidebar-text-content">Agenda</span>
+</a>
+<a class="group flex items-center px-6 py-3 nav-item-active text-primary" href="#">
+<span class="material-symbols-outlined mr-4">payments</span>
+<span class="font-label-md sidebar-text-content">Financeiro</span>
+</a>
+<a class="group flex items-center px-6 py-3 text-text-muted hover:bg-surface-variant hover:text-primary transition-all duration-150" href="#">
+<span class="material-symbols-outlined mr-4">group</span>
+<span class="font-label-md sidebar-text-content">Clientes</span>
+</a>
+<a class="group flex items-center px-6 py-3 text-text-muted hover:bg-surface-variant hover:text-primary transition-all duration-150" href="#">
+<span class="material-symbols-outlined mr-4">auto_fix</span>
+<span class="font-label-md sidebar-text-content">Serviços</span>
+</a>
+<a class="group flex items-center px-6 py-3 text-text-muted hover:bg-surface-variant hover:text-primary transition-all duration-150" href="#">
+<span class="material-symbols-outlined mr-4">schedule</span>
+<span class="font-label-md sidebar-text-content">Horários</span>
+</a>
+<a class="group flex items-center px-6 py-3 text-text-muted hover:bg-surface-variant hover:text-primary transition-all duration-150" href="#">
+<span class="material-symbols-outlined mr-4">inventory_2</span>
+<span class="font-label-md sidebar-text-content">Produtos</span>
+</a>
+<a class="group flex items-center px-6 py-3 text-text-muted hover:bg-surface-variant hover:text-primary transition-all duration-150" href="#">
+<span class="material-symbols-outlined mr-4">web</span>
+<span class="font-label-md sidebar-text-content">Landing</span>
+</a>
+</nav>
+<!-- Bottom Actions -->
+<div class="px-6 pt-6 mt-auto border-t border-line/20">
+<button class="flex items-center w-full px-2 py-3 text-danger hover:bg-error-container/10 rounded-lg transition-colors group">
+<span class="material-symbols-outlined mr-4">logout</span>
+<span class="font-label-md sidebar-text-content">Sair</span>
+</button>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 flex flex-col h-screen overflow-hidden bg-background">
+<!-- Top Bar -->
+<header class="h-16 flex items-center justify-between px-container-padding bg-surface border-b border-line sticky top-0 z-40">
+<div class="flex items-center gap-6">
+<h2 class="font-headline-md text-primary font-bold">Financeiro</h2>
+<div class="hidden lg:flex items-center bg-surface-container-low border border-line rounded-lg px-3 py-1.5 gap-2">
+<span class="material-symbols-outlined text-text-muted text-[20px]">calendar_today</span>
+<span class="font-label-md text-on-surface">15 Out - 21 Out, 2023</span>
+<span class="material-symbols-outlined text-text-muted text-[20px] cursor-pointer">arrow_drop_down</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden md:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-[20px]">search</span>
+<input class="bg-surface-soft border border-line rounded-lg pl-10 pr-4 py-2 text-label-md focus:outline-none focus:border-primary w-64 transition-colors" placeholder="Buscar transações..." type="text"/>
+</div>
+<button class="gold-shimmer bg-primary text-on-primary font-label-md px-4 py-2.5 rounded-lg active:scale-95 transition-transform flex items-center gap-2">
+<span class="material-symbols-outlined">add_circle</span>
+                    Novo Horário
+                </button>
+</div>
+</header>
+<!-- Scrollable Dashboard Content -->
+<section class="flex-1 overflow-y-auto p-container-padding space-y-8 scrollbar-hide">
+<!-- Metric Strip: Bento Style -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+<div class="bg-surface-raised border border-line p-6 rounded-xl flex flex-col gap-2 relative overflow-hidden group">
+<div class="absolute top-4 right-4 text-primary opacity-20 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[32px]">payments</span>
+</div>
+<p class="font-label-md text-text-muted uppercase tracking-wider">Faturamento Total</p>
+<div class="flex items-baseline gap-1">
+<span class="font-label-md text-primary">R$</span>
+<span class="font-headline-lg text-primary font-tabular-nums">14.850,00</span>
+</div>
+<div class="flex items-center gap-1 text-success font-label-sm mt-2">
+<span class="material-symbols-outlined text-[16px]">trending_up</span>
+<span>+12% vs mês anterior</span>
+</div>
+</div>
+<div class="bg-surface-raised border border-line p-6 rounded-xl flex flex-col gap-2 relative overflow-hidden group">
+<div class="absolute top-4 right-4 text-warning opacity-20 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[32px]">pending_actions</span>
+</div>
+<p class="font-label-md text-text-muted uppercase tracking-wider">Recebimentos Pendentes</p>
+<div class="flex items-baseline gap-1">
+<span class="font-label-md text-on-surface">R$</span>
+<span class="font-headline-lg text-on-surface font-tabular-nums">2.410,00</span>
+</div>
+<div class="flex items-center gap-1 text-text-muted font-label-sm mt-2">
+<span>8 agendamentos aguardando</span>
+</div>
+</div>
+<div class="bg-surface-raised border border-line p-6 rounded-xl flex flex-col gap-2 relative overflow-hidden group">
+<div class="absolute top-4 right-4 text-primary opacity-20 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[32px]">analytics</span>
+</div>
+<p class="font-label-md text-text-muted uppercase tracking-wider">Ticket Médio</p>
+<div class="flex items-baseline gap-1">
+<span class="font-label-md text-on-surface">R$</span>
+<span class="font-headline-lg text-on-surface font-tabular-nums">345,00</span>
+</div>
+<div class="flex items-center gap-1 text-danger font-label-sm mt-2">
+<span class="material-symbols-outlined text-[16px]">trending_down</span>
+<span>-2% vs mês anterior</span>
+</div>
+</div>
+</div>
+<!-- Payments Panel -->
+<div class="bg-surface border border-line rounded-xl overflow-hidden">
+<div class="px-6 py-5 border-b border-line flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+<div class="flex items-center gap-4">
+<h3 class="font-headline-md text-on-surface">Transações Recentes</h3>
+<div class="flex gap-2">
+<span class="px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded-full font-label-sm cursor-pointer">Hoje</span>
+<span class="px-3 py-1 bg-surface-container text-text-muted hover:text-on-surface border border-line rounded-full font-label-sm cursor-pointer transition-colors">Semana</span>
+<span class="px-3 py-1 bg-surface-container text-text-muted hover:text-on-surface border border-line rounded-full font-label-sm cursor-pointer transition-colors">Mês</span>
+</div>
+</div>
+<button class="text-primary font-label-md flex items-center gap-1 hover:underline">
+                        Ver Relatório Completo
+                        <span class="material-symbols-outlined text-[18px]">open_in_new</span>
+</button>
+</div>
+<div class="overflow-x-auto scrollbar-hide">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-low">
+<tr>
+<th class="px-6 py-4 font-label-md text-text-muted uppercase tracking-tight">Cliente</th>
+<th class="px-6 py-4 font-label-md text-text-muted uppercase tracking-tight">Serviço</th>
+<th class="px-6 py-4 font-label-md text-text-muted uppercase tracking-tight">Data/Hora</th>
+<th class="px-6 py-4 font-label-md text-text-muted uppercase tracking-tight">Valor</th>
+<th class="px-6 py-4 font-label-md text-text-muted uppercase tracking-tight">Status</th>
+<th class="px-6 py-4 font-label-md text-text-muted uppercase tracking-tight"></th>
+</tr>
+</thead>
+<tbody class="divide-y divide-line/30">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-raised transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full overflow-hidden bg-surface-container">
+<img alt="Client Profile" class="w-full h-full object-cover" data-alt="A professional studio headshot of a sophisticated client with glowing skin and elegant makeup, set against a warm, darkly lit background with golden bokeh highlights. The composition is intimate and luxurious, reflecting a high-end beauty salon environment. Soft focused lighting creates a premium, exclusive atmosphere consistent with a private luxury beauty studio." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDLdIz9eitSM6kHl3kpw4HK7L6Q9M_YzC3Ua94sVDxKZS8jT4WgfU3FBS5qzzIAtdNvXKOIyzAen06I3d-KRriwyU6w99u5-Nmmo0ZdZJ4uaZT5EjUJ1Zkn5QJoDi_ioq_r2uXtnnbclPFRiMzoMItsK8FUy7wz3J9hhfDm9RADgXvIyKdHcc3jOJ1rS5uQzcsAkRw9uyt9WuKWaAUE1uB6BCG-RZt4H0I77G_KDr2lCFTxBn9_F7pB6hRdYGwy_HPAbiz5f-MwGmQ"/>
+</div>
+<span class="font-label-md text-on-surface">Ana Clara Silveira</span>
+</div>
+</td>
+<td class="px-6 py-4 font-body-md text-text-muted">Design de Sobrancelhas</td>
+<td class="px-6 py-4 font-tabular-nums text-text-muted">18 Out, 14:00</td>
+<td class="px-6 py-4 font-label-md text-on-surface">R$ 120,00</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-success/10 text-success border border-success/20">Pago</span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-text-muted hover:text-primary transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-raised transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full overflow-hidden bg-surface-container">
+<img alt="Client Profile" class="w-full h-full object-cover" data-alt="Close-up portrait of a woman with flawless makeup and a serene expression, captured in a studio with dramatic low-key lighting. The scene uses deep shadows and metallic gold accents in the background to convey a sense of intimate luxury. The aesthetic is modern and professional, highlighting premium cosmetic artistry in a dark-themed designer studio." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCD2j4WTC2Kmgej60Nv9aSd2USFqbwewwz83SR0Jdb4JdYFEdRtf7WCGR3PBV1f1haLaw_eazwO6sTACkARY8mv3iZ0HSxTaOq2gN4VBxuoDhxQC94rgWiYqWSO3kI0IjSH1cKzR3fqrRvMXOIWkVbhAO2FMPkEv7ZvK_S9ZOAF-Memj5IoVjKmKbpieL1jDPIwi9T_Q8OdSoKREt2ubFmOaFr223EvdhHQ7XbXM0cOuczRHol6h0YN1cVeIvBTk13wQ3Wqr61WA0k"/>
+</div>
+<span class="font-label-md text-on-surface">Beatriz Oliveira</span>
+</div>
+</td>
+<td class="px-6 py-4 font-body-md text-text-muted">Micropigmentação Labial</td>
+<td class="px-6 py-4 font-tabular-nums text-text-muted">18 Out, 15:30</td>
+<td class="px-6 py-4 font-label-md text-on-surface">R$ 850,00</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-warning/10 text-warning border border-warning/20">Pendente</span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-text-muted hover:text-primary transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-raised transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full overflow-hidden bg-surface-container">
+<img alt="Client Profile" class="w-full h-full object-cover" data-alt="An elegant, detailed photograph of a woman showcasing professional eyelash extensions, with high-contrast studio lighting highlighting the texture and precision of the beauty work. The environment is dark and moody, punctuated by soft gold light reflections. The overall visual style is sophisticated and high-end, representing a premium service at Studio Gold." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAmHm5qJVsLVD-mn-DU6ECKhKGK8uvjoV4Nsm27XLWEJHwH72VlzWZ43OVoRzchGfHSpXk4gAIBDI8EZ_g-6_4acvrR3CF6UVCiRpUrCLw5BVsY7A1yrPk9-aoks25AkxajdY_xtX4-wo3FeeXO6h1q5syq6_9XLqZrAzabpDJQBoJynmaEo2Mq6GGPE7prIAan7QsTKxgW1Bh50z068fWatGwsCxkqhA2ajtNH-xsFreK9eXpGTetE_f68tPh8b0iRfn65gY3WTu8"/>
+</div>
+<span class="font-label-md text-on-surface">Juliana M. Santos</span>
+</div>
+</td>
+<td class="px-6 py-4 font-body-md text-text-muted">Extensão de Cílios (Refil)</td>
+<td class="px-6 py-4 font-tabular-nums text-text-muted">18 Out, 17:00</td>
+<td class="px-6 py-4 font-label-md text-on-surface">R$ 180,00</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">Parcial</span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-text-muted hover:text-primary transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-raised transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full overflow-hidden bg-surface-container">
+<img alt="Client Profile" class="w-full h-full object-cover" data-alt="A clean, minimalist portrait of a man with well-groomed facial features, photographed in a high-end beauty studio with deep walnut and gold tones. The lighting is soft and focused, creating a premium professional feel. The background is a solid, deep matte black, emphasizing the high-contrast elegance of the luxury service brand. Perfect skin and meticulous grooming are the focal points." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD112SeDNHHsjyJlCO_GLJhc6bkAWEWE8g7MtKDgpgjy8s7TK7lEq_BIErYUFwmuMeaChJNKM4rgWeSGEgV9Yid4HapSEL-Cazn2XL-DjQRFsTU-9EWK4KzqC70Lx1Fh-I3GTODAgaXOcxzRxRMz8Rl-QMwG0kPCEuzCjKo_NOHRic9cnJ0VRGSiUmPTOyjm-1CzeU6IAJ8EOQzjxNrOE6msHDx0xSl2mDytogbA74Fut4eYuH1QTj96Z66fkY5Zj1HikrYJ4eOXK0"/>
+</div>
+<span class="font-label-md text-on-surface">Ricardo Gomes</span>
+</div>
+</td>
+<td class="px-6 py-4 font-body-md text-text-muted">Limpeza de Pele Deep</td>
+<td class="px-6 py-4 font-tabular-nums text-text-muted">17 Out, 10:00</td>
+<td class="px-6 py-4 font-label-md text-on-surface">R$ 220,00</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-success/10 text-success border border-success/20">Pago</span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-text-muted hover:text-primary transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Bottom Section: Insights and Chart Placeholder -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-gutter pb-10">
+<div class="bg-surface-raised border border-line rounded-xl p-6">
+<div class="flex items-center justify-between mb-6">
+<h3 class="font-headline-md text-on-surface">Desempenho Semanal</h3>
+<span class="material-symbols-outlined text-text-muted">more_horiz</span>
+</div>
+<div class="h-48 flex items-end justify-between gap-2 px-2">
+<!-- Simplified Bar Chart -->
+<div class="flex-1 flex flex-col items-center gap-2 group">
+<div class="w-full bg-line rounded-t-sm h-[40%] group-hover:bg-primary/50 transition-colors"></div>
+<span class="font-label-sm text-text-muted">Seg</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-2 group">
+<div class="w-full bg-line rounded-t-sm h-[60%] group-hover:bg-primary/50 transition-colors"></div>
+<span class="font-label-sm text-text-muted">Ter</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-2 group">
+<div class="w-full bg-line rounded-t-sm h-[90%] group-hover:bg-primary/50 transition-colors"></div>
+<span class="font-label-sm text-text-muted">Qua</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-2 group">
+<div class="w-full bg-primary rounded-t-sm h-[75%]"></div>
+<span class="font-label-sm text-primary">Qui</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-2 group">
+<div class="w-full bg-line rounded-t-sm h-[55%] group-hover:bg-primary/50 transition-colors"></div>
+<span class="font-label-sm text-text-muted">Sex</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-2 group">
+<div class="w-full bg-line rounded-t-sm h-[85%] group-hover:bg-primary/50 transition-colors"></div>
+<span class="font-label-sm text-text-muted">Sáb</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-2 group">
+<div class="w-full bg-line rounded-t-sm h-[20%] group-hover:bg-primary/50 transition-colors"></div>
+<span class="font-label-sm text-text-muted">Dom</span>
+</div>
+</div>
+</div>
+<div class="bg-surface-raised border border-line rounded-xl p-6">
+<h3 class="font-headline-md text-on-surface mb-6">Próximos Pagamentos</h3>
+<div class="space-y-4">
+<div class="flex items-center justify-between p-3 bg-surface-soft border border-line/20 rounded-lg">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-warning">account_balance_wallet</span>
+<div>
+<p class="font-label-md text-on-surface">Aluguel do Studio</p>
+<p class="font-label-sm text-text-muted">Vence em 2 dias</p>
+</div>
+</div>
+<span class="font-tabular-nums font-bold text-on-surface">R$ 2.800,00</span>
+</div>
+<div class="flex items-center justify-between p-3 bg-surface-soft border border-line/20 rounded-lg">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-success">inventory</span>
+<div>
+<p class="font-label-md text-on-surface">Fornecedor (Produtos)</p>
+<p class="font-label-sm text-text-muted">Vence em 5 dias</p>
+</div>
+</div>
+<span class="font-tabular-nums font-bold text-on-surface">R$ 1.150,00</span>
+</div>
+<div class="flex items-center justify-between p-3 bg-surface-soft border border-line/20 rounded-lg">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">bolt</span>
+<div>
+<p class="font-label-md text-on-surface">Energia / Internet</p>
+<p class="font-label-sm text-text-muted">Vence em 8 dias</p>
+</div>
+</div>
+<span class="font-tabular-nums font-bold text-on-surface">R$ 440,00</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<script>
+        let isCollapsed = false;
+        const sidebar = document.getElementById('sidebar');
+        const textContents = document.querySelectorAll('.sidebar-text-content');
+        
+        function toggleSidebar() {
+            isCollapsed = !isCollapsed;
+            if (isCollapsed) {
+                sidebar.classList.remove('w-64');
+                sidebar.classList.add('w-20');
+                textContents.forEach(el => el.classList.add('hidden'));
+            } else {
+                sidebar.classList.remove('w-20');
+                sidebar.classList.add('w-64');
+                textContents.forEach(el => el.classList.remove('hidden'));
+            }
+        }
+
+        // Auto-collapse on small screens
+        function checkWidth() {
+            if (window.innerWidth < 1024 && !isCollapsed) {
+                toggleSidebar();
+            } else if (window.innerWidth >= 1024 && isCollapsed) {
+                toggleSidebar();
+            }
+        }
+
+        window.addEventListener('resize', checkWidth);
+        // Initial check
+        if (window.innerWidth < 1024) toggleSidebar();
+    </script>
+</body></html>

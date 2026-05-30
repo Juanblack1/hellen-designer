@@ -215,6 +215,10 @@ const adminTabs: Array<{ id: AdminTab; label: string; icon: typeof CalendarDays 
   { id: 'landing', label: 'Landing', icon: Camera },
 ]
 
+const mobileAdminTabs = adminTabs.filter((tab) =>
+  (['today', 'agenda', 'finance', 'clients', 'products'] as AdminTab[]).includes(tab.id),
+)
+
 const statusLabels: Record<AppointmentStatus, string> = {
   scheduled: 'Agendado',
   confirmed: 'Confirmado',
@@ -2128,7 +2132,7 @@ function App() {
         </section>
 
         <nav className="mobile-bottom-nav" aria-label="Navegacao do admin">
-          {adminTabs.map((tab) => {
+          {mobileAdminTabs.map((tab) => {
             const Icon = tab.icon
             return (
               <button

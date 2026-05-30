@@ -692,24 +692,37 @@ textarea {
 
 .admin-shell {
   display: grid;
-  grid-template-columns: 248px minmax(0, 1fr);
+  grid-template-columns: 224px minmax(0, 1fr);
 }
 
 .admin-shell.sidebar-collapsed {
-  grid-template-columns: 76px minmax(0, 1fr);
+  grid-template-columns: 72px minmax(0, 1fr);
 }
 
 .admin-sidebar {
   background: rgba(16, 12, 8, 0.96);
   border-right: 1px solid rgba(217, 164, 65, 0.24);
   display: grid;
-  grid-template-rows: auto auto auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   max-height: 100svh;
   min-height: 100svh;
-  padding: 18px;
+  padding: 14px;
   position: sticky;
   top: 0;
   z-index: 60;
+}
+
+.admin-sidebar .brand-link img {
+  height: 38px;
+  width: 38px;
+}
+
+.admin-sidebar .brand-link strong {
+  font-size: 0.98rem;
+}
+
+.admin-sidebar .brand-link small {
+  font-size: 0.68rem;
 }
 
 .sidebar-header {
@@ -720,17 +733,17 @@ textarea {
 }
 
 .sidebar-toggle {
-  height: 38px;
-  min-height: 38px;
-  width: 38px;
+  height: 36px;
+  justify-self: end;
+  min-height: 36px;
+  width: 36px;
 }
 
 .admin-sidebar nav {
   align-content: start;
   display: grid;
-  gap: 6px;
-  margin-top: 26px;
-  max-height: calc(100svh - 184px);
+  gap: 4px;
+  margin-top: 24px;
   overflow-y: auto;
   padding-right: 2px;
 }
@@ -744,30 +757,57 @@ textarea {
   display: flex;
   font-weight: 800;
   gap: 10px;
-  min-height: 42px;
-  padding: 0 12px;
+  min-height: 38px;
+  padding: 0 10px;
+  position: relative;
   text-align: left;
 }
 
+.admin-sidebar nav button svg {
+  flex: 0 0 auto;
+}
+
+.admin-sidebar nav button::before {
+  background: transparent;
+  border-radius: 999px;
+  bottom: 8px;
+  content: '';
+  left: 0;
+  position: absolute;
+  top: 8px;
+  width: 3px;
+}
+
 .admin-sidebar nav button.active,
-.admin-sidebar nav button:hover,
-.mobile-bottom-nav button.active {
+.admin-sidebar nav button:hover {
   background: rgba(217, 164, 65, 0.12);
-  border-color: rgba(217, 164, 65, 0.28);
+  border-color: transparent;
   color: var(--gold-bright);
 }
 
+.admin-sidebar nav button.active::before {
+  background: var(--gold);
+}
+
 .sidebar-exit {
-  margin-top: 12px;
+  align-self: end;
+  justify-content: flex-start;
+  margin-top: 14px;
+  min-height: 40px;
+  padding: 0 10px;
   width: 100%;
 }
 
 .admin-shell.sidebar-collapsed .admin-sidebar {
-  padding: 14px 10px;
+  padding: 12px 8px;
 }
 
 .admin-shell.sidebar-collapsed .sidebar-header {
   grid-template-columns: 1fr;
+}
+
+.admin-shell.sidebar-collapsed .sidebar-toggle {
+  justify-self: center;
 }
 
 .admin-shell.sidebar-collapsed .brand-link,
@@ -2321,6 +2361,48 @@ textarea {
   }
 }
 
+@media (min-width: 861px) and (max-width: 1080px) {
+  .admin-shell {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+
+  .admin-sidebar {
+    padding: 12px 8px;
+  }
+
+  .admin-sidebar .sidebar-header {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-sidebar .sidebar-toggle {
+    justify-self: center;
+  }
+
+  .admin-sidebar .brand-link,
+  .admin-sidebar nav button,
+  .admin-sidebar .sidebar-exit {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .admin-sidebar .brand-link span,
+  .admin-sidebar nav button span,
+  .admin-sidebar .sidebar-exit span {
+    display: none;
+  }
+
+  .admin-sidebar nav {
+    gap: 6px;
+    margin-top: 18px;
+    padding-right: 0;
+  }
+
+  .admin-sidebar nav button::before {
+    left: 3px;
+  }
+}
+
 @media (max-width: 860px) {
   .landing-nav nav {
     display: none;
@@ -2413,9 +2495,9 @@ textarea {
     background: rgba(16, 12, 8, 0.98);
     border-top: 1px solid rgba(217, 164, 65, 0.24);
     bottom: 0;
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     left: 0;
-    overflow-x: auto;
     position: fixed;
     right: 0;
     z-index: 50;
@@ -2429,11 +2511,15 @@ textarea {
     color: var(--muted);
     display: grid;
     font-size: 0.68rem;
-    flex: 0 0 74px;
     gap: 4px;
     justify-items: center;
     min-height: 64px;
     padding: 6px 2px;
+  }
+
+  .mobile-bottom-nav button.active {
+    background: rgba(217, 164, 65, 0.12);
+    color: var(--gold-bright);
   }
 }
 

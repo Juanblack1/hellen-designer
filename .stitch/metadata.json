@@ -38,6 +38,22 @@
       "deviceType": "MOBILE",
       "localHtml": ".stitch/designs/admin-agenda-corthy.html",
       "localScreenshot": ".stitch/designs/admin-agenda-corthy.png"
+    },
+    {
+      "id": "1efbf9b0ae794e068e3fe4646c4fa1fa",
+      "name": "Hellen Designer - Admin Shell & Financials",
+      "route": "/admin",
+      "deviceType": "DESKTOP",
+      "localHtml": ".stitch/designs/admin-shell-stitch.html",
+      "localScreenshot": ".stitch/designs/admin-shell-stitch.png"
+    },
+    {
+      "id": "7225579a009e4526867fa9763ee59414",
+      "name": "Hellen Designer - Admin Mobile View",
+      "route": "/admin",
+      "deviceType": "MOBILE",
+      "localHtml": ".stitch/designs/admin-mobile-stitch.html",
+      "localScreenshot": ".stitch/designs/admin-mobile-stitch.png"
     }
   ]
 }
