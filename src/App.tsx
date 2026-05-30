@@ -2329,7 +2329,7 @@ function App() {
               )
             })}
           </nav>
-          <button className="ghost-action sidebar-exit" type="button" onClick={handleSignOut}>
+          <button className="sidebar-exit" type="button" onClick={handleSignOut}>
             <LogOut size={16} aria-hidden="true" /> <span>Sair</span>
           </button>
         </aside>
@@ -2407,9 +2407,11 @@ function App() {
     return (
       <header className="admin-appbar">
         <div className="appbar-main">
-          <button className="icon-button appbar-menu-button" type="button" aria-label="Alternar menu" onClick={toggleAdminMenu}>
-            <Menu size={22} aria-hidden="true" />
-          </button>
+          {!isMobileSidebarOpen ? (
+            <button className="icon-button appbar-menu-button" type="button" aria-label="Abrir menu lateral" onClick={toggleAdminMenu}>
+              <Menu size={22} aria-hidden="true" />
+            </button>
+          ) : null}
           <h1>{activeTab === 'today' ? 'Agenda' : adminTabs.find((tab) => tab.id === activeTab)?.label}</h1>
           <div className="appbar-actions">
             {isAgendaContext ? (

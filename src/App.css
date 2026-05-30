@@ -730,6 +730,7 @@ textarea {
 .sidebar-header {
   align-items: center;
   display: grid;
+  flex: 0 0 auto;
   gap: 10px;
   grid-template-columns: minmax(0, 1fr) auto;
   min-height: 46px;
@@ -797,12 +798,33 @@ textarea {
 }
 
 .sidebar-exit {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--muted);
+  display: flex;
   flex: 0 0 auto;
+  font-weight: 800;
+  gap: 11px;
   justify-content: flex-start;
   margin-top: auto;
   min-height: 42px;
+  min-width: 0;
   padding: 0 12px;
+  position: relative;
+  text-align: left;
   width: 100%;
+}
+
+.sidebar-exit:hover {
+  background: rgba(217, 164, 65, 0.12);
+  border-color: transparent;
+  color: var(--gold-bright);
+}
+
+.sidebar-exit svg {
+  flex: 0 0 auto;
 }
 
 .admin-shell.sidebar-collapsed .admin-sidebar {
@@ -863,6 +885,10 @@ textarea {
 }
 
 .appbar-menu-button {
+  display: none;
+}
+
+.admin-shell.mobile-sidebar-open .appbar-menu-button {
   display: none;
 }
 
