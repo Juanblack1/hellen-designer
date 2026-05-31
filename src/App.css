@@ -4731,3 +4731,87 @@ html[data-theme='dark'] .admin-shell .mobile-bottom-nav {
     width: auto;
   }
 }
+
+/* The collapse state must own the sidebar width on every desktop breakpoint. */
+.admin-shell {
+  transition: grid-template-columns 180ms ease;
+}
+
+.admin-shell .admin-sidebar,
+.admin-shell .brand-link span,
+.admin-shell .admin-sidebar nav button span,
+.admin-shell .sidebar-exit span {
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+@media (min-width: 861px) and (max-width: 1080px) {
+  .admin-shell {
+    --sidebar-width: 244px;
+    display: grid;
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  }
+
+  .admin-shell.sidebar-collapsed {
+    --sidebar-width: 82px;
+  }
+
+  .admin-shell .admin-sidebar {
+    padding: 18px 12px;
+  }
+
+  .admin-shell .admin-sidebar .sidebar-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .admin-shell .admin-sidebar .sidebar-toggle {
+    justify-self: end;
+  }
+
+  .admin-shell .admin-sidebar .brand-link,
+  .admin-shell .admin-sidebar nav button,
+  .admin-shell .admin-sidebar .sidebar-exit {
+    justify-content: flex-start;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .admin-shell .admin-sidebar .brand-link span,
+  .admin-shell .admin-sidebar nav button span,
+  .admin-shell .admin-sidebar .sidebar-exit span {
+    display: grid;
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .admin-shell.sidebar-collapsed .admin-sidebar {
+    padding: 14px 8px;
+  }
+
+  .admin-shell.sidebar-collapsed .admin-sidebar .sidebar-header {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-shell.sidebar-collapsed .admin-sidebar .sidebar-toggle {
+    justify-self: center;
+  }
+
+  .admin-shell.sidebar-collapsed .admin-sidebar .brand-link,
+  .admin-shell.sidebar-collapsed .admin-sidebar nav button,
+  .admin-shell.sidebar-collapsed .admin-sidebar .sidebar-exit {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .admin-shell.sidebar-collapsed .admin-sidebar .brand-link span,
+  .admin-shell.sidebar-collapsed .admin-sidebar nav button span,
+  .admin-shell.sidebar-collapsed .admin-sidebar .sidebar-exit span {
+    display: none;
+  }
+
+  .admin-shell.sidebar-collapsed .admin-sidebar nav {
+    padding-right: 0;
+  }
+}

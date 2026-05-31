@@ -29,6 +29,8 @@ import {
   Moon,
   MessageCircle,
   Package,
+  PanelLeftClose,
+  PanelLeftOpen,
   Phone,
   Plus,
   Save,
@@ -673,6 +675,15 @@ function App() {
   function toggleAdminMenu() {
     if (window.matchMedia('(max-width: 860px)').matches) {
       setIsMobileSidebarOpen((current) => !current)
+      return
+    }
+
+    setIsSidebarCollapsed((current) => !current)
+  }
+
+  function toggleSidebarFromHeader() {
+    if (window.matchMedia('(max-width: 860px)').matches) {
+      setIsMobileSidebarOpen(false)
       return
     }
 
@@ -2474,9 +2485,16 @@ function App() {
               className="icon-button sidebar-toggle"
               type="button"
               aria-label={isMobileSidebarOpen ? 'Fechar menu lateral' : isSidebarCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
-              onClick={toggleAdminMenu}
+              title={isMobileSidebarOpen ? 'Fechar menu lateral' : isSidebarCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+              onClick={toggleSidebarFromHeader}
             >
-              <Menu size={18} aria-hidden="true" />
+              {isMobileSidebarOpen ? (
+                <XCircle size={18} aria-hidden="true" />
+              ) : isSidebarCollapsed ? (
+                <PanelLeftOpen size={18} aria-hidden="true" />
+              ) : (
+                <PanelLeftClose size={18} aria-hidden="true" />
+              )}
             </button>
           </div>
           <nav aria-label="Secoes do admin">
