@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hellen-designer-v1'
+const CACHE_NAME = 'hellen-designer-v3'
 const APP_SHELL = ['/', '/admin', '/manifest.webmanifest', '/favicon.svg']
 
 self.addEventListener('install', (event) => {
@@ -32,12 +32,8 @@ self.addEventListener('fetch', (event) => {
   }
 
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse
-      }
-
-      return fetch(event.request).then((networkResponse) => {
+    fetch(event.request)
+      .then((networkResponse) => {
         if (!networkResponse || networkResponse.status !== 200) {
           return networkResponse
         }
@@ -46,6 +42,6 @@ self.addEventListener('fetch', (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseCopy))
         return networkResponse
       })
-    }),
+      .catch(() => caches.match(event.request)),
   )
 })
