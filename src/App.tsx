@@ -26,6 +26,7 @@ import {
   List,
   LogOut,
   Menu,
+  Moon,
   MessageCircle,
   Package,
   Phone,
@@ -37,6 +38,7 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
+  Sun,
   Trash2,
   UserRound,
   UsersRound,
@@ -118,6 +120,7 @@ type AdminTab = 'today' | 'agenda' | 'clients' | 'finance' | 'services' | 'produ
 type CalendarView = 'day' | 'week' | 'month' | 'list'
 type PaymentFilter = 'all' | PaymentStatus | 'open'
 type AppointmentDrawerMode = 'create' | 'edit'
+type ThemeMode = 'light' | 'dark'
 
 type AppointmentDraft = {
   id: string
@@ -214,6 +217,19 @@ const todayIso = () => new Date().toISOString().slice(0, 10)
 const canonicalPublicUrl = import.meta.env.VITE_PUBLIC_SITE_URL?.trim() || 'https://hellen-designer.vercel.app'
 const canonicalAdminUrl = import.meta.env.VITE_ADMIN_SITE_URL?.trim() || 'https://hellen-designer-admin.vercel.app'
 const localHostnames = new Set(['localhost', '127.0.0.1', '::1'])
+const themeStorageKey = 'hellen-designer-theme'
+
+function resolveInitialTheme(): ThemeMode {
+  const fallback: ThemeMode =
+    typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+
+  try {
+    const stored = window.localStorage.getItem(themeStorageKey)
+    return stored === 'light' || stored === 'dark' ? stored : fallback
+  } catch {
+    return fallback
+  }
+}
 
 const adminTabs: Array<{ id: AdminTab; label: string; icon: typeof CalendarDays }> = [
   { id: 'today', label: 'Hoje', icon: Home },
@@ -442,6 +458,7 @@ function App() {
   const [isClientPickerExpanded, setIsClientPickerExpanded] = useState(false)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => resolveInitialTheme())
   const [appointmentDrawer, setAppointmentDrawer] = useState<AppointmentDrawerState>({
     open: false,
     mode: 'create',
@@ -969,6 +986,16 @@ function App() {
     isProductModalOpen,
     partialPaymentDraft,
   ])
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = themeMode
+
+    try {
+      window.localStorage.setItem(themeStorageKey, themeMode)
+    } catch {
+      // localStorage can be unavailable in private contexts; the in-memory theme still works.
+    }
+  }, [themeMode])
 
   async function handleSignIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -2174,9 +2201,29 @@ function App() {
 
   return renderLanding()
 
+  function toggleThemeMode() {
+    setThemeMode((currentTheme) => (currentTheme === 'dark' ? 'light' : 'dark'))
+  }
+
+  function renderThemeToggle(className = 'icon-button theme-toggle') {
+    const nextThemeLabel = themeMode === 'dark' ? 'claro' : 'escuro'
+
+    return (
+      <button
+        className={className}
+        type="button"
+        aria-label={`Ativar tema ${nextThemeLabel}`}
+        title={`Ativar tema ${nextThemeLabel}`}
+        onClick={toggleThemeMode}
+      >
+        {themeMode === 'dark' ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
+      </button>
+    )
+  }
+
   function renderLanding() {
     return (
-      <main className="site-shell">
+      <main className={cn('site-shell', `theme-${themeMode}`)}>
         <header className="landing-nav">
           <button className="brand-link" type="button" onClick={() => goToPath('/')}>
             <img src={brandLogo} alt="" />
@@ -2196,6 +2243,7 @@ function App() {
               Instagram
             </a>
           </nav>
+          {renderThemeToggle()}
         </header>
 
         <section className="hero-band" aria-label="Hellen Martins Designer">
@@ -2342,8 +2390,9 @@ function App() {
   function renderAdmin() {
     if (isAuthLoading) {
       return (
-        <main className="admin-auth-page">
+        <main className={cn('admin-auth-page', `theme-${themeMode}`)}>
           <div className="auth-card">
+            {renderThemeToggle('icon-button theme-toggle auth-theme-toggle')}
             <ShieldCheck size={28} aria-hidden="true" />
             <h1>Carregando acesso.</h1>
             <p>Verificando sessao administrativa.</p>
@@ -2354,15 +2403,18 @@ function App() {
 
     if (isSupabaseConfigured && (!session || !isAdmin)) {
       return (
-        <main className="admin-auth-page">
+        <main className={cn('admin-auth-page', `theme-${themeMode}`)}>
           <form className="auth-card" onSubmit={handleSignIn}>
-            <button className="brand-link auth-brand" type="button" onClick={openPublicLanding}>
-              <img src={brandLogo} alt="" />
-              <span>
-                <strong>Hellen Designer</strong>
-                <small>Painel privado</small>
-              </span>
-            </button>
+            <div className="auth-header-row">
+              <button className="brand-link auth-brand" type="button" onClick={openPublicLanding}>
+                <img src={brandLogo} alt="" />
+                <span>
+                  <strong>Hellen Designer</strong>
+                  <small>Painel privado</small>
+                </span>
+              </button>
+              {renderThemeToggle()}
+            </div>
             <div>
               <p className="eyebrow">Acesso admin</p>
               <h1>Entre para organizar agenda, clientes e pagamentos.</h1>
@@ -2404,6 +2456,7 @@ function App() {
       <main
         className={cn(
           'admin-shell min-h-svh',
+          `theme-${themeMode}`,
           isSidebarCollapsed && 'sidebar-collapsed',
           isMobileSidebarOpen && 'mobile-sidebar-open',
         )}
@@ -2539,6 +2592,7 @@ function App() {
           ) : null}
           <h1>{activeTab === 'today' ? 'Agenda' : adminTabs.find((tab) => tab.id === activeTab)?.label}</h1>
           <div className="appbar-actions">
+            {renderThemeToggle()}
             {isAgendaContext ? (
               <>
                 <button className="icon-button" type="button" aria-label="Compartilhar agenda" title="Compartilhar agenda" onClick={() => void handleShareAdmin()}>

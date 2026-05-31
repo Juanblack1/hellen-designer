@@ -38,10 +38,22 @@ html {
   scroll-behavior: smooth;
 }
 
+html[data-theme='light'] {
+  background: #f7f3ea;
+}
+
 body {
   background: #050403;
   margin: 0;
   min-width: 320px;
+}
+
+html[data-theme='light'] body {
+  background: #f7f3ea;
+}
+
+html[data-theme='dark'] body {
+  background: #050403;
 }
 
 body,

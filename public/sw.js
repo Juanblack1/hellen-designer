@@ -1,5 +1,5 @@
-const CACHE_NAME = 'hellen-designer-v3'
-const APP_SHELL = ['/', '/admin', '/manifest.webmanifest', '/favicon.svg']
+const CACHE_NAME = 'hellen-designer-v4'
+const APP_SHELL = ['/', '/admin', '/manifest.webmanifest', '/favicon.svg', '/theme-init.js']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)))

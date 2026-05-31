@@ -24,7 +24,34 @@ Landing pages use Brand register. Admin screens use Product register.
 - Warning: `#F4C873`
 - Danger: `#FF7E61`
 
-### Admin Light Product Mode
+### Theme Modes
+
+The product supports light and dark modes. The selected mode is persisted in `localStorage` and applied before the app hydrates through `/theme-init.js`, so admin screens do not flash into the wrong theme.
+
+Dark mode keeps the original black studio canvas:
+
+- Canvas: `#050403`
+- Surface: `#100C08`
+- Surface raised: `#17110B`
+- Surface soft: `#21170D`
+- Ink: `#F8EAD0`
+- Muted ink: `#C6B696`
+- Accent: `#D9A441`
+- Accent strong: `#FFE2A0`
+
+Light mode uses an operational cream canvas with Hellen gold:
+
+- Canvas: `#F7F3EA`
+- Surface: `#FFFDF8`
+- Muted surface: `#F3EEE4`
+- Input surface: `#F6F8FC`
+- Ink: `#242737`
+- Muted ink: `#626A7A`
+- Border: `#DED3C3`
+- Accent: `#B97714`
+- Accent strong: `#86530A`
+
+### Admin Product Mode
 
 The admin can use a light operational mode inspired by mobile salon management apps while preserving the Hellen palette:
 
@@ -32,12 +59,12 @@ The admin can use a light operational mode inspired by mobile salon management a
 - Surface: `#FFFDF8`
 - Muted surface: `#F1F3F8`
 - Ink: `#242737`
-- Muted ink: `#858B9B`
-- Border: `#E2DDD2`
+- Muted ink: `#626A7A`
+- Border: `#DED3C3`
 - Accent: `#B97714`
 - Accent strong: `#86530A`
 
-Use this mode only for the private admin app. Landing pages remain black studio canvas.
+Admin surfaces must use semantic theme tokens only. Do not hard-code dark translucent card backgrounds inside admin forms; those caused low-contrast grey blocks in light mode. Landing pages can use either mode, but the dark mode remains the default brand reference.
 
 ## Typography
 
