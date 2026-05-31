@@ -105,6 +105,16 @@ Admin surfaces must use semantic theme tokens only. Do not hard-code dark transl
 - Admin uses short 120-180ms state transitions only.
 - Honor reduced motion.
 
+## Accessibility
+
+- WCAG 2.2 AA is the baseline for admin and landing.
+- Every interactive control must keep a visible focus ring with at least 3px outline and offset.
+- Touch targets use a 44px minimum; high-frequency admin controls should prefer 48px in mobile.
+- The app includes a persisted `Modo facil` preference through `hellen-designer-comfort-mode`; it increases text, target sizes and spacing without changing the brand.
+- Add skip links on landing and admin so keyboard users can jump directly to the main content.
+- Status, error and success messages must combine text with position/state styling; never rely on color alone.
+- Respect `prefers-reduced-motion: reduce` and avoid movement-based effects in admin flows.
+
 ## Copy
 
 Use direct Portuguese. Prefer action-object labels:

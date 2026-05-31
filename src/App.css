@@ -85,6 +85,7 @@ textarea:focus-visible {
   color: var(--text);
   display: inline-flex;
   gap: 10px;
+  min-height: 44px;
   min-width: 0;
   padding: 0;
   text-decoration: none;
@@ -4813,5 +4814,345 @@ html[data-theme='dark'] .admin-shell .mobile-bottom-nav {
 
   .admin-shell.sidebar-collapsed .admin-sidebar nav {
     padding-right: 0;
+  }
+}
+
+/* Accessibility and comfort layer: clearer focus, larger touch targets and calmer motion. */
+.visually-hidden {
+  clip: rect(0 0 0 0);
+  border: 0;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.skip-link {
+  background: var(--gold-bright);
+  border: 2px solid var(--gold-deep);
+  border-radius: 8px;
+  color: #211200;
+  font-weight: 900;
+  left: 12px;
+  opacity: 0;
+  padding: 12px 16px;
+  pointer-events: none;
+  position: fixed;
+  top: 12px;
+  transform: translateY(-14px);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+  z-index: 999;
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.topbar-accessibility-actions,
+.auth-floating-actions {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.auth-floating-actions {
+  position: absolute;
+  right: 18px;
+  top: 18px;
+}
+
+.auth-floating-actions .auth-theme-toggle,
+.auth-floating-actions .auth-comfort-toggle {
+  position: static;
+}
+
+.comfort-toggle[aria-pressed='true'],
+.theme-toggle[aria-pressed='true'] {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #211200;
+}
+
+:where(a, button, input, select, textarea, [tabindex]:not([tabindex='-1'])):focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--ring) 22%, transparent);
+}
+
+:where(button, [role='button'], a, input, select, textarea) {
+  touch-action: manipulation;
+}
+
+input:not([type='checkbox']):not([type='radio']):not([type='file']),
+select,
+textarea {
+  font-size: 1rem;
+  line-height: 1.45;
+  min-height: 46px;
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+  flex: 0 0 auto;
+  height: 19px;
+  min-height: 19px;
+  width: 19px;
+}
+
+.primary-action,
+.ghost-action,
+.compact-action,
+.quick-actions button,
+.filter-chips button,
+.payment-actions button,
+.price-area button,
+.price-area a,
+.product-actions button,
+.row-actions button,
+.photo-admin-card button,
+.icon-button,
+.date-control button,
+.site-footer button,
+.client-suggestions button,
+.drawer-slot-strip button,
+.duration-preset-row button,
+.quick-block-grid button,
+.shift-weekdays button,
+.shift-card-footer button,
+.payment-picker-list button,
+.mobile-bottom-nav button {
+  min-height: 44px;
+}
+
+.icon-button,
+.date-control button,
+.sidebar-toggle,
+.admin-status-toast button {
+  min-width: 44px;
+}
+
+.admin-main:focus-visible {
+  outline-offset: -6px;
+}
+
+.admin-shell .admin-sidebar nav button,
+.admin-shell .sidebar-exit {
+  gap: 12px;
+}
+
+.admin-shell .panel-heading,
+.admin-shell .focus-heading,
+.admin-shell .drawer-heading {
+  gap: 12px;
+}
+
+.admin-status-toast {
+  align-items: center;
+  line-height: 1.45;
+  max-width: min(92vw, 720px);
+  min-height: 52px;
+}
+
+html[data-comfort='on'] body {
+  font-size: 17px;
+  line-height: 1.62;
+}
+
+html[data-comfort='on'] .site-shell,
+html[data-comfort='on'] .admin-shell,
+html[data-comfort='on'] .admin-auth-page {
+  --radius: 10px;
+}
+
+html[data-comfort='on'] .admin-shell {
+  --sidebar-width: 304px;
+}
+
+html[data-comfort='on'] .admin-shell.sidebar-collapsed {
+  --sidebar-width: 88px;
+}
+
+html[data-comfort='on'] .admin-main,
+html[data-comfort='on'] .admin-workspace {
+  gap: 18px;
+}
+
+html[data-comfort='on'] .admin-sidebar nav button,
+html[data-comfort='on'] .sidebar-exit,
+html[data-comfort='on'] .primary-action,
+html[data-comfort='on'] .ghost-action,
+html[data-comfort='on'] .compact-action,
+html[data-comfort='on'] .quick-actions button,
+html[data-comfort='on'] .filter-chips button,
+html[data-comfort='on'] .payment-actions button,
+html[data-comfort='on'] .product-actions button,
+html[data-comfort='on'] .row-actions button,
+html[data-comfort='on'] .photo-admin-card button,
+html[data-comfort='on'] .duration-preset-row button,
+html[data-comfort='on'] .quick-block-grid button,
+html[data-comfort='on'] .shift-weekdays button,
+html[data-comfort='on'] .shift-card-footer button,
+html[data-comfort='on'] .client-suggestions button,
+html[data-comfort='on'] .drawer-slot-strip button {
+  min-height: 52px;
+}
+
+html[data-comfort='on'] .icon-button,
+html[data-comfort='on'] .date-control button {
+  min-height: 48px;
+  min-width: 48px;
+  width: 48px;
+}
+
+html[data-comfort='on'] input:not([type='checkbox']):not([type='radio']):not([type='file']),
+html[data-comfort='on'] select,
+html[data-comfort='on'] textarea {
+  font-size: 1.06rem;
+  min-height: 52px;
+}
+
+html[data-comfort='on'] .panel,
+html[data-comfort='on'] .focus-panel,
+html[data-comfort='on'] .metric-grid article,
+html[data-comfort='on'] .product-card,
+html[data-comfort='on'] .client-card,
+html[data-comfort='on'] .payment-card,
+html[data-comfort='on'] .shift-card {
+  line-height: 1.55;
+}
+
+html[data-comfort='on'] .mobile-bottom-nav button {
+  min-height: 68px;
+}
+
+html[data-comfort='on'] .agenda-fab {
+  height: 70px;
+  width: 70px;
+}
+
+@media (max-width: 860px) {
+  .site-shell,
+  .admin-shell,
+  .admin-auth-page {
+    overflow-x: clip;
+  }
+
+  .topbar-accessibility-actions {
+    gap: 6px;
+  }
+
+  .landing-nav {
+    align-items: center;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .landing-nav .brand-link strong,
+  .auth-brand strong {
+    font-size: 1rem;
+  }
+
+  .landing-nav .topbar-accessibility-actions {
+    grid-column: 2;
+  }
+
+  .admin-shell .appbar-actions {
+    scrollbar-width: thin;
+  }
+
+  .admin-shell .date-control {
+    grid-template-columns: 48px minmax(0, 1fr) 48px;
+  }
+
+  .admin-shell .panel-heading,
+  .admin-shell .focus-heading,
+  .admin-shell .heading-actions {
+    align-items: flex-start;
+  }
+
+  .admin-shell .drawer-actions {
+    gap: 10px;
+  }
+
+  html[data-comfort='on'] .admin-shell {
+    padding-bottom: 104px;
+  }
+}
+
+@media (max-width: 520px) {
+  .hero-copy h1,
+  .section-heading h2,
+  .contact-band h2,
+  .care-band h2,
+  .auth-card h1 {
+    overflow-wrap: anywhere;
+  }
+
+  .hero-actions,
+  .drawer-actions,
+  .empty-actions {
+    align-items: stretch;
+  }
+
+  .hero-actions a,
+  .drawer-actions button,
+  .empty-actions button,
+  .auth-card .primary-action,
+  .auth-card .ghost-action {
+    width: 100%;
+  }
+
+  .admin-status-toast {
+    left: 10px;
+    right: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .primary-action:hover,
+  .ghost-action:hover,
+  .quick-actions button:hover,
+  .price-area button:hover,
+  .price-area a:hover,
+  .product-actions button:hover,
+  .timeline-empty:hover,
+  .row-actions button:hover,
+  .photo-admin-card button:hover,
+  .icon-button:hover {
+    transform: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .site-shell,
+  .admin-shell,
+  .admin-auth-page {
+    --ring: var(--gold-bright);
+  }
+
+  .admin-shell :is(.panel, .focus-panel, .metric-grid article, .product-card, .client-card, .payment-card, .shift-card),
+  .admin-auth-page .auth-card {
+    border-width: 2px;
+  }
+
+  button:disabled {
+    opacity: 0.85;
   }
 }

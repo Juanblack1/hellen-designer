@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hellen-designer-v4'
+const CACHE_NAME = 'hellen-designer-v5'
 const APP_SHELL = ['/', '/admin', '/manifest.webmanifest', '/favicon.svg', '/theme-init.js']
 
 self.addEventListener('install', (event) => {

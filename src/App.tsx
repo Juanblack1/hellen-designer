@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import {
+  Accessibility,
   Banknote,
   BarChart3,
   Ban,
@@ -123,6 +124,7 @@ type CalendarView = 'day' | 'week' | 'month' | 'list'
 type PaymentFilter = 'all' | PaymentStatus | 'open'
 type AppointmentDrawerMode = 'create' | 'edit'
 type ThemeMode = 'light' | 'dark'
+type ComfortMode = 'off' | 'on'
 
 type AppointmentDraft = {
   id: string
@@ -220,6 +222,7 @@ const canonicalPublicUrl = import.meta.env.VITE_PUBLIC_SITE_URL?.trim() || 'http
 const canonicalAdminUrl = import.meta.env.VITE_ADMIN_SITE_URL?.trim() || 'https://hellen-designer-admin.vercel.app'
 const localHostnames = new Set(['localhost', '127.0.0.1', '::1'])
 const themeStorageKey = 'hellen-designer-theme'
+const comfortStorageKey = 'hellen-designer-comfort-mode'
 
 function resolveInitialTheme(): ThemeMode {
   const fallback: ThemeMode =
@@ -230,6 +233,14 @@ function resolveInitialTheme(): ThemeMode {
     return stored === 'light' || stored === 'dark' ? stored : fallback
   } catch {
     return fallback
+  }
+}
+
+function resolveInitialComfortMode(): boolean {
+  try {
+    return window.localStorage.getItem(comfortStorageKey) === 'on'
+  } catch {
+    return false
   }
 }
 
@@ -461,6 +472,7 @@ function App() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => resolveInitialTheme())
+  const [isComfortMode, setIsComfortMode] = useState(() => resolveInitialComfortMode())
   const [appointmentDrawer, setAppointmentDrawer] = useState<AppointmentDrawerState>({
     open: false,
     mode: 'create',
@@ -1007,6 +1019,17 @@ function App() {
       // localStorage can be unavailable in private contexts; the in-memory theme still works.
     }
   }, [themeMode])
+
+  useEffect(() => {
+    const comfortMode: ComfortMode = isComfortMode ? 'on' : 'off'
+    document.documentElement.dataset.comfort = comfortMode
+
+    try {
+      window.localStorage.setItem(comfortStorageKey, comfortMode)
+    } catch {
+      // localStorage can be unavailable in private contexts; the in-memory mode still works.
+    }
+  }, [isComfortMode])
 
   async function handleSignIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -2216,6 +2239,10 @@ function App() {
     setThemeMode((currentTheme) => (currentTheme === 'dark' ? 'light' : 'dark'))
   }
 
+  function toggleComfortMode() {
+    setIsComfortMode((currentMode) => !currentMode)
+  }
+
   function renderThemeToggle(className = 'icon-button theme-toggle') {
     const nextThemeLabel = themeMode === 'dark' ? 'claro' : 'escuro'
 
@@ -2223,6 +2250,7 @@ function App() {
       <button
         className={className}
         type="button"
+        aria-pressed={themeMode === 'dark'}
         aria-label={`Ativar tema ${nextThemeLabel}`}
         title={`Ativar tema ${nextThemeLabel}`}
         onClick={toggleThemeMode}
@@ -2232,9 +2260,31 @@ function App() {
     )
   }
 
+  function renderComfortToggle(className = 'icon-button comfort-toggle') {
+    const label = isComfortMode ? 'Desativar modo facil' : 'Ativar modo facil'
+
+    return (
+      <button
+        className={className}
+        type="button"
+        aria-pressed={isComfortMode}
+        aria-label={label}
+        title={label}
+        onClick={toggleComfortMode}
+      >
+        <Accessibility size={18} aria-hidden="true" />
+        <span className="visually-hidden">{label}</span>
+      </button>
+    )
+  }
+
   function renderLanding() {
     return (
-      <main className={cn('site-shell', `theme-${themeMode}`)}>
+      <>
+      <a className="skip-link" href="#conteudo-principal">
+        Pular para o conteudo
+      </a>
+      <main id="conteudo-principal" className={cn('site-shell', `theme-${themeMode}`, isComfortMode && 'comfort-mode')}>
         <header className="landing-nav">
           <button className="brand-link" type="button" onClick={() => goToPath('/')}>
             <img src={brandLogo} alt="" />
@@ -2254,7 +2304,10 @@ function App() {
               Instagram
             </a>
           </nav>
-          {renderThemeToggle()}
+          <div className="topbar-accessibility-actions" role="group" aria-label="Preferencias visuais">
+            {renderComfortToggle()}
+            {renderThemeToggle()}
+          </div>
         </header>
 
         <section className="hero-band" aria-label="Hellen Martins Designer">
@@ -2395,15 +2448,19 @@ function App() {
         </footer>
 
       </main>
+      </>
     )
   }
 
   function renderAdmin() {
     if (isAuthLoading) {
       return (
-        <main className={cn('admin-auth-page', `theme-${themeMode}`)}>
+        <main className={cn('admin-auth-page', `theme-${themeMode}`, isComfortMode && 'comfort-mode')}>
           <div className="auth-card">
-            {renderThemeToggle('icon-button theme-toggle auth-theme-toggle')}
+            <div className="auth-floating-actions">
+              {renderComfortToggle('icon-button comfort-toggle auth-comfort-toggle')}
+              {renderThemeToggle('icon-button theme-toggle auth-theme-toggle')}
+            </div>
             <ShieldCheck size={28} aria-hidden="true" />
             <h1>Carregando acesso.</h1>
             <p>Verificando sessao administrativa.</p>
@@ -2414,7 +2471,7 @@ function App() {
 
     if (isSupabaseConfigured && (!session || !isAdmin)) {
       return (
-        <main className={cn('admin-auth-page', `theme-${themeMode}`)}>
+        <main className={cn('admin-auth-page', `theme-${themeMode}`, isComfortMode && 'comfort-mode')}>
           <form className="auth-card" onSubmit={handleSignIn}>
             <div className="auth-header-row">
               <button className="brand-link auth-brand" type="button" onClick={openPublicLanding}>
@@ -2424,7 +2481,10 @@ function App() {
                   <small>Painel privado</small>
                 </span>
               </button>
-              {renderThemeToggle()}
+              <div className="topbar-accessibility-actions" role="group" aria-label="Preferencias visuais">
+                {renderComfortToggle()}
+                {renderThemeToggle()}
+              </div>
             </div>
             <div>
               <p className="eyebrow">Acesso admin</p>
@@ -2464,15 +2524,20 @@ function App() {
     }
 
     return (
+      <>
+      <a className="skip-link" href="#admin-main-content">
+        Pular para o conteudo do painel
+      </a>
       <main
         className={cn(
           'admin-shell min-h-svh',
           `theme-${themeMode}`,
+          isComfortMode && 'comfort-mode',
           isSidebarCollapsed && 'sidebar-collapsed',
           isMobileSidebarOpen && 'mobile-sidebar-open',
         )}
       >
-        <aside className="admin-sidebar">
+        <aside className="admin-sidebar" id="admin-sidebar">
           <div className="sidebar-header">
             <button className="brand-link" type="button" onClick={() => goToPath('/')}>
               <img src={brandLogo} alt="" />
@@ -2484,6 +2549,8 @@ function App() {
             <button
               className="icon-button sidebar-toggle"
               type="button"
+              aria-controls="admin-sidebar"
+              aria-expanded={isMobileSidebarOpen || !isSidebarCollapsed}
               aria-label={isMobileSidebarOpen ? 'Fechar menu lateral' : isSidebarCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
               title={isMobileSidebarOpen ? 'Fechar menu lateral' : isSidebarCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
               onClick={toggleSidebarFromHeader}
@@ -2505,6 +2572,7 @@ function App() {
                   key={tab.id}
                   className={activeTab === tab.id ? 'active' : ''}
                   type="button"
+                  aria-label={`Abrir ${tab.label}`}
                   aria-current={activeTab === tab.id ? 'page' : undefined}
                   title={tab.label}
                   onClick={() => selectAdminTab(tab.id)}
@@ -2528,7 +2596,7 @@ function App() {
           />
         ) : null}
 
-        <section className="admin-main">
+        <section className="admin-main" id="admin-main-content" aria-label="Conteudo do admin" tabIndex={-1}>
           {renderAdminTopbar()}
 
           {(activeTab === 'today' || activeTab === 'agenda') && renderAgendaDashboard()}
@@ -2548,7 +2616,9 @@ function App() {
                 key={tab.id}
                 className={activeTab === tab.id ? 'active' : ''}
                 type="button"
+                aria-label={`Abrir ${tab.label}`}
                 aria-current={activeTab === tab.id ? 'page' : undefined}
+                title={tab.label}
                 onClick={() => selectAdminTab(tab.id)}
               >
                 <Icon size={18} aria-hidden="true" />
@@ -2577,6 +2647,7 @@ function App() {
         {renderDeleteAppointmentModal()}
         {renderAdminStatusToast()}
       </main>
+      </>
     )
   }
 
@@ -2604,12 +2675,21 @@ function App() {
       <header className="admin-appbar">
         <div className="appbar-main">
           {!isMobileSidebarOpen ? (
-            <button className="icon-button appbar-menu-button" type="button" aria-label="Abrir menu lateral" onClick={toggleAdminMenu}>
+            <button
+              className="icon-button appbar-menu-button"
+              type="button"
+              aria-controls="admin-sidebar"
+              aria-expanded={isMobileSidebarOpen}
+              aria-label="Abrir menu lateral"
+              title="Abrir menu lateral"
+              onClick={toggleAdminMenu}
+            >
               <Menu size={22} aria-hidden="true" />
             </button>
           ) : null}
           <h1>{activeTab === 'today' ? 'Agenda' : adminTabs.find((tab) => tab.id === activeTab)?.label}</h1>
           <div className="appbar-actions">
+            {renderComfortToggle()}
             {renderThemeToggle()}
             {isAgendaContext ? (
               <>
