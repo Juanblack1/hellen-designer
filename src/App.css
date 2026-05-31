@@ -16,6 +16,25 @@
   --display: 'Playfair Display', Georgia, serif;
   --body: 'Montserrat', Aptos, sans-serif;
   --shadow-panel: 0 18px 60px rgba(0, 0, 0, 0.32);
+  --radius: 8px;
+  --background: #050403;
+  --foreground: #f8ead0;
+  --card: #100c08;
+  --card-foreground: #f8ead0;
+  --popover: #100c08;
+  --popover-foreground: #f8ead0;
+  --primary: #d9a441;
+  --primary-foreground: #211200;
+  --secondary: #21170d;
+  --secondary-foreground: #f8ead0;
+  --muted-shadcn: #21170d;
+  --muted-foreground: #c6b696;
+  --accent: #ffe2a0;
+  --accent-foreground: #211200;
+  --destructive: #ff7e61;
+  --border: #4d3517;
+  --input: #21170d;
+  --ring: #ffe2a0;
 }
 
 a,
@@ -3289,5 +3308,715 @@ textarea {
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* Corthy-inspired admin refresh: light product shell, Hellen gold identity, shadcn token surface. */
+.admin-shell,
+.admin-auth-page {
+  --admin-canvas: #f7f3ea;
+  --admin-surface: #fffdf8;
+  --admin-surface-muted: #f1f3f8;
+  --admin-ink: #242737;
+  --admin-muted: #858b9b;
+  --admin-border: #e2ddd2;
+  --admin-border-strong: #d2c7b6;
+  --admin-accent: #b97714;
+  --admin-accent-strong: #86530a;
+  --admin-danger: #db3b28;
+  --admin-success: #0aa874;
+  --bg: var(--admin-canvas);
+  --surface: var(--admin-surface);
+  --surface-raised: #ffffff;
+  --surface-soft: var(--admin-surface-muted);
+  --surface-high: #ebe7de;
+  --text: var(--admin-ink);
+  --muted: var(--admin-muted);
+  --gold: var(--admin-accent);
+  --gold-bright: var(--admin-accent-strong);
+  --gold-deep: #6f4307;
+  --line: var(--admin-border);
+  --background: var(--admin-canvas);
+  --foreground: var(--admin-ink);
+  --card: var(--admin-surface);
+  --card-foreground: var(--admin-ink);
+  --popover: #ffffff;
+  --popover-foreground: var(--admin-ink);
+  --primary: var(--admin-accent);
+  --primary-foreground: #ffffff;
+  --secondary: var(--admin-surface-muted);
+  --secondary-foreground: var(--admin-ink);
+  --muted-shadcn: var(--admin-surface-muted);
+  --muted-foreground: var(--admin-muted);
+  --accent: #ead4a3;
+  --accent-foreground: #261604;
+  --destructive: var(--admin-danger);
+  --border: var(--admin-border);
+  --input: #dfe3eb;
+  --ring: var(--admin-accent);
+  --shadow-panel: 0 18px 44px rgba(31, 35, 48, 0.08);
+  background:
+    radial-gradient(circle at 88% 10%, rgba(217, 164, 65, 0.16), transparent 24%),
+    linear-gradient(180deg, #fffdf8 0, var(--admin-canvas) 220px);
+  color: var(--admin-ink);
+}
+
+.admin-shell {
+  --sidebar-width: 286px;
+}
+
+.admin-shell.sidebar-collapsed {
+  --sidebar-width: 82px;
+}
+
+.admin-shell .admin-sidebar {
+  background: #ffffff;
+  border-right: 1px solid var(--admin-border);
+  box-shadow: 18px 0 44px rgba(38, 39, 50, 0.06);
+  color: var(--admin-ink);
+  padding: 18px 14px;
+}
+
+.admin-shell .brand-link {
+  color: var(--admin-ink);
+}
+
+.admin-shell .brand-link img {
+  border: 1px solid rgba(185, 119, 20, 0.24);
+  box-shadow: 0 8px 18px rgba(38, 39, 50, 0.12);
+}
+
+.admin-shell .brand-link small,
+.admin-shell .admin-sidebar nav button,
+.admin-shell .sidebar-exit {
+  color: var(--admin-muted);
+}
+
+.admin-shell .sidebar-toggle,
+.admin-shell .icon-button,
+.admin-shell .date-control button {
+  background: #fff8e8;
+  border-color: #ead5a4;
+  color: var(--admin-accent-strong);
+}
+
+.admin-shell .admin-sidebar nav {
+  gap: 4px;
+  margin-top: 24px;
+}
+
+.admin-shell .admin-sidebar nav button,
+.admin-shell .sidebar-exit {
+  border: 0;
+  border-radius: 0 999px 999px 0;
+  font-size: 1rem;
+  font-weight: 800;
+  min-height: 50px;
+  padding: 0 14px;
+}
+
+.admin-shell .admin-sidebar nav button::before {
+  display: none;
+}
+
+.admin-shell .admin-sidebar nav button.active,
+.admin-shell .admin-sidebar nav button:hover {
+  background: linear-gradient(135deg, var(--admin-accent), var(--admin-accent-strong));
+  box-shadow: 0 12px 28px rgba(185, 119, 20, 0.22);
+  color: #ffffff;
+}
+
+.admin-shell .sidebar-exit {
+  color: var(--admin-danger);
+  margin-top: 18px;
+}
+
+.admin-shell .sidebar-exit:hover {
+  background: rgba(219, 59, 40, 0.08);
+  color: var(--admin-danger);
+}
+
+.admin-shell .admin-main {
+  gap: 14px;
+  padding: 18px;
+}
+
+.admin-shell .admin-appbar {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: var(--admin-border);
+  box-shadow: 0 12px 34px rgba(31, 35, 48, 0.07);
+  color: var(--admin-ink);
+}
+
+.admin-shell .admin-appbar h1,
+.admin-shell .panel-heading h2,
+.admin-shell .focus-heading h2,
+.admin-shell .drawer-heading h2 {
+  color: var(--admin-ink);
+  font-family: var(--body);
+  font-size: clamp(1.65rem, 4vw, 2.28rem);
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.admin-shell .appbar-actions {
+  align-items: center;
+}
+
+.admin-shell .date-control strong {
+  background: var(--admin-surface-muted);
+  border: 1px solid var(--admin-border);
+  color: var(--admin-accent-strong);
+  font-weight: 900;
+}
+
+.date-week-strip {
+  background: #ffffff;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  overflow: hidden;
+}
+
+.date-week-strip button {
+  background: transparent;
+  border: 0;
+  border-left: 1px solid var(--admin-border);
+  color: var(--admin-muted);
+  display: grid;
+  gap: 4px;
+  min-height: 62px;
+  padding: 8px 4px;
+  place-items: center;
+}
+
+.date-week-strip button:first-child {
+  border-left: 0;
+}
+
+.date-week-strip button span {
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.date-week-strip button strong {
+  color: var(--admin-ink);
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+
+.date-week-strip button.active {
+  background: var(--admin-ink);
+  color: #ffffff;
+}
+
+.date-week-strip button.active strong,
+.date-week-strip button.active span {
+  color: #ffffff;
+}
+
+.admin-shell .admin-workspace {
+  align-items: start;
+}
+
+.admin-shell .quick-actions {
+  background: #ffffff;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-panel);
+  order: -2;
+  padding: 8px;
+}
+
+.admin-shell .quick-actions button {
+  background: transparent;
+  border: 0;
+  color: var(--admin-accent-strong);
+  min-height: 44px;
+}
+
+.admin-shell .agenda-columns {
+  order: -1;
+}
+
+.admin-shell .panel,
+.admin-shell .focus-panel,
+.admin-shell .metric-grid article,
+.admin-shell .payment-card,
+.admin-shell .client-card,
+.admin-shell .product-card,
+.admin-shell .service-duration-grid article,
+.admin-shell .shift-card,
+.admin-shell .stock-list article,
+.admin-shell .movement-list article,
+.admin-shell .automation-list button,
+.admin-shell .exception-list article,
+.admin-shell .settings-toggle,
+.admin-shell .hours-row,
+.admin-shell .availability-row,
+.admin-shell .payment-list article,
+.admin-shell .payment-picker-list article {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  box-shadow: var(--shadow-panel);
+  color: var(--admin-ink);
+}
+
+.admin-shell .panel,
+.admin-shell .focus-panel {
+  padding: 18px;
+}
+
+.admin-shell .eyebrow {
+  color: var(--admin-accent);
+  letter-spacing: 0;
+}
+
+.admin-shell .metric-grid {
+  gap: 12px;
+}
+
+.admin-shell .metric-grid article {
+  min-height: 94px;
+}
+
+.admin-shell .metric-grid strong {
+  color: var(--admin-ink);
+  font-family: var(--body);
+  font-size: 1.42rem;
+}
+
+.admin-shell .metric-grid svg,
+.admin-shell .automation-list svg {
+  color: var(--admin-accent);
+}
+
+.admin-shell .focus-card {
+  background: #ffffff;
+  border-color: var(--admin-border);
+  color: var(--admin-ink);
+}
+
+.admin-shell .focus-card.highlight {
+  background: linear-gradient(135deg, #fff8e8, #ffffff);
+  border-color: #e5ca8c;
+}
+
+.admin-shell .focus-card strong,
+.admin-shell .row-main strong,
+.admin-shell .client-card strong,
+.admin-shell .product-card strong,
+.admin-shell .stock-list strong,
+.admin-shell .payment-list strong,
+.admin-shell .movement-list strong,
+.admin-shell .usage-list strong,
+.admin-shell .payment-card-header strong {
+  color: var(--admin-ink);
+}
+
+.admin-shell input,
+.admin-shell select,
+.admin-shell textarea {
+  background: var(--admin-surface-muted);
+  border: 1px solid #dfe3eb;
+  color: var(--admin-ink);
+  min-height: 46px;
+}
+
+.admin-shell input::placeholder,
+.admin-shell textarea::placeholder {
+  color: #9aa1b0;
+}
+
+.admin-shell label,
+.admin-shell .auth-card label,
+.admin-shell .editor-form label,
+.admin-shell .appointment-form label,
+.admin-shell .product-card label,
+.admin-shell .reschedule-grid label {
+  color: var(--admin-muted);
+  font-weight: 800;
+}
+
+.admin-shell .primary-action {
+  background: linear-gradient(135deg, var(--admin-accent), var(--admin-accent-strong));
+  border-color: transparent;
+  box-shadow: 0 12px 24px rgba(185, 119, 20, 0.2);
+  color: #ffffff;
+}
+
+.admin-shell .ghost-action,
+.admin-shell .compact-action,
+.admin-shell .filter-chips button,
+.admin-shell .row-actions button,
+.admin-shell .photo-admin-card button,
+.admin-shell .product-actions button,
+.admin-shell .payment-actions button,
+.admin-shell .duration-preset-row button,
+.admin-shell .quick-block-grid button,
+.admin-shell .shift-card-footer button,
+.admin-shell .shift-empty button {
+  background: #fff8e8;
+  border-color: #ead5a4;
+  color: var(--admin-accent-strong);
+}
+
+.admin-shell .segmented-control {
+  background: var(--admin-surface-muted);
+  border-color: var(--admin-border);
+}
+
+.admin-shell .segmented-control button {
+  color: var(--admin-muted);
+}
+
+.admin-shell .segmented-control button.active,
+.admin-shell .filter-chips button.active {
+  background: #ffffff;
+  color: var(--admin-accent-strong);
+  box-shadow: 0 8px 18px rgba(31, 35, 48, 0.08);
+}
+
+.admin-shell .timeline-shell,
+.admin-shell .week-agenda {
+  background: #ffffff;
+  border: 1px solid var(--admin-border);
+  box-shadow: var(--shadow-panel);
+  color: var(--admin-ink);
+}
+
+.admin-shell .timeline-professional {
+  background: #e9edf5;
+  border-bottom-color: #dce1ea;
+  min-height: 38px;
+}
+
+.admin-shell .timeline-professional > div {
+  justify-content: center;
+}
+
+.admin-shell .timeline-row {
+  min-height: 78px;
+}
+
+.admin-shell .timeline-row time {
+  border-right-color: #e5e7ec;
+  color: #9097a7;
+  padding-top: 14px;
+}
+
+.admin-shell .timeline-row time strong {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.admin-shell .timeline-row time small {
+  color: #bdc3ce;
+}
+
+.admin-shell .timeline-cell,
+.admin-shell .week-slot {
+  border-bottom-color: #dfe2e8;
+}
+
+.admin-shell .timeline-empty,
+.admin-shell .week-empty {
+  background: transparent;
+  border-color: transparent;
+  color: #a0a7b6;
+}
+
+.admin-shell .timeline-free-actions:hover .timeline-empty,
+.admin-shell .week-free-actions:hover .week-empty {
+  background: #fff8e8;
+  border-color: #ead5a4;
+  color: var(--admin-accent-strong);
+}
+
+.admin-shell .timeline-blocked,
+.admin-shell .timeline-blocked.unavailable,
+.admin-shell .week-blocked {
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      rgba(143, 149, 161, 0.1),
+      rgba(143, 149, 161, 0.1) 2px,
+      transparent 2px,
+      transparent 6px
+    ),
+    #f2f3f7;
+  border-color: #dfe2e8;
+  color: #8d94a4;
+}
+
+.admin-shell .timeline-appointment,
+.admin-shell .week-appointment {
+  background: #fffdf8;
+  border-color: #e3ddd2;
+  color: var(--admin-ink);
+  box-shadow: 0 12px 24px rgba(31, 35, 48, 0.08);
+}
+
+.admin-shell .timeline-appointment::before {
+  background: var(--admin-accent);
+}
+
+.admin-shell .timeline-block-action,
+.admin-shell .week-block-action {
+  background: rgba(219, 59, 40, 0.08);
+  border-color: rgba(219, 59, 40, 0.16);
+  color: var(--admin-danger);
+}
+
+.agenda-fab {
+  align-items: center;
+  background: linear-gradient(135deg, var(--admin-accent), var(--admin-accent-strong));
+  border: 0;
+  border-radius: 999px;
+  bottom: 28px;
+  box-shadow: 0 20px 44px rgba(61, 36, 4, 0.28);
+  color: #ffffff;
+  display: inline-flex;
+  height: 70px;
+  justify-content: center;
+  position: fixed;
+  right: 30px;
+  width: 70px;
+  z-index: 58;
+}
+
+.admin-shell .appointment-drawer,
+.admin-shell .payment-modal {
+  background: #ffffff;
+  border-color: var(--admin-border);
+  color: var(--admin-ink);
+}
+
+.admin-shell .drawer-heading {
+  background: #ffffff;
+  border-bottom: 1px solid var(--admin-border);
+  margin: -18px -18px 4px;
+  padding: 18px;
+  position: sticky;
+  top: -18px;
+  z-index: 2;
+}
+
+.admin-shell .drawer-section {
+  border-top-color: var(--admin-border);
+}
+
+.admin-shell .client-suggestions button,
+.admin-shell .drawer-slot-strip button,
+.admin-shell .client-list-toggle {
+  background: #fff8e8;
+  border-color: #ead5a4;
+  color: var(--admin-accent-strong);
+}
+
+.admin-shell .client-suggestions button.selected,
+.admin-shell .selected-client-note {
+  background: rgba(10, 168, 116, 0.1);
+  border-color: rgba(10, 168, 116, 0.24);
+  color: #087957;
+}
+
+.admin-shell .shift-weekdays {
+  background: var(--admin-surface-muted);
+  border-color: var(--admin-border);
+}
+
+.admin-shell .shift-weekdays button {
+  background: #ffffff;
+  border-color: #dfe3eb;
+  color: var(--admin-muted);
+}
+
+.admin-shell .shift-weekdays button.active {
+  background: linear-gradient(135deg, #f6d481, var(--admin-accent));
+  border-color: #d9b15c;
+  color: #241704;
+}
+
+.admin-shell .shift-switch > span,
+.admin-shell .stock-meter {
+  background: var(--admin-surface-muted);
+  border-color: var(--admin-border);
+  color: var(--admin-accent-strong);
+}
+
+.admin-shell .status-pill.scheduled,
+.admin-shell .status-pill.partial,
+.admin-shell .status-pill.pending {
+  background: #fff1cb;
+  color: #80520b;
+}
+
+.admin-shell .status-pill.confirmed,
+.admin-shell .status-pill.paid,
+.admin-shell .status-pill.completed {
+  background: rgba(10, 168, 116, 0.12);
+  color: #087957;
+}
+
+.admin-shell .status-pill.no_show,
+.admin-shell .status-pill.canceled {
+  background: rgba(219, 59, 40, 0.1);
+  color: var(--admin-danger);
+}
+
+.admin-shell .mobile-bottom-nav {
+  background: rgba(255, 255, 255, 0.98);
+  border-top-color: var(--admin-border);
+  box-shadow: 0 -12px 28px rgba(31, 35, 48, 0.08);
+}
+
+.admin-shell .mobile-bottom-nav button {
+  color: var(--admin-muted);
+}
+
+.admin-shell .mobile-bottom-nav button.active {
+  background: #fff8e8;
+  color: var(--admin-accent-strong);
+}
+
+.admin-shell .admin-status-toast {
+  background: #ffffff;
+  color: var(--admin-ink);
+}
+
+.admin-shell .admin-status-toast span {
+  color: var(--admin-ink);
+}
+
+@media (max-width: 1120px) {
+  .admin-shell .agenda-columns {
+    gap: 14px;
+  }
+}
+
+@media (max-width: 860px) {
+  .admin-shell {
+    background: var(--admin-canvas);
+  }
+
+  .admin-shell .admin-main {
+    padding: 0 0 88px;
+  }
+
+  .admin-shell .admin-appbar {
+    border-left: 0;
+    border-radius: 0;
+    border-right: 0;
+    margin: 0;
+    padding: 14px 14px 10px;
+  }
+
+  .admin-shell .appbar-main {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .admin-shell .appbar-actions .primary-action {
+    width: auto;
+  }
+
+  .admin-shell .date-control {
+    display: none;
+  }
+
+  .date-week-strip {
+    border-left: 0;
+    border-radius: 0;
+    border-right: 0;
+    margin: 0 -14px -10px;
+  }
+
+  .admin-shell .admin-workspace,
+  .admin-shell .settings-layout,
+  .admin-shell .finance-layout,
+  .admin-shell .landing-manager {
+    padding: 12px;
+  }
+
+  .admin-shell .quick-actions {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    padding: 6px;
+  }
+
+  .admin-shell .quick-actions button {
+    flex: 0 0 auto;
+    min-width: 148px;
+  }
+
+  .admin-shell .panel,
+  .admin-shell .focus-panel {
+    padding: 14px;
+  }
+
+  .admin-shell .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-shell .timeline-shell {
+    border-left: 0;
+    border-right: 0;
+    margin-left: -12px;
+    margin-right: -12px;
+  }
+
+  .admin-shell .timeline-professional,
+  .admin-shell .timeline-row {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+
+  .admin-shell .timeline-row {
+    min-height: 86px;
+  }
+
+  .agenda-fab {
+    bottom: 82px;
+    height: 64px;
+    right: 22px;
+    width: 64px;
+    z-index: 62;
+  }
+
+  .admin-shell .appointment-drawer {
+    border-radius: 0;
+    height: 100svh;
+    max-height: none;
+  }
+
+  .admin-shell .client-suggestions {
+    display: grid;
+    grid-template-columns: 1fr;
+    overflow: visible;
+  }
+
+  .admin-shell .client-suggestions button {
+    flex: initial;
+    min-width: 0;
+  }
+
+  .admin-shell .payment-modal {
+    border-radius: 0;
+    min-height: 100svh;
+  }
+}
+
+@media (max-width: 420px) {
+  .admin-shell .metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .date-week-strip button {
+    min-height: 56px;
+  }
+
+  .date-week-strip button strong {
+    font-size: 1rem;
   }
 }

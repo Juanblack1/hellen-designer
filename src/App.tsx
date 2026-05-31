@@ -47,6 +47,7 @@ import brandBanner from './assets/hellen-brand-banner.svg'
 import portraitImage from './assets/hellen-brows-chatgpt-image.png'
 import careCardImage from './assets/hellen-care-card.svg'
 import brandLogo from './assets/hellen-martins-logo.svg'
+import { cn } from './lib/utils'
 import {
   addDays,
   addMinutesToTime,
@@ -254,6 +255,7 @@ const paymentStatusLabels: Record<PaymentStatus, string> = {
 }
 
 const dayLabels = ['Domingo', 'Segunda', 'Terca', 'Quarta', 'Quinta', 'Sexta', 'Sabado']
+const dayShortLabels = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab']
 const weekdayChips = [
   { day: 1, short: 'Seg', label: 'Segunda' },
   { day: 2, short: 'Ter', label: 'Terca' },
@@ -2400,13 +2402,11 @@ function App() {
 
     return (
       <main
-        className={[
-          'admin-shell',
-          isSidebarCollapsed ? 'sidebar-collapsed' : '',
-          isMobileSidebarOpen ? 'mobile-sidebar-open' : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
+        className={cn(
+          'admin-shell min-h-svh',
+          isSidebarCollapsed && 'sidebar-collapsed',
+          isMobileSidebarOpen && 'mobile-sidebar-open',
+        )}
       >
         <aside className="admin-sidebar">
           <div className="sidebar-header">
@@ -2486,6 +2486,16 @@ function App() {
             )
           })}
         </nav>
+        {activeTab === 'today' || activeTab === 'agenda' ? (
+          <button
+            className="agenda-fab"
+            type="button"
+            aria-label="Novo horario"
+            onClick={() => openNewAppointmentDrawer(agendaDate, getFirstAvailableSlot(agendaDate))}
+          >
+            <Plus size={30} aria-hidden="true" />
+          </button>
+        ) : null}
         {renderAppointmentDrawer()}
         {renderClientModal()}
         {renderProductModal()}
@@ -2569,15 +2579,36 @@ function App() {
           </div>
         </div>
         {isAgendaContext ? (
-          <div className="date-control" aria-label="Controle de data">
-            <button type="button" aria-label="Dia anterior" onClick={() => setAgendaDate((date) => addDays(date, -1))}>
-              <ChevronLeft size={22} aria-hidden="true" />
-            </button>
-            <strong>{formatDateLong(agendaDate)}</strong>
-            <button type="button" aria-label="Proximo dia" onClick={() => setAgendaDate((date) => addDays(date, 1))}>
-              <ChevronRight size={22} aria-hidden="true" />
-            </button>
-          </div>
+          <>
+            <div className="date-control" aria-label="Controle de data">
+              <button type="button" aria-label="Dia anterior" onClick={() => setAgendaDate((date) => addDays(date, -1))}>
+                <ChevronLeft size={22} aria-hidden="true" />
+              </button>
+              <strong>{formatDateLong(agendaDate)}</strong>
+              <button type="button" aria-label="Proximo dia" onClick={() => setAgendaDate((date) => addDays(date, 1))}>
+                <ChevronRight size={22} aria-hidden="true" />
+              </button>
+            </div>
+            <div className="date-week-strip" aria-label="Dias da semana">
+              {weekDates.map((date) => {
+                const dayIndex = new Date(`${date}T12:00:00`).getDay()
+                return (
+                  <button
+                    key={date}
+                    className={date === agendaDate ? 'active' : ''}
+                    type="button"
+                    onClick={() => {
+                      setAgendaDate(date)
+                      setCalendarView('day')
+                    }}
+                  >
+                    <span>{dayShortLabels[dayIndex]}</span>
+                    <strong>{date.slice(-2)}</strong>
+                  </button>
+                )
+              })}
+            </div>
+          </>
         ) : null}
       </header>
     )

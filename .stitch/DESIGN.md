@@ -24,6 +24,21 @@ Landing pages use Brand register. Admin screens use Product register.
 - Warning: `#F4C873`
 - Danger: `#FF7E61`
 
+### Admin Light Product Mode
+
+The admin can use a light operational mode inspired by mobile salon management apps while preserving the Hellen palette:
+
+- Canvas: `#F7F3EA`
+- Surface: `#FFFDF8`
+- Muted surface: `#F1F3F8`
+- Ink: `#242737`
+- Muted ink: `#858B9B`
+- Border: `#E2DDD2`
+- Accent: `#B97714`
+- Accent strong: `#86530A`
+
+Use this mode only for the private admin app. Landing pages remain black studio canvas.
+
 ## Typography
 
 - Display: Playfair Display, Georgia, serif.
@@ -43,6 +58,7 @@ Landing pages use Brand register. Admin screens use Product register.
 
 - Landing: first viewport must immediately show Hellen Designer, a real brand/portrait signal, prices or service anchor, and WhatsApp access. It must not show admin/login access.
 - Admin: fixed or sticky navigation, dense metrics, day agenda, client/payment status and inline editing.
+- Admin light mode: app-like sidebar drawer, weekly date strip, clean agenda timeline, floating create action and full-screen mobile sheets for appointment/blocking forms.
 - Avoid nested cards. Sections are full-width bands or unframed layouts.
 
 ## Components
@@ -52,6 +68,7 @@ Landing pages use Brand register. Admin screens use Product register.
 - Gallery grid for photos and social art.
 - Agenda rows with status, time, client, service, amount and quick actions.
 - Client drawer/detail area.
+- shadcn/Tailwind primitives for buttons, cards and inputs use the same semantic CSS tokens.
 - Finance list with paid, partial, pending and canceled states.
 - Landing editor for business data, services and gallery publication.
 
