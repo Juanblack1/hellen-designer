@@ -3015,8 +3015,11 @@ textarea {
 
 @media (max-width: 700px) {
   .landing-nav {
+    left: 8px;
+    right: 8px;
     top: 8px;
-    width: calc(100% - 16px);
+    transform: none;
+    width: auto;
   }
 
   .brand-link img {
@@ -3031,14 +3034,15 @@ textarea {
   }
 
   .hero-copy h1 {
-    font-size: 3.4rem;
+    font-size: 3.15rem;
   }
 
   .hero-subtitle,
   .section-heading h2,
   .contact-band h2,
   .care-band h2 {
-    font-size: 2.1rem;
+    font-size: 1.9rem;
+    line-height: 1.1;
   }
 
   .hero-media {
@@ -5062,12 +5066,6 @@ html[data-comfort='on'] .agenda-fab {
 }
 
 @media (max-width: 860px) {
-  .site-shell,
-  .admin-shell,
-  .admin-auth-page {
-    overflow-x: clip;
-  }
-
   .topbar-accessibility-actions {
     gap: 6px;
   }
@@ -5111,12 +5109,49 @@ html[data-comfort='on'] .agenda-fab {
 }
 
 @media (max-width: 520px) {
+  .site-shell,
+  .admin-shell,
+  .admin-auth-page {
+    width: 100%;
+  }
+
+  .admin-auth-page {
+    justify-items: stretch;
+    padding: 18px;
+  }
+
+  .admin-auth-page .auth-card {
+    max-width: 100%;
+    padding: 24px;
+    width: 100%;
+  }
+
+  .hero-copy,
+  .auth-card,
+  .auth-card > *,
+  .auth-header-row {
+    min-width: 0;
+  }
+
   .hero-copy h1,
   .section-heading h2,
   .contact-band h2,
   .care-band h2,
   .auth-card h1 {
     overflow-wrap: anywhere;
+  }
+
+  .hero-copy h1 {
+    font-size: 2.95rem;
+  }
+
+  .hero-subtitle {
+    font-size: 1.72rem;
+  }
+
+  .auth-card h1 {
+    font-size: 2.35rem;
+    line-height: 1.06;
   }
 
   .hero-actions,
@@ -5136,6 +5171,28 @@ html[data-comfort='on'] .agenda-fab {
   .admin-status-toast {
     left: 10px;
     right: 10px;
+  }
+}
+
+@media (max-width: 380px) {
+  .hero-copy h1 {
+    font-size: 2.62rem;
+  }
+
+  .hero-subtitle {
+    font-size: 1.56rem;
+  }
+
+  .auth-card h1 {
+    font-size: 2.05rem;
+  }
+
+  .admin-auth-page {
+    padding: 14px;
+  }
+
+  .admin-auth-page .auth-card {
+    padding: 20px;
   }
 }
 
