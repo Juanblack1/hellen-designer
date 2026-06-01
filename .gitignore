@@ -12,12 +12,18 @@ lerna-debug.log*
 .env.*
 !.env.example
 .vercel
+.mobile-signing/
+android/app/release.keystore
+*.jks
+*.keystore
+*.p12
 .agents
 skills-lock.json
 
 node_modules
 dist
 dist-ssr
+artifacts/
 *.local
 
 # Editor directories and files

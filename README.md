@@ -14,6 +14,7 @@ Nao existe mais area da cliente, checkout, sinal Asaas ou agendamento automatico
 - React 19 + TypeScript + Vite
 - Supabase Auth, Postgres, RLS e Storage
 - Vercel para hospedagem
+- Capacitor Android para APK instalavel
 - Vitest + ESLint
 - Design system criado no Stitch MCP
 
@@ -83,6 +84,29 @@ on conflict (user_id) do nothing;
 npm install
 npm run dev
 ```
+
+## APK Android
+
+O app Android usa Capacitor com os arquivos do `dist` embutidos no APK. No Android, a tela inicial abre o painel admin.
+
+```bash
+npm run mobile:sync
+```
+
+Build local de debug no Windows, se Android SDK e JDK 21 estiverem instalados:
+
+```bash
+npm run android:build:debug
+```
+
+O APK de release e assinado pelo GitHub Actions em `Android APK`. Os secrets exigidos sao:
+
+- `ANDROID_KEYSTORE_BASE64`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
+O Manifest desativa backup, bloqueia trafego HTTP claro e usa apenas certificados raiz do sistema.
 
 ## Verificacao
 

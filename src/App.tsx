@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
+import { Capacitor } from '@capacitor/core'
 import type { Session } from '@supabase/supabase-js'
 import {
   Accessibility,
@@ -233,6 +234,11 @@ const canonicalAdminUrl = import.meta.env.VITE_ADMIN_SITE_URL?.trim() || 'https:
 const localHostnames = new Set(['localhost', '127.0.0.1', '::1'])
 const themeStorageKey = 'hellen-designer-theme'
 const comfortStorageKey = 'hellen-designer-comfort-mode'
+
+function getInitialRoute() {
+  const currentPath = window.location.pathname
+  return Capacitor.isNativePlatform() && currentPath === '/' ? '/admin' : currentPath
+}
 
 function resolveInitialTheme(): ThemeMode {
   const fallback: ThemeMode =
@@ -528,7 +534,7 @@ function useFocusTrap<T extends HTMLElement>(active: boolean) {
 }
 
 function App() {
-  const [route, setRoute] = useState(() => window.location.pathname)
+  const [route, setRoute] = useState(getInitialRoute)
   const [session, setSession] = useState<Session | null>(null)
   const [authDraft, setAuthDraft] = useState<AuthDraft>({ email: '', password: '' })
   const [authStatus, setAuthStatus] = useState('')
@@ -962,6 +968,10 @@ function App() {
   }
 
   useEffect(() => {
+    if (Capacitor.isNativePlatform() && window.location.pathname === '/') {
+      window.history.replaceState(null, '', '/admin')
+    }
+
     const handlePopState = () => setRoute(window.location.pathname)
     window.addEventListener('popstate', handlePopState)
 

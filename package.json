@@ -11,9 +11,14 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview",
+    "mobile:sync": "npm run build && cap sync android",
+    "android:build:debug": "npm run mobile:sync && cd android && gradlew.bat assembleDebug",
+    "android:build:debug:ci": "npm run mobile:sync && cd android && ./gradlew assembleDebug",
     "db:push": "node scripts/apply-schema.mjs"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.4",
+    "@capacitor/core": "^8.3.4",
     "@supabase/supabase-js": "^2.106.0",
     "@tailwindcss/vite": "^4.3.0",
     "class-variance-authority": "^0.7.1",
@@ -25,6 +30,7 @@
     "tailwindcss": "^4.3.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.3.4",
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.12.3",
     "@types/react": "^19.2.14",
