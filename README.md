@@ -58,7 +58,16 @@ O schema cria:
 - `gallery_items`
 - `clients`
 - `appointments`
+- `payment_transactions`
+- `business_hours`
+- `availability_rules`
+- `availability_exceptions`
+- `schedule_settings`
+- `products`
+- `stock_movements`
 - bucket Storage `landing-media`
+
+Tambem cria regras transacionais para bloquear sobreposicao de agenda e registrar estoque/pagamentos sem estado parcial.
 
 Depois de criar a primeira conta no Supabase Auth, promova a conta da Hellen pelo SQL editor:
 

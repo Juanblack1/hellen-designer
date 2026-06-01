@@ -138,7 +138,7 @@ textarea:focus-visible {
   font-weight: 800;
   gap: 8px;
   justify-content: center;
-  min-height: 42px;
+  min-height: 44px;
   padding: 0 14px;
   text-decoration: none;
   transition:
@@ -209,11 +209,14 @@ textarea:focus-visible {
 .landing-nav nav a,
 .site-footer a,
 .site-footer button {
+  align-items: center;
   background: transparent;
   border: 0;
   color: rgba(248, 234, 208, 0.78);
+  display: inline-flex;
   font-size: 0.84rem;
   font-weight: 800;
+  min-height: 44px;
   padding: 9px 10px;
   text-decoration: none;
 }
@@ -295,6 +298,12 @@ textarea:focus-visible {
   align-items: center;
   display: inline-flex;
   gap: 8px;
+}
+
+.contact-row a {
+  align-items: center;
+  display: inline-flex;
+  min-height: 44px;
 }
 
 .hero-media {
@@ -701,7 +710,7 @@ textarea {
   border: 1px solid rgba(217, 164, 65, 0.28);
   border-radius: 8px;
   color: var(--text);
-  min-height: 42px;
+  min-height: 44px;
   padding: 9px 11px;
   width: 100%;
 }
@@ -783,7 +792,7 @@ textarea {
   display: flex;
   font-weight: 800;
   gap: 11px;
-  min-height: 42px;
+  min-height: 44px;
   min-width: 0;
   padding: 0 12px;
   position: relative;
@@ -829,7 +838,7 @@ textarea {
   gap: 11px;
   justify-content: flex-start;
   margin-top: auto;
-  min-height: 42px;
+  min-height: 44px;
   min-width: 0;
   padding: 0 12px;
   position: relative;
@@ -932,9 +941,9 @@ textarea {
   background: rgba(217, 164, 65, 0.08);
   border: 1px solid rgba(217, 164, 65, 0.2);
   color: var(--gold-bright);
-  min-height: 42px;
+  min-height: 44px;
   padding: 0;
-  width: 42px;
+  width: 44px;
 }
 
 .date-control {
@@ -994,7 +1003,7 @@ textarea {
   background: rgba(217, 164, 65, 0.08);
   border: 1px solid rgba(217, 164, 65, 0.2);
   color: var(--gold-bright);
-  min-height: 32px;
+  min-height: 44px;
   padding: 0;
   width: 32px;
 }
@@ -1136,7 +1145,7 @@ textarea {
   font-size: 0.82rem;
   font-weight: 900;
   justify-content: center;
-  min-height: 34px;
+  min-height: 44px;
   padding: 0 10px;
   text-decoration: none;
   width: 100%;
@@ -1153,7 +1162,7 @@ textarea {
 
 .compact-action {
   max-width: 100%;
-  min-height: 38px;
+  min-height: 44px;
   padding: 0 12px;
   white-space: nowrap;
 }
@@ -1219,7 +1228,8 @@ textarea {
   color: var(--muted);
   font-size: 0.78rem;
   font-weight: 900;
-  min-height: 32px;
+  min-height: 44px;
+  min-width: 44px;
   padding: 0 10px;
 }
 
@@ -1651,6 +1661,12 @@ textarea {
   margin-top: 12px;
 }
 
+.detail-panel a {
+  align-items: center;
+  display: inline-flex;
+  min-height: 44px;
+}
+
 .status-pill {
   border-radius: 999px;
   font-size: 0.72rem;
@@ -1689,9 +1705,9 @@ textarea {
   background: rgba(217, 164, 65, 0.08);
   border: 1px solid rgba(217, 164, 65, 0.22);
   color: var(--gold-bright);
-  min-height: 34px;
+  min-height: 44px;
   padding: 0;
-  width: 34px;
+  width: 44px;
 }
 
 .detail-action-grid {
@@ -1711,7 +1727,7 @@ textarea {
   font-weight: 900;
   gap: 6px;
   justify-content: center;
-  min-height: 38px;
+  min-height: 44px;
   min-width: 0;
   padding: 0 8px;
   white-space: nowrap;
@@ -1768,6 +1784,11 @@ textarea {
   gap: 10px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-top: 14px;
+}
+
+.reschedule-grid label,
+.reschedule-grid input {
+  min-width: 0;
 }
 
 .stock-list article,
@@ -1887,7 +1908,7 @@ textarea {
 }
 
 .stock-quantity-control input {
-  min-height: 38px;
+  min-height: 44px;
   text-align: center;
 }
 
@@ -2071,7 +2092,7 @@ textarea {
   background: rgba(217, 164, 65, 0.08);
   border: 1px solid rgba(217, 164, 65, 0.22);
   color: var(--gold-bright);
-  min-height: 38px;
+  min-height: 44px;
   min-width: 0;
   padding: 0 12px;
 }
@@ -2148,7 +2169,7 @@ textarea {
   border-radius: 8px;
   color: var(--gold-bright);
   font-weight: 900;
-  min-height: 38px;
+  min-height: 44px;
   padding: 0 12px;
 }
 
@@ -2284,7 +2305,7 @@ textarea {
   display: inline-flex;
   font-weight: 900;
   gap: 4px;
-  min-height: 32px;
+  min-height: 44px;
   padding: 0;
 }
 
@@ -2457,7 +2478,7 @@ textarea {
   color: var(--muted);
   font-size: 0.78rem;
   font-weight: 900;
-  min-height: 34px;
+  min-height: 44px;
   min-width: 46px;
   padding: 0 10px;
 }
@@ -2584,7 +2605,7 @@ textarea {
   border-radius: 8px;
   color: var(--gold-bright);
   font-weight: 900;
-  min-height: 34px;
+  min-height: 44px;
   padding: 0 10px;
 }
 
@@ -2657,7 +2678,7 @@ textarea {
   background: rgba(217, 164, 65, 0.08);
   border: 1px solid rgba(217, 164, 65, 0.22);
   color: var(--gold-bright);
-  min-height: 38px;
+  min-height: 44px;
   padding: 0 8px;
 }
 
@@ -2698,8 +2719,8 @@ textarea {
 }
 
 .service-delete {
-  min-height: 38px;
-  width: 38px;
+  min-height: 44px;
+  width: 44px;
 }
 
 .photo-admin-card {
@@ -3941,15 +3962,16 @@ textarea {
   }
 
   .admin-shell .quick-actions {
-    display: flex;
-    gap: 4px;
-    overflow-x: auto;
-    padding: 6px;
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
+    padding: 0;
   }
 
   .admin-shell .quick-actions button {
-    flex: 0 0 auto;
-    min-width: 148px;
+    min-width: 0;
+    white-space: normal;
   }
 
   .admin-shell .panel,
@@ -4547,7 +4569,7 @@ html[data-theme='light'] .admin-shell .agenda-fab:hover {
 }
 
 .admin-shell .icon-button {
-  min-width: 42px;
+  min-width: 44px;
 }
 
 .admin-shell .segmented-control,
@@ -4687,8 +4709,8 @@ html[data-theme='dark'] .admin-shell .mobile-bottom-nav {
   }
 
   .landing-nav .theme-toggle {
-    height: 42px;
-    width: 42px;
+    height: 44px;
+    width: 44px;
   }
 
   .admin-shell .appbar-actions {
@@ -4707,9 +4729,9 @@ html[data-theme='dark'] .admin-shell .mobile-bottom-nav {
 
   .admin-shell .icon-button,
   .admin-shell .date-control button {
-    min-height: 42px;
-    min-width: 42px;
-    width: 42px;
+    min-height: 44px;
+    min-width: 44px;
+    width: 44px;
   }
 
   .admin-shell .quick-actions button {
@@ -4920,6 +4942,7 @@ input[type='radio'] {
 .photo-admin-card button,
 .icon-button,
 .date-control button,
+.site-footer a,
 .site-footer button,
 .client-suggestions button,
 .drawer-slot-strip button,

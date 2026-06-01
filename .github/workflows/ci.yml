@@ -4,7 +4,7 @@ on:
   pull_request:
   push:
     branches:
-      - main
+      - master
 
 jobs:
   verify:
@@ -27,6 +27,9 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: Audit runtime dependencies
+        run: npm audit --omit=dev
 
       - name: Build
         run: npm run build

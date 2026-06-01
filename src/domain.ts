@@ -11,6 +11,24 @@ export type BusinessProfile = {
   published: boolean
 }
 
+export const businessTimeZone = 'America/Sao_Paulo'
+
+export function formatDateIsoInTimeZone(date: Date, timeZone = businessTimeZone) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    day: '2-digit',
+    month: '2-digit',
+    timeZone,
+    year: 'numeric',
+  }).formatToParts(date)
+  const valueByType = new Map(parts.map((part) => [part.type, part.value]))
+
+  return `${valueByType.get('year')}-${valueByType.get('month')}-${valueByType.get('day')}`
+}
+
+export function todayIso(date = new Date()) {
+  return formatDateIsoInTimeZone(date)
+}
+
 export type ServiceItem = {
   id: string
   name: string
@@ -284,7 +302,7 @@ export const defaultAppointments: AppointmentRecord[] = [
     client_phone: '(16) 98888-1100',
     service_id: 'design-com-henna',
     service_name: 'Design com Henna',
-    scheduled_date: new Date().toISOString().slice(0, 10),
+    scheduled_date: todayIso(),
     start_time: '09:00',
     end_time: '10:00',
     status: 'confirmed',
@@ -301,7 +319,7 @@ export const defaultAppointments: AppointmentRecord[] = [
     client_phone: '(16) 97777-2200',
     service_id: 'design-com-coloracao',
     service_name: 'Design com Coloracao',
-    scheduled_date: new Date().toISOString().slice(0, 10),
+    scheduled_date: todayIso(),
     start_time: '14:30',
     end_time: '15:40',
     status: 'scheduled',
@@ -429,7 +447,7 @@ export const defaultAvailabilityRules: AvailabilityRule[] = [
 export const defaultAvailabilityExceptions: AvailabilityException[] = [
   {
     id: 'today-lunch',
-    date: new Date().toISOString().slice(0, 10),
+    date: todayIso(),
     type: 'blocked',
     start_time: '12:00',
     end_time: '13:30',

@@ -9,6 +9,7 @@ import {
   defaultScheduleSettings,
   defaultServices,
   deriveBusinessHoursFromAvailabilityRules,
+  formatDateIsoInTimeZone,
   formatCurrency,
   getAppointmentEndTime,
   getAvailableSlots,
@@ -23,6 +24,7 @@ import {
   normalizeStockMovement,
   normalizeStockMovementType,
   parseCurrencyToCents,
+  todayIso,
 } from '../src/domain'
 import type { AppointmentRecord, BusinessHour, ClientRecord, ProductItem } from '../src/domain'
 
@@ -55,6 +57,11 @@ describe('domain helpers', () => {
     expect(buildWhatsAppUrl('(16) 98875-8633', 'Ola Hellen')).toBe(
       'https://wa.me/5516988758633?text=Ola%20Hellen',
     )
+  })
+
+  it('uses the Sao Paulo calendar date instead of UTC for today', () => {
+    expect(todayIso(new Date('2026-06-01T02:30:00.000Z'))).toBe('2026-05-31')
+    expect(formatDateIsoInTimeZone(new Date('2026-06-01T03:30:00.000Z'))).toBe('2026-06-01')
   })
 
   it('calculates admin stats for schedule, finance and stock', () => {

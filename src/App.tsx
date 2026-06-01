@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import {
@@ -94,6 +94,7 @@ import {
   parseCurrencyToCents,
   rangesOverlap,
   sortByOrder,
+  todayIso,
 } from './domain'
 import type {
   AppointmentRecord,
@@ -213,11 +214,20 @@ type GalleryDraft = {
   file: File | null
 }
 
+type PaymentRpcResult = {
+  appointment: AppointmentRecord
+  transaction: PaymentTransaction
+}
+
+type StockMovementRpcResult = {
+  product: ProductItem
+  movement: StockMovementDatabaseRow
+}
+
 function isStatusErrorMessage(message: string) {
   return /^(Alguns|A regra|Data|Esse|Horario|Informe|Ja existe|Nao|O fim|O valor|Selecione)/.test(message)
 }
 
-const todayIso = () => new Date().toISOString().slice(0, 10)
 const canonicalPublicUrl = import.meta.env.VITE_PUBLIC_SITE_URL?.trim() || 'https://hellen-designer.vercel.app'
 const canonicalAdminUrl = import.meta.env.VITE_ADMIN_SITE_URL?.trim() || 'https://hellen-designer-admin.vercel.app'
 const localHostnames = new Set(['localhost', '127.0.0.1', '::1'])
@@ -436,6 +446,87 @@ function appointmentDateStamp(appointment: AppointmentRecord) {
   )
 }
 
+function useFocusTrap<T extends HTMLElement>(active: boolean) {
+  const containerRef = useRef<T | null>(null)
+  const previousFocusRef = useRef<HTMLElement | null>(null)
+
+  useEffect(() => {
+    if (!active) {
+      return undefined
+    }
+
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+
+    const getFocusableElements = () => {
+      const container = containerRef.current
+      if (!container) {
+        return []
+      }
+
+      return Array.from(
+        container.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => {
+        const rect = element.getBoundingClientRect()
+        return rect.width > 0 && rect.height > 0 && window.getComputedStyle(element).visibility !== 'hidden'
+      })
+    }
+
+    const focusInitialElement = () => {
+      const container = containerRef.current
+      const firstFocusable = getFocusableElements()[0]
+      if (firstFocusable) {
+        firstFocusable.focus()
+        return
+      }
+
+      container?.focus()
+    }
+
+    const animationFrame = window.requestAnimationFrame(focusInitialElement)
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Tab') {
+        return
+      }
+
+      const focusableElements = getFocusableElements()
+      if (!focusableElements.length) {
+        event.preventDefault()
+        containerRef.current?.focus()
+        return
+      }
+
+      const firstElement = focusableElements[0]
+      const lastElement = focusableElements[focusableElements.length - 1]
+
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault()
+        lastElement.focus()
+        return
+      }
+
+      if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault()
+        firstElement.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame)
+      document.removeEventListener('keydown', handleKeyDown)
+      if (previousFocusRef.current?.isConnected) {
+        previousFocusRef.current.focus()
+      }
+    }
+  }, [active])
+
+  return containerRef
+}
+
 function App() {
   const [route, setRoute] = useState(() => window.location.pathname)
   const [session, setSession] = useState<Session | null>(null)
@@ -485,6 +576,14 @@ function App() {
   const [isPaymentLauncherOpen, setIsPaymentLauncherOpen] = useState(false)
   const [isBlockModalOpen, setIsBlockModalOpen] = useState(false)
   const [deleteAppointmentTarget, setDeleteAppointmentTarget] = useState<AppointmentRecord | null>(null)
+  const appointmentDrawerRef = useFocusTrap<HTMLElement>(appointmentDrawer.open)
+  const clientModalRef = useFocusTrap<HTMLFormElement>(isClientModalOpen)
+  const productModalRef = useFocusTrap<HTMLFormElement>(isProductModalOpen)
+  const paymentLauncherRef = useFocusTrap<HTMLElement>(isPaymentLauncherOpen)
+  const blockModalRef = useFocusTrap<HTMLFormElement>(isBlockModalOpen)
+  const partialPaymentModalRef = useFocusTrap<HTMLFormElement>(Boolean(partialPaymentDraft))
+  const cancelPaymentModalRef = useFocusTrap<HTMLFormElement>(Boolean(cancelPaymentDraft))
+  const deleteAppointmentModalRef = useFocusTrap<HTMLElement>(Boolean(deleteAppointmentTarget))
   const [newClient, setNewClient] = useState<ClientDraft>(() => newClientDraft())
   const [paymentLauncher, setPaymentLauncher] = useState<PaymentLauncherDraft>({ search: '' })
   const [exceptionDraft, setExceptionDraft] = useState<ExceptionDraft>({
@@ -1302,6 +1401,11 @@ function App() {
     return error?.code === '42703' || error?.code === '42P01' || message.includes('column') || message.includes('relation')
   }
 
+  function isMissingRpcError(error: { code?: string; message?: string } | null) {
+    const message = error?.message?.toLowerCase() ?? ''
+    return error?.code === '42883' || error?.code === 'PGRST202' || message.includes('could not find the function')
+  }
+
   async function insertAppointmentInDatabase(appointment: AppointmentRecord) {
     if (!supabase) {
       return null
@@ -1529,17 +1633,22 @@ function App() {
     setDataStatus('Horario removido.')
   }
 
-  async function recordPaymentTransaction(
+  async function recordAppointmentPaymentDirectly(
     appointment: AppointmentRecord,
     amountCents: number,
     method: PaymentMethod,
     paidAt: string,
     notes: string,
   ) {
-    if (amountCents <= 0) {
-      return
+    const nextReceived = appointment.received_amount_cents + amountCents
+    const updatedAppointment: AppointmentRecord = {
+      ...appointment,
+      received_amount_cents: nextReceived,
+      payment_method: method,
+      payment_status: nextReceived >= appointment.charged_amount_cents ? 'paid' : 'partial',
+      payment_canceled_reason: null,
+      updated_at: new Date().toISOString(),
     }
-
     const transaction: PaymentTransaction = {
       id: crypto.randomUUID(),
       appointment_id: appointment.id,
@@ -1550,14 +1659,72 @@ function App() {
       created_at: new Date().toISOString(),
     }
 
-    setPaymentTransactions((current) => [transaction, ...current])
-
     if (supabase) {
-      const { error } = await supabase.from('payment_transactions').insert(transaction)
-      if (error) {
+      const updateError = await updateAppointmentInDatabase(appointment.id, {
+        received_amount_cents: nextReceived,
+        payment_method: method,
+        payment_status: updatedAppointment.payment_status,
+        payment_canceled_reason: null,
+      })
+
+      if (updateError) {
+        setDataStatus('Nao foi possivel atualizar o recebimento.')
+        await loadAdminData()
+        return null
+      }
+
+      const { error: transactionError } = await supabase.from('payment_transactions').insert(transaction)
+      if (transactionError) {
         setDataStatus('Recebimento atualizado, mas o historico financeiro nao foi salvo no banco.')
+        await loadAdminData()
+        return null
       }
     }
+
+    setAppointments((current) => current.map((item) => (item.id === appointment.id ? updatedAppointment : item)))
+    setPaymentTransactions((current) => [transaction, ...current])
+    return updatedAppointment
+  }
+
+  async function recordAppointmentPayment(
+    appointment: AppointmentRecord,
+    amountCents: number,
+    method: PaymentMethod,
+    paidAt: string,
+    notes: string,
+  ) {
+    if (amountCents <= 0) {
+      return null
+    }
+
+    if (supabase) {
+      const { data, error } = await supabase
+        .rpc('record_appointment_payment', {
+          p_amount_cents: amountCents,
+          p_appointment_id: appointment.id,
+          p_method: method,
+          p_notes: notes,
+          p_paid_at: paidAt,
+        })
+        .single()
+        .overrideTypes<PaymentRpcResult, { merge: false }>()
+
+      if (error && isMissingRpcError(error)) {
+        return recordAppointmentPaymentDirectly(appointment, amountCents, method, paidAt, notes)
+      }
+
+      if (error || !data) {
+        setDataStatus('Nao foi possivel registrar o recebimento no banco.')
+        await loadAdminData()
+        return null
+      }
+
+      setAppointments((current) => current.map((item) => (item.id === appointment.id ? data.appointment : item)))
+      setPaymentTransactions((current) => [data.transaction, ...current])
+      return data.appointment
+    }
+
+    return recordAppointmentPaymentDirectly(appointment, amountCents, method, paidAt, notes)
   }
 
   async function markAppointmentPaid(appointment: AppointmentRecord) {
@@ -1568,19 +1735,25 @@ function App() {
     }
 
     const remainingAmount = Math.max(appointment.charged_amount_cents - appointment.received_amount_cents, 0)
-    await updateAppointment(appointment.id, {
-      received_amount_cents: appointment.charged_amount_cents,
-      payment_method: appointment.payment_method,
-      payment_status: 'paid',
-      payment_canceled_reason: null,
-    })
-    await recordPaymentTransaction(
+    if (remainingAmount <= 0) {
+      await updateAppointment(appointment.id, {
+        payment_method: appointment.payment_method,
+        payment_status: 'paid',
+        payment_canceled_reason: null,
+      })
+      return
+    }
+
+    const updatedAppointment = await recordAppointmentPayment(
       appointment,
       remainingAmount,
       appointment.payment_method,
       new Date().toISOString(),
       remainingAmount ? 'Pagamento integral registrado.' : '',
     )
+    if (updatedAppointment) {
+      setDataStatus('Pagamento quitado.')
+    }
   }
 
   function openPartialPayment(appointment: AppointmentRecord) {
@@ -1623,23 +1796,17 @@ function App() {
       return
     }
 
-    const nextReceived = appointment.received_amount_cents + amountCents
-    const nextStatus = nextReceived >= appointment.charged_amount_cents ? 'paid' : 'partial'
-    await updateAppointment(appointment.id, {
-      received_amount_cents: nextReceived,
-      payment_method: partialPaymentDraft.method,
-      payment_status: nextStatus,
-      payment_canceled_reason: null,
-    })
-    await recordPaymentTransaction(
+    const updatedAppointment = await recordAppointmentPayment(
       appointment,
       amountCents,
       partialPaymentDraft.method,
       new Date(partialPaymentDraft.paidAt).toISOString(),
       partialPaymentDraft.notes.trim(),
     )
-    setPartialPaymentDraft(null)
-    setDataStatus(nextStatus === 'paid' ? 'Pagamento quitado.' : 'Pagamento parcial registrado.')
+    if (updatedAppointment) {
+      setPartialPaymentDraft(null)
+      setDataStatus(updatedAppointment.payment_status === 'paid' ? 'Pagamento quitado.' : 'Pagamento parcial registrado.')
+    }
   }
 
   function openCancelPayment(appointment: AppointmentRecord) {
@@ -1814,7 +1981,7 @@ function App() {
     }))
   }
 
-  async function insertStockMovementInDatabase(movement: StockMovement) {
+  async function insertStockMovementDirectly(movement: StockMovement) {
     if (!supabase) {
       return null
     }
@@ -1842,16 +2009,12 @@ function App() {
     return legacyColumnRetry.error ?? legacyTypeRetry.error ?? error
   }
 
-  async function adjustProductQuantity(product: ProductItem, type: StockMovementType) {
-    const quantity = getProductMovementQuantity(product.id)
-    const delta = getStockMovementDelta(type, quantity)
-    const nextQuantity = product.quantity + delta
-
-    if (nextQuantity < 0) {
-      setDataStatus(`Estoque insuficiente para registrar ${quantity} un. de ${product.name}.`)
-      return
-    }
-
+  async function adjustProductQuantityDirectly(
+    product: ProductItem,
+    type: StockMovementType,
+    quantity: number,
+    nextQuantity: number,
+  ) {
     const now = new Date().toISOString()
     const movement: StockMovement = {
       id: crypto.randomUUID(),
@@ -1863,8 +2026,6 @@ function App() {
       created_at: now,
     }
     const updatedProduct = { ...product, quantity: nextQuantity, updated_at: now }
-
-    setProducts((current) => current.map((item) => (item.id === product.id ? updatedProduct : item)))
 
     if (supabase) {
       const { error: productError } = await supabase
@@ -1878,7 +2039,7 @@ function App() {
         return
       }
 
-      const movementError = await insertStockMovementInDatabase(movement)
+      const movementError = await insertStockMovementDirectly(movement)
       if (movementError) {
         setDataStatus('Estoque atualizado, mas o historico nao foi salvo. Execute a atualizacao do banco.')
         await loadAdminData()
@@ -1886,8 +2047,50 @@ function App() {
       }
     }
 
+    setProducts((current) => current.map((item) => (item.id === product.id ? updatedProduct : item)))
     setStockMovements((current) => [movement, ...current].slice(0, 12))
     setDataStatus(`${movementTypeLabels[type]} registrada em ${product.name}.`)
+  }
+
+  async function adjustProductQuantity(product: ProductItem, type: StockMovementType) {
+    const quantity = getProductMovementQuantity(product.id)
+    const delta = getStockMovementDelta(type, quantity)
+    const nextQuantity = product.quantity + delta
+
+    if (nextQuantity < 0) {
+      setDataStatus(`Estoque insuficiente para registrar ${quantity} un. de ${product.name}.`)
+      return
+    }
+
+    if (supabase) {
+      const { data, error } = await supabase
+        .rpc('record_stock_movement', {
+          p_notes: `${movementTypeLabels[type]} registrada no painel.`,
+          p_product_id: product.id,
+          p_quantity: quantity,
+          p_type: type,
+        })
+        .single()
+        .overrideTypes<StockMovementRpcResult, { merge: false }>()
+
+      if (error && isMissingRpcError(error)) {
+        await adjustProductQuantityDirectly(product, type, quantity, nextQuantity)
+        return
+      }
+
+      if (error || !data) {
+        setDataStatus('Nao foi possivel registrar a movimentacao de estoque no banco.')
+        await loadAdminData()
+        return
+      }
+
+      setProducts((current) => current.map((item) => (item.id === product.id ? data.product : item)))
+      setStockMovements((current) => [normalizeStockMovement(data.movement), ...current].slice(0, 12))
+      setDataStatus(`${movementTypeLabels[type]} registrada em ${data.product.name}.`)
+      return
+    }
+
+    await adjustProductQuantityDirectly(product, type, quantity, nextQuantity)
   }
 
   function sortAvailabilityRules(rules: AvailabilityRule[]) {
@@ -3089,10 +3292,12 @@ function App() {
     return (
       <div className="drawer-backdrop" role="presentation" onMouseDown={closeAppointmentDrawer}>
         <aside
+          ref={appointmentDrawerRef}
           className="appointment-drawer"
           role="dialog"
           aria-modal="true"
           aria-labelledby="appointment-drawer-title"
+          tabIndex={-1}
           onMouseDown={(event) => event.stopPropagation()}
         >
           <div className="drawer-heading">
@@ -3619,6 +3824,7 @@ function App() {
               <label>
                 Remarcar data
                 <input
+                  aria-label={`Remarcar data de ${selectedAppointment.client_name}`}
                   type="date"
                   value={selectedAppointment.scheduled_date}
                   onChange={(event) => void updateAppointment(selectedAppointment.id, { scheduled_date: event.target.value })}
@@ -3627,6 +3833,7 @@ function App() {
               <label>
                 Remarcar hora
                 <input
+                  aria-label={`Remarcar hora de ${selectedAppointment.client_name}`}
                   type="time"
                   value={selectedAppointment.start_time}
                   onChange={(event) =>
@@ -4073,10 +4280,12 @@ function App() {
     return (
       <div className="modal-backdrop" role="presentation" onMouseDown={() => setIsClientModalOpen(false)}>
         <form
+          ref={clientModalRef}
           className="payment-modal entity-modal"
           role="dialog"
           aria-modal="true"
           aria-labelledby="client-modal-title"
+          tabIndex={-1}
           onSubmit={handleCreateClient}
           onMouseDown={(event) => event.stopPropagation()}
         >
@@ -4146,10 +4355,12 @@ function App() {
     return (
       <div className="modal-backdrop" role="presentation" onMouseDown={() => setIsProductModalOpen(false)}>
         <form
+          ref={productModalRef}
           className="payment-modal entity-modal wide-modal"
           role="dialog"
           aria-modal="true"
           aria-labelledby="product-modal-title"
+          tabIndex={-1}
           onSubmit={handleCreateProduct}
           onMouseDown={(event) => event.stopPropagation()}
         >
@@ -4239,10 +4450,12 @@ function App() {
     return (
       <div className="modal-backdrop" role="presentation" onMouseDown={() => setIsPaymentLauncherOpen(false)}>
         <section
+          ref={paymentLauncherRef}
           className="payment-modal entity-modal wide-modal"
           role="dialog"
           aria-modal="true"
           aria-labelledby="payment-launcher-title"
+          tabIndex={-1}
           onMouseDown={(event) => event.stopPropagation()}
         >
           <div className="drawer-heading">
@@ -4315,10 +4528,12 @@ function App() {
     return (
       <div className="modal-backdrop" role="presentation" onMouseDown={() => setIsBlockModalOpen(false)}>
         <form
+          ref={blockModalRef}
           className="payment-modal entity-modal"
           role="dialog"
           aria-modal="true"
           aria-labelledby="block-modal-title"
+          tabIndex={-1}
           onSubmit={addAvailabilityException}
           onMouseDown={(event) => event.stopPropagation()}
         >
@@ -4460,10 +4675,12 @@ function App() {
     return (
       <div className="modal-backdrop" role="presentation" onMouseDown={() => setPartialPaymentDraft(null)}>
         <form
+          ref={partialPaymentModalRef}
           className="payment-modal"
           role="dialog"
           aria-modal="true"
           aria-labelledby="partial-payment-title"
+          tabIndex={-1}
           onSubmit={handlePartialPayment}
           onMouseDown={(event) => event.stopPropagation()}
         >
@@ -4541,10 +4758,12 @@ function App() {
     return (
       <div className="modal-backdrop" role="presentation" onMouseDown={() => setCancelPaymentDraft(null)}>
         <form
+          ref={cancelPaymentModalRef}
           className="payment-modal"
           role="dialog"
           aria-modal="true"
           aria-labelledby="cancel-payment-title"
+          tabIndex={-1}
           onSubmit={handleCancelPayment}
           onMouseDown={(event) => event.stopPropagation()}
         >
@@ -4600,11 +4819,13 @@ function App() {
     return (
       <div className="modal-backdrop confirm-backdrop" role="presentation">
         <section
+          ref={deleteAppointmentModalRef}
           className="payment-modal confirm-modal"
           role="alertdialog"
           aria-modal="true"
           aria-labelledby="delete-appointment-title"
           aria-describedby="delete-appointment-description"
+          tabIndex={-1}
         >
           <div className="drawer-heading">
             <div>

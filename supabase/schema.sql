@@ -480,6 +480,214 @@ create trigger products_touch_updated_at
 before update on public.products
 for each row execute function public.touch_updated_at();
 
+create or replace function public.prevent_appointment_overlap()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  candidate_end time;
+begin
+  if new.status not in ('scheduled', 'confirmed', 'completed') then
+    return new;
+  end if;
+
+  candidate_end := coalesce(new.end_time, (new.start_time + interval '60 minutes')::time);
+
+  if candidate_end <= new.start_time then
+    raise exception 'O fim do horario precisa ser depois do inicio.'
+      using errcode = '22023';
+  end if;
+
+  if exists (
+    select 1
+    from public.appointments existing
+    where existing.scheduled_date = new.scheduled_date
+      and existing.status in ('scheduled', 'confirmed', 'completed')
+      and (tg_op = 'INSERT' or existing.id <> new.id)
+      and new.start_time < coalesce(existing.end_time, (existing.start_time + interval '60 minutes')::time)
+      and candidate_end > existing.start_time
+  ) then
+    raise exception 'Ja existe atendimento neste intervalo.'
+      using errcode = '23P01';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists appointments_prevent_overlap on public.appointments;
+create trigger appointments_prevent_overlap
+before insert or update of scheduled_date, start_time, end_time, status on public.appointments
+for each row execute function public.prevent_appointment_overlap();
+
+drop function if exists public.record_stock_movement(uuid, text, integer, text);
+create or replace function public.record_stock_movement(
+  p_product_id uuid,
+  p_type text,
+  p_quantity integer,
+  p_notes text default ''
+)
+returns table (
+  product jsonb,
+  movement jsonb
+)
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  current_product public.products%rowtype;
+  movement_row public.stock_movements%rowtype;
+  normalized_type text;
+  next_quantity integer;
+begin
+  if not app_private.is_admin() then
+    raise exception 'Acesso negado.'
+      using errcode = '42501';
+  end if;
+
+  normalized_type := case p_type
+    when 'input' then 'in'
+    when 'output' then 'out'
+    when 'manual_adjustment' then 'adjustment'
+    else p_type
+  end;
+
+  if normalized_type not in ('in', 'out', 'service_use', 'sale', 'adjustment') then
+    raise exception 'Tipo de movimentacao invalido.'
+      using errcode = '22023';
+  end if;
+
+  if p_quantity is null or p_quantity <= 0 then
+    raise exception 'A quantidade precisa ser maior que zero.'
+      using errcode = '22023';
+  end if;
+
+  select *
+  into current_product
+  from public.products
+  where id = p_product_id
+  for update;
+
+  if not found then
+    raise exception 'Produto nao encontrado.'
+      using errcode = 'P0002';
+  end if;
+
+  next_quantity := current_product.quantity + case
+    when normalized_type in ('in', 'adjustment') then p_quantity
+    else -p_quantity
+  end;
+
+  if next_quantity < 0 then
+    raise exception 'Estoque insuficiente para esta movimentacao.'
+      using errcode = '23514';
+  end if;
+
+  update public.products
+  set quantity = next_quantity,
+      updated_at = now()
+  where id = p_product_id
+  returning * into current_product;
+
+  insert into public.stock_movements (product_id, product_name, type, quantity, notes)
+  values (p_product_id, current_product.name, normalized_type, p_quantity, coalesce(p_notes, ''))
+  returning * into movement_row;
+
+  return query select to_jsonb(current_product), to_jsonb(movement_row);
+end;
+$$;
+
+drop function if exists public.record_appointment_payment(uuid, integer, text, timestamptz, text);
+create or replace function public.record_appointment_payment(
+  p_appointment_id uuid,
+  p_amount_cents integer,
+  p_method text,
+  p_paid_at timestamptz,
+  p_notes text default ''
+)
+returns table (
+  appointment jsonb,
+  "transaction" jsonb
+)
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  current_appointment public.appointments%rowtype;
+  transaction_row public.payment_transactions%rowtype;
+  next_received integer;
+  next_status text;
+begin
+  if not app_private.is_admin() then
+    raise exception 'Acesso negado.'
+      using errcode = '42501';
+  end if;
+
+  if p_method not in ('pix', 'cash', 'debit_card', 'credit_card', 'transfer', 'other') then
+    raise exception 'Forma de pagamento invalida.'
+      using errcode = '22023';
+  end if;
+
+  if p_amount_cents is null or p_amount_cents <= 0 then
+    raise exception 'O valor precisa ser maior que zero.'
+      using errcode = '22023';
+  end if;
+
+  select *
+  into current_appointment
+  from public.appointments
+  where id = p_appointment_id
+  for update;
+
+  if not found then
+    raise exception 'Atendimento nao encontrado.'
+      using errcode = 'P0002';
+  end if;
+
+  if current_appointment.payment_status = 'canceled' then
+    raise exception 'Pagamento cancelado nao pode receber novos valores.'
+      using errcode = '23514';
+  end if;
+
+  next_received := current_appointment.received_amount_cents + p_amount_cents;
+
+  if next_received > current_appointment.charged_amount_cents then
+    raise exception 'O valor recebido nao pode passar do valor cobrado.'
+      using errcode = '23514';
+  end if;
+
+  next_status := case
+    when next_received >= current_appointment.charged_amount_cents then 'paid'
+    else 'partial'
+  end;
+
+  update public.appointments
+  set received_amount_cents = next_received,
+      payment_method = p_method,
+      payment_status = next_status,
+      payment_canceled_reason = null,
+      updated_at = now()
+  where id = p_appointment_id
+  returning * into current_appointment;
+
+  insert into public.payment_transactions (appointment_id, amount_cents, method, paid_at, notes)
+  values (p_appointment_id, p_amount_cents, p_method, coalesce(p_paid_at, now()), coalesce(p_notes, ''))
+  returning * into transaction_row;
+
+  return query select to_jsonb(current_appointment), to_jsonb(transaction_row);
+end;
+$$;
+
+revoke execute on function public.prevent_appointment_overlap() from public, anon, authenticated;
+revoke execute on function public.record_stock_movement(uuid, text, integer, text) from public, anon;
+revoke execute on function public.record_appointment_payment(uuid, integer, text, timestamptz, text) from public, anon;
+grant execute on function public.record_stock_movement(uuid, text, integer, text) to authenticated, service_role;
+grant execute on function public.record_appointment_payment(uuid, integer, text, timestamptz, text) to authenticated, service_role;
+
 grant select on public.business_profile to anon, authenticated;
 grant select on public.services to anon, authenticated;
 grant select on public.gallery_items to anon, authenticated;
