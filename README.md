@@ -128,6 +128,7 @@ Secrets opcionais para distribuir no Firebase App Distribution:
 - `FIREBASE_TESTERS`
 
 `FIREBASE_TESTER_GROUPS` e `FIREBASE_TESTERS` sao destinos de distribuicao. Configure pelo menos um deles.
+Projeto Firebase atual: `hellen-designer`. App Android: `1:927660313401:android:a57ad68c70ab721341b6e8`. Grupo inicial: `hellen-admin`.
 
 Secrets opcionais para publicar na Play Store e embutir configuracao de fallback:
 

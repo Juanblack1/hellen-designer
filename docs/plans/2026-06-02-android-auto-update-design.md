@@ -33,10 +33,11 @@ O prompt de In-App Updates tambem depende de instalacao via Google Play e de uma
 
 ## Requisitos externos
 
-- App Android criado no Firebase com package `br.com.hellendesigner.app`.
-- Firebase App Distribution API habilitada.
-- Service account com permissao de Firebase App Distribution Admin.
-- Secrets `FIREBASE_SERVICE_ACCOUNT_JSON`, `FIREBASE_ANDROID_APP_ID` e pelo menos um destino: `FIREBASE_TESTER_GROUPS` ou `FIREBASE_TESTERS`.
+- Projeto Firebase criado: `hellen-designer`.
+- App Android criado no Firebase com package `br.com.hellendesigner.app` e app id `1:927660313401:android:a57ad68c70ab721341b6e8`.
+- Grupo Firebase App Distribution criado: `hellen-admin`.
+- Service account `github-app-distribution@hellen-designer.iam.gserviceaccount.com` criada com permissoes de Firebase App Distribution Admin e API Keys Viewer.
+- Secrets `FIREBASE_SERVICE_ACCOUNT_JSON`, `FIREBASE_ANDROID_APP_ID` e `FIREBASE_TESTER_GROUPS` configurados no GitHub.
 - Secrets de assinatura Android ja existentes devem continuar configurados.
 - Para Play Store no futuro: app criado no Google Play Console, primeiro AAB enviado se necessario, secret `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` e permissao da service account para publicar.
 
