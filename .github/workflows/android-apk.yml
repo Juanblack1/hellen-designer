@@ -97,6 +97,54 @@ jobs:
           path: android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
 
+      - name: Detect Firebase App Distribution credentials
+        id: firebase_distribution
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          FIREBASE_ANDROID_APP_ID: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
+          FIREBASE_TESTER_GROUPS: ${{ secrets.FIREBASE_TESTER_GROUPS }}
+          FIREBASE_TESTERS: ${{ secrets.FIREBASE_TESTERS }}
+        run: |
+          if [ -n "$FIREBASE_SERVICE_ACCOUNT_JSON" ] && [ -n "$FIREBASE_ANDROID_APP_ID" ] && { [ -n "$FIREBASE_TESTER_GROUPS" ] || [ -n "$FIREBASE_TESTERS" ]; }; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload APK to Firebase App Distribution
+        if: steps.firebase_distribution.outputs.configured == 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          FIREBASE_ANDROID_APP_ID: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
+          FIREBASE_TESTER_GROUPS: ${{ secrets.FIREBASE_TESTER_GROUPS }}
+          FIREBASE_TESTERS: ${{ secrets.FIREBASE_TESTERS }}
+        run: |
+          credentials_file="$RUNNER_TEMP/firebase-service-account.json"
+          release_notes_file="$RUNNER_TEMP/firebase-release-notes.txt"
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT_JSON" > "$credentials_file"
+          {
+            echo "Hellen Designer Android 1.0.${{ github.run_number }}"
+            echo "Commit: $GITHUB_SHA"
+            echo "Admin: https://hellen-designer-admin.vercel.app"
+          } > "$release_notes_file"
+
+          args=(
+            appdistribution:distribute
+            android/app/build/outputs/apk/release/app-release.apk
+            --app "$FIREBASE_ANDROID_APP_ID"
+            --release-notes-file "$release_notes_file"
+          )
+
+          if [ -n "$FIREBASE_TESTER_GROUPS" ]; then
+            args+=(--groups "$FIREBASE_TESTER_GROUPS")
+          fi
+
+          if [ -n "$FIREBASE_TESTERS" ]; then
+            args+=(--testers "$FIREBASE_TESTERS")
+          fi
+
+          GOOGLE_APPLICATION_CREDENTIALS="$credentials_file" npx --yes firebase-tools@latest "${args[@]}"
+
       - name: Detect Google Play credentials
         id: play_credentials
         env:

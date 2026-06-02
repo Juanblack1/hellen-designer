@@ -108,6 +108,7 @@ npm run android:build:debug
 ```
 
 O GitHub Actions gera APK e AAB assinados em `Android Release`. O AAB e usado pela Google Play Store.
+Quando os secrets do Firebase estiverem configurados, o workflow envia o APK assinado para Firebase App Distribution.
 Quando o secret `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` estiver configurado, o workflow envia o AAB para a faixa interna da Play Store.
 Usuarios que instalaram pela Play Store recebem atualizacoes conforme as preferencias de auto-update do celular.
 O app tambem usa Google Play In-App Updates para pedir uma atualizacao imediata quando a Play Store informar que existe uma versao nova disponivel.
@@ -119,13 +120,22 @@ Os secrets exigidos para assinar Android sao:
 - `ANDROID_KEY_ALIAS`
 - `ANDROID_KEY_PASSWORD`
 
+Secrets opcionais para distribuir no Firebase App Distribution:
+
+- `FIREBASE_SERVICE_ACCOUNT_JSON`
+- `FIREBASE_ANDROID_APP_ID`
+- `FIREBASE_TESTER_GROUPS`
+- `FIREBASE_TESTERS`
+
+`FIREBASE_TESTER_GROUPS` e `FIREBASE_TESTERS` sao destinos de distribuicao. Configure pelo menos um deles.
+
 Secrets opcionais para publicar na Play Store e embutir configuracao de fallback:
 
 - `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 
-APK instalado manualmente nao atualiza sozinho como a Play Store; para auto-update real, instale pela faixa interna/fechada/producao da Google Play.
+APK instalado manualmente ou via Firebase App Distribution nao atualiza silenciosamente como a Play Store; a tester recebe notificacao/link e confirma a instalacao. Para auto-update real de loja, instale pela faixa interna/fechada/producao da Google Play.
 
 O Manifest desativa backup, bloqueia trafego HTTP claro e usa apenas certificados raiz do sistema.
 

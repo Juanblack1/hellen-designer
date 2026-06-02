@@ -8,9 +8,15 @@ O aplicativo instalado deve acompanhar atualizacoes publicadas na branch `master
 
 O app Android passa a carregar o admin publicado em `https://hellen-designer-admin.vercel.app` pelo WebView do Capacitor. Assim, alteracoes de front-end publicadas no admin entram no app instalado assim que a Vercel publica a nova versao.
 
-Para atualizacoes de binario, o fluxo correto e Google Play:
+Para atualizacoes de binario fora da Play Store, o canal atual e Firebase App Distribution:
 
 - o GitHub Actions gera APK e AAB a cada push relevante na `master`;
+- quando os secrets do Firebase estiverem configurados, o workflow envia o APK assinado para Firebase App Distribution;
+- testers recebem email/notificacao e instalam a nova build pelo fluxo do Firebase App Tester;
+- o APK e sempre assinado com a mesma chave para permitir atualizacao sobre a instalacao anterior.
+
+Para Play Store no futuro:
+
 - o AAB e o pacote usado pela Play Store;
 - quando `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` estiver configurado, o workflow envia o AAB para a faixa `internal` com prioridade de in-app update `5`;
 - usuarias instaladas pela Play Store recebem updates conforme as preferencias de auto-update do dispositivo;
@@ -21,15 +27,18 @@ Para atualizacoes de binario, o fluxo correto e Google Play:
 
 APK instalado manualmente nao consegue se atualizar sozinho de forma silenciosa como a Play Store. Android exige mesmo `applicationId`, mesma assinatura e `versionCode` maior, e o usuario ou uma loja autorizada precisa aceitar/gerenciar a atualizacao. Portanto, distribuicao manual continua exigindo reinstalacao ou confirmacao de instalacao.
 
+Firebase App Distribution reduz o trabalho manual, mas ainda depende da confirmacao da tester para instalar a nova versao.
+
 O prompt de In-App Updates tambem depende de instalacao via Google Play e de uma versao nova estar disponivel para o usuario na faixa da Play Store.
 
 ## Requisitos externos
 
-- App criado no Google Play Console com package `br.com.hellendesigner.app`.
-- Primeiro AAB enviado manualmente se a Play Console/API ainda nao reconhecer o pacote.
-- Secret `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` no GitHub.
-- Permissao da service account para publicar o app na Play Console.
+- App Android criado no Firebase com package `br.com.hellendesigner.app`.
+- Firebase App Distribution API habilitada.
+- Service account com permissao de Firebase App Distribution Admin.
+- Secrets `FIREBASE_SERVICE_ACCOUNT_JSON`, `FIREBASE_ANDROID_APP_ID` e pelo menos um destino: `FIREBASE_TESTER_GROUPS` ou `FIREBASE_TESTERS`.
 - Secrets de assinatura Android ja existentes devem continuar configurados.
+- Para Play Store no futuro: app criado no Google Play Console, primeiro AAB enviado se necessario, secret `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` e permissao da service account para publicar.
 
 ## Verificacao
 
