@@ -2,9 +2,15 @@
 
 Landing publica e painel privado para Hellen Martins, designer de sobrancelhas.
 
+## URLs
+
+- Site publico: `https://hellen-designer.vercel.app`
+- Painel admin: `https://hellen-designer-admin.vercel.app`
+- GitHub: `https://github.com/Juanblack1/hellen-designer`
+
 O produto tem apenas duas telas reais:
 
-- `/`: landing com marca, WhatsApp, Instagram, servicos, precos e fotos/artes publicadas.
+- `https://hellen-designer.vercel.app`: landing com marca, WhatsApp, Instagram, servicos, precos e fotos/artes publicadas.
 - `https://hellen-designer-admin.vercel.app`: painel privado para Hellen gerir agenda, clientes, valores recebidos, servicos/precos e fotos da landing.
 
 Nao existe mais area da cliente, checkout, sinal Asaas ou agendamento automatico publico. A cliente chama a Hellen pelo WhatsApp; a Hellen organiza tudo no admin. A landing publica nao mostra link para login administrativo.
@@ -118,6 +124,6 @@ npm run build
 
 ## Rotas
 
-- `/`: landing publica.
+- `https://hellen-designer.vercel.app`: landing publica.
 - `https://hellen-designer-admin.vercel.app`: painel privado em URL separada.
-- `/admin` e `/auth`: atalhos locais de desenvolvimento; em producao devem redirecionar para a URL admin.
+- `/`, `/admin` e `/auth`: atalhos locais de desenvolvimento; em producao `/admin` e `/auth` devem redirecionar para a URL admin.
