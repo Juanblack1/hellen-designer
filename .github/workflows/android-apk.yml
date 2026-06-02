@@ -1,4 +1,4 @@
-name: Android APK
+name: Android Release
 
 on:
   workflow_dispatch:
@@ -49,6 +49,12 @@ jobs:
         run: npm audit --omit=dev
 
       - name: Sync Android project
+        env:
+          CAPACITOR_SERVER_URL: https://hellen-designer-admin.vercel.app
+          VITE_PUBLIC_SITE_URL: https://hellen-designer.vercel.app
+          VITE_ADMIN_SITE_URL: https://hellen-designer-admin.vercel.app
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm run mobile:sync
 
       - name: Verify Android security settings
@@ -67,7 +73,7 @@ jobs:
       - name: Prepare Gradle wrapper
         run: chmod +x android/gradlew
 
-      - name: Build release APK
+      - name: Build release APK and AAB
         env:
           ANDROID_VERSION_CODE: ${{ github.run_number }}
           ANDROID_VERSION_NAME: 1.0.${{ github.run_number }}
@@ -75,7 +81,7 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: cd android && ./gradlew assembleRelease --no-daemon
+        run: cd android && ./gradlew assembleRelease bundleRelease --no-daemon
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -83,3 +89,32 @@ jobs:
           name: hellen-designer-release-apk
           path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hellen-designer-release-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+
+      - name: Detect Google Play credentials
+        id: play_credentials
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -n "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload AAB to Google Play internal track
+        if: steps.play_credentials.outputs.configured == 'true'
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: br.com.hellendesigner.app
+          releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
+          tracks: internal
+          status: completed
+          releaseName: Hellen Designer 1.0.${{ github.run_number }}

@@ -93,7 +93,9 @@ npm run dev
 
 ## APK Android
 
-O app Android usa Capacitor com os arquivos do `dist` embutidos no APK. No Android, a tela inicial abre o painel admin.
+O app Android usa Capacitor e carrega o painel admin publicado em `https://hellen-designer-admin.vercel.app`.
+Assim, atualizacoes publicadas no admin/site entram no app instalado sem reinstalar o APK.
+Se o admin online nao carregar, o app mostra uma pagina local de erro de conexao.
 
 ```bash
 npm run mobile:sync
@@ -105,12 +107,24 @@ Build local de debug no Windows, se Android SDK e JDK 21 estiverem instalados:
 npm run android:build:debug
 ```
 
-O APK de release e assinado pelo GitHub Actions em `Android APK`. Os secrets exigidos sao:
+O GitHub Actions gera APK e AAB assinados em `Android Release`. O AAB e usado pela Google Play Store.
+Quando o secret `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` estiver configurado, o workflow envia o AAB para a faixa interna da Play Store.
+Usuarios que instalaram pela Play Store recebem atualizacoes conforme as preferencias de auto-update do celular.
+
+Os secrets exigidos para assinar Android sao:
 
 - `ANDROID_KEYSTORE_BASE64`
 - `ANDROID_KEYSTORE_PASSWORD`
 - `ANDROID_KEY_ALIAS`
 - `ANDROID_KEY_PASSWORD`
+
+Secrets opcionais para publicar na Play Store e embutir configuracao de fallback:
+
+- `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+APK instalado manualmente nao atualiza sozinho como a Play Store; para auto-update real, instale pela faixa interna/fechada/producao da Google Play.
 
 O Manifest desativa backup, bloqueia trafego HTTP claro e usa apenas certificados raiz do sistema.
 
