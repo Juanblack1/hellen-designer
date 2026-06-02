@@ -110,6 +110,7 @@ npm run android:build:debug
 O GitHub Actions gera APK e AAB assinados em `Android Release`. O AAB e usado pela Google Play Store.
 Quando o secret `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` estiver configurado, o workflow envia o AAB para a faixa interna da Play Store.
 Usuarios que instalaram pela Play Store recebem atualizacoes conforme as preferencias de auto-update do celular.
+O app tambem usa Google Play In-App Updates para pedir uma atualizacao imediata quando a Play Store informar que existe uma versao nova disponivel.
 
 Os secrets exigidos para assinar Android sao:
 

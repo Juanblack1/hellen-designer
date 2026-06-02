@@ -12,13 +12,16 @@ Para atualizacoes de binario, o fluxo correto e Google Play:
 
 - o GitHub Actions gera APK e AAB a cada push relevante na `master`;
 - o AAB e o pacote usado pela Play Store;
-- quando `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` estiver configurado, o workflow envia o AAB para a faixa `internal`;
+- quando `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` estiver configurado, o workflow envia o AAB para a faixa `internal` com prioridade de in-app update `5`;
 - usuarias instaladas pela Play Store recebem updates conforme as preferencias de auto-update do dispositivo;
+- o app usa Google Play In-App Updates para iniciar um fluxo imediato quando a Play Store indicar que existe versao nova disponivel;
 - o app mantem uma tela local de erro para falha de conexao com o admin online.
 
 ## Limites
 
 APK instalado manualmente nao consegue se atualizar sozinho de forma silenciosa como a Play Store. Android exige mesmo `applicationId`, mesma assinatura e `versionCode` maior, e o usuario ou uma loja autorizada precisa aceitar/gerenciar a atualizacao. Portanto, distribuicao manual continua exigindo reinstalacao ou confirmacao de instalacao.
+
+O prompt de In-App Updates tambem depende de instalacao via Google Play e de uma versao nova estar disponivel para o usuario na faixa da Play Store.
 
 ## Requisitos externos
 

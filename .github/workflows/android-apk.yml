@@ -117,4 +117,5 @@ jobs:
           releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
           tracks: internal
           status: completed
+          inAppUpdatePriority: 5
           releaseName: Hellen Designer 1.0.${{ github.run_number }}
